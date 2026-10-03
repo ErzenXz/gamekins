@@ -1,0 +1,660 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Global tokens + primitives. Values follow Steam's shipped client CSS
+   (see docs/steam-ui-reference.md §11). Class names are shared by every view.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Valve system greys */
+  --gpSystemLightestGrey: #dcdedf;
+  --gpSystemLighterGrey: #b8bcbf;
+  --gpSystemLightGrey: #8b929a;
+  --gpSystemGrey: #67707b;
+  --gpSystemDarkGrey: #3d4450;
+  --gpSystemDarkerGrey: #23262e;
+  --gpSystemDarkestGrey: #0e141b;
+  --gpColor-Blue: #1a9fff;
+  --gpColor-BlueHi: #00bbff;
+  --gpColor-Green: #5ba32b;
+  --gpColor-GreenHi: #59bf40;
+  --gpColor-Red: #d94126;
+  --gpColor-RedHi: #ee563b;
+  --gpColor-Yellow: #ffc82c;
+  --gpColor-ChalkyBlue: #66c0f4;
+
+  /* Surfaces */
+  --bg-chrome: #171d25;
+  --bg-main: #24282f;
+  --bg-library: #24282f;
+  --bg-deep: #0e141b;
+  --bg-darkest: #0e141b;
+  --bg-darker: #23262e;
+  --bg-dark: #3d4450;
+  --bg-side: #23262e;
+  --bg-raised: #2a2f38;
+  --bg-hover: #3d4450;
+  --bg-select: #3e4e69;
+  --bg-dialog: radial-gradient(circle at top left, rgba(74, 81, 92, 0.4) 0%, rgba(75, 81, 92, 0) 60%), #25282e;
+  --line: rgba(255, 255, 255, 0.1);
+  --rule: rgba(103, 112, 123, 0.3);
+  --chrome-bevel: inset rgba(61, 68, 80, 0.75) 1px 1px 1px 0, inset rgba(61, 68, 80, 0.25) -1px 0 1px 0;
+
+  /* Text */
+  --text: #dcdedf;
+  --text-strong: #ffffff;
+  --text-light: #b8bcbf;
+  --text-dim: #8b929a;
+  --text-faint: #67707b;
+  --text-dialog: #acb2b8;
+
+  /* Accents */
+  --accent: #1a9fff;
+  --accent-hi: #00bbff;
+  --accent-soft: #66c0f4;
+  --link: #6dcff6;
+  --online: #4cb4ff;
+  --ingame: #90ba3c;
+  --ok: #59bf40;
+  --warn: #ffc82c;
+  --error: #de3618;
+  --danger: #d94126;
+  --play: linear-gradient(to right, #70d61d 0%, #01a75b 60%);
+  --play-hover: linear-gradient(to right, #8be33a 0%, #0bbd68 60%);
+  --install: linear-gradient(to right, #47bfff 0%, #1a44c2 60%);
+  --install-hover: linear-gradient(to right, #66ccff 0%, #2a58dc 60%);
+
+  /* Menus */
+  --menu-bg: #3d4450;
+  --menu-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.67);
+  --shadow-pop: 0 10px 32px rgba(0, 0, 0, 0.67);
+
+  /* Motion & shape */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-chrome: 0.15s ease-out;
+  --radius: 2px;
+  --radius-input: 3px;
+
+  --font: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Cascadia Mono', 'SF Mono', Consolas, Menlo, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-chrome);
+  color: var(--text);
+  font-family: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+input,
+textarea {
+  user-select: text;
+}
+img {
+  display: block;
+}
+
+/* Keyboard focus only; mouse clicks stay clean. */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+::selection {
+  background: rgba(26, 159, 255, 0.45);
+  color: #fff;
+}
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: var(--radius-input);
+  background: #3d4450;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+  font: 600 11px/1.5 var(--font);
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+.muted {
+  color: var(--text-dim);
+}
+.small {
+  font-size: 12px;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.pre {
+  white-space: pre-wrap;
+}
+.text-error {
+  color: #ff7b6e;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ───────── Scrollbars (Steam library style) ───────── */
+.scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #606774;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #7b8392;
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: #7b8392;
+  border-width: 2px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-button {
+  display: none;
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ───────── Buttons (Steam DialogButton family) ───────── */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  background: #3d4450;
+  color: #dfe3e6;
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+  transition:
+    opacity 0.2s ease-out,
+    background 0.2s ease-out,
+    background-position 0.2s ease-out,
+    color 0.2s ease-out,
+    box-shadow 0.2s ease-out;
+}
+.btn:not(:disabled):hover {
+  background-color: #464d58;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+.btn:not(:disabled):active {
+  background-color: #393f49;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition-duration: 0.04s;
+}
+.btn:disabled {
+  opacity: 1;
+  background: rgba(61, 67, 77, 0.35);
+  color: rgb(90, 97, 108);
+  box-shadow: none;
+}
+.btn-lg {
+  height: 44px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+.btn.small {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Primary (blue) — the lighter sweep on hover moves the gradient, Steam-style. */
+.btn-blue,
+.btn-play {
+  color: #fff;
+  background-size: 330% 100%;
+  background-position: 25% 0;
+}
+.btn-blue {
+  background-image: linear-gradient(to right, #47bfff 0%, #1a44c2 60%);
+}
+.btn-play {
+  background-image: linear-gradient(to right, #70d61d 0%, #01a75b 60%);
+}
+.btn-blue:not(:disabled):hover,
+.btn-play:not(:disabled):hover {
+  background-color: transparent;
+  background-position: 0% 0;
+  color: #fff;
+}
+.btn-blue:not(:disabled):active,
+.btn-play:not(:disabled):active {
+  background-position: 40% 0;
+}
+.btn-blue:disabled,
+.btn-play:disabled {
+  background-image: none;
+}
+
+/* Secondary / default dialog button. */
+.btn-ghost {
+  background: #3d4450;
+  color: #dfe3e6;
+}
+
+.btn-danger {
+  background: #c44848;
+  color: #fff;
+}
+.btn-danger:not(:disabled):hover {
+  background: #d75a5a;
+}
+
+/* Icon-only button (shared by shell and library) */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  transition:
+    background var(--ease-chrome),
+    color var(--ease-chrome);
+}
+.icon-btn:not(:disabled):hover {
+  background: #3d4450;
+  color: #fff;
+}
+.icon-btn.big {
+  width: 40px;
+  height: 40px;
+  background: rgba(172, 178, 201, 0.14);
+}
+.icon-btn.big:not(:disabled):hover {
+  background: rgba(205, 213, 226, 0.26);
+}
+
+.chip {
+  padding: 3px 10px;
+  border-radius: 9001px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(103, 112, 123, 0.2);
+  transition:
+    background var(--ease-chrome),
+    color var(--ease-chrome);
+}
+.chip:hover {
+  color: #fff;
+  background: #3d4450;
+}
+.chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.progress {
+  height: 6px;
+  background: #3d4450;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 0.2s linear;
+}
+.progress.big {
+  height: 10px;
+}
+.progress.thin {
+  height: 3px;
+  margin-top: 6px;
+}
+
+/* ───────── Form controls ───────── */
+
+/* Native select, styled like Steam's DialogDropDown (blue chevron). */
+select {
+  appearance: none;
+  height: 34px;
+  padding: 0 36px 0 14px;
+  background: rgba(59, 63, 72, 0.5)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23189cff' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 12px center;
+  border: 0;
+  border-radius: var(--radius-input);
+  color: #dfe3e6;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease-out,
+    box-shadow 0.2s ease-out;
+}
+select:hover {
+  background-color: #464d58;
+  color: #fff;
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.16);
+}
+select option {
+  background: #373c44;
+  color: var(--text);
+}
+
+/* Plain text field (Steam DialogTextInput) */
+.input {
+  height: 34px;
+  padding: 0 10px;
+  background: rgba(59, 63, 72, 0.5);
+  border: 0;
+  border-radius: var(--radius-input);
+  color: #dfe3e6;
+  font-size: 14px;
+  transition:
+    background 0.2s ease-out,
+    box-shadow 0.2s ease-out;
+}
+.input::placeholder {
+  color: #969696;
+  font-style: italic;
+}
+.input:hover {
+  background: rgba(67, 73, 83, 0.6);
+}
+.input:focus {
+  background: #23262e;
+  box-shadow: inset 1px 1px 4px rgba(0, 0, 0, 0.67);
+}
+
+/* Toggle (Steam settings toggle: 38×22 rail, springy knob). */
+.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  border-radius: 9001px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: visible;
+  cursor: pointer;
+  transition:
+    background 0.2s ease-out,
+    box-shadow 0.2s ease-out;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s cubic-bezier(0.1, 0.12, 0.53, 1.72);
+}
+.switch:hover {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3);
+}
+.switch:checked {
+  background: var(--accent);
+}
+.switch:checked::after {
+  transform: translateX(16px);
+}
+.switch:disabled {
+  background: #67707b;
+  cursor: default;
+  box-shadow: none;
+}
+.switch:disabled::after {
+  background: #8b929a;
+}
+.switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ───────── Modal dialog (Steam popup dialog) ───────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.7);
+  animation: fade 0.16s ease-out;
+  -webkit-app-region: no-drag;
+}
+.modal-backdrop.closing {
+  opacity: 0;
+  transition: opacity 0.12s ease-in;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+.modal {
+  position: relative;
+  max-width: 88vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-dialog);
+  box-shadow:
+    0 0 0 1px #000,
+    0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: modal-in 0.2s var(--ease);
+}
+/* Focus hairline along the top edge (red for destructive dialogs). */
+.modal::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(to right, #00ccff, #3366ff);
+}
+.modal.danger::before {
+  background: #c44848;
+}
+.modal-backdrop.closing .modal {
+  transform: scale(0.98);
+  transition: transform 0.12s ease-in;
+}
+.modal:focus-visible {
+  outline: none;
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px 24px 0;
+}
+.modal-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+.modal-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 18px;
+  color: #788a92;
+  transition:
+    background var(--ease-chrome),
+    color var(--ease-chrome);
+}
+.modal-close:hover {
+  background: #e22a27;
+  color: #fff;
+}
+.modal-body {
+  padding: 12px 24px 8px;
+  overflow-y: auto;
+  color: var(--text-dialog);
+  font-size: 14px;
+  line-height: 22px;
+}
+.modal-body p {
+  margin: 0;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px 24px;
+  margin-top: auto;
+}
+.modal-footer .btn {
+  min-width: 100px;
+  padding: 0 12px;
+}
+
+/* ───────── Shared dialog bits (install / properties) ───────── */
+.page-title {
+  margin: 0 0 22px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+.install-head {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.install-head img {
+  width: 96px;
+  height: 128px;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+.install-sizes {
+  flex: 1;
+}
+.install-sizes dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  margin: 0;
+}
+.install-sizes dt {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.install-sizes dd {
+  margin: 0;
+  color: #fff;
+}
+.note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.field-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dialog);
+}
+.path-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.path {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  background: rgba(59, 63, 72, 0.5);
+  border-radius: var(--radius-input);
+  color: #dfe3e6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

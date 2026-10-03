@@ -1,0 +1,56 @@
+appId: com.lodestar.launcher
+productName: Lodestar
+copyright: Copyright © 2026 Lodestar
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**
+  - resources/**
+  - package.json
+asarUnpack:
+  - resources/**
+# Desktop shortcuts launch games via lodestar://launch/<game>
+protocols:
+  - name: Lodestar
+    schemes: [lodestar]
+
+# ── Windows ──────────────────────────────────────────────
+win:
+  icon: build/icon.png
+  target: [nsis]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+# Microsoft Store package (npm run dist:store).
+# Fill these from Partner Center → your app → Product identity.
+appx:
+  identityName: REPLACE.WithPartnerCenterIdentityName
+  publisher: CN=REPLACE-WITH-PARTNER-CENTER-PUBLISHER-ID
+  publisherDisplayName: REPLACE with your publisher display name
+  displayName: Lodestar
+  applicationId: Lodestar
+  backgroundColor: '#171a21'
+  languages: [en-US]
+  artifactName: ${productName}-${version}.${ext}
+
+# ── macOS ────────────────────────────────────────────────
+# Distributed as a signed + notarized DMG. The Mac App Store's sandbox forbids
+# installing to arbitrary folders and launching downloaded executables, so a
+# launcher can't ship there.
+mac:
+  icon: build/icon.png
+  category: public.app-category.games
+  target:
+    - target: dmg
+      arch: [universal]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
+dmg:
+  artifactName: ${productName}-${version}-mac.${ext}
