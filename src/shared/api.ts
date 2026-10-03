@@ -5,6 +5,7 @@ import type {
   DownloadKind,
   FreeGame,
   Game,
+  GameDetails,
   GamePrefs,
   InstallPlan,
   LibraryProgress,
@@ -60,6 +61,8 @@ export interface LodestarApi {
     setArtwork(key: string, kind: ArtworkKind, filePath: string | null): Promise<void>
     /** Put a desktop shortcut that launches the game through Lodestar. */
     createShortcut(key: string): Promise<void>
+    /** Rich details (Steam store data, HowLongToBeat); cached for two weeks, `force` refetches. */
+    details(key: string, force?: boolean): Promise<GameDetails | null>
   }
   downloads: {
     list(): Promise<DownloadJob[]>

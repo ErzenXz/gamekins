@@ -30,13 +30,15 @@ interface ImgProps {
   eager?: boolean
   /** Render nothing (instead of a title card) when the image fails. */
   quietFallback?: boolean
+  /** Told when the image fails to load (lets callers try another source). */
+  onFail?: (src: string) => void
 }
 
 /**
  * Image with a shimmer skeleton while loading, a fade-in when ready and a
  * generated title card when the art is missing or broken.
  */
-export const Img = memo(function Img({ src, title = '', className = '', eager, quietFallback }: ImgProps) {
+export const Img = memo(function Img({ src, title = '', className = '', eager, quietFallback, onFail }: ImgProps) {
   const ref = useRef<HTMLImageElement>(null)
   const [loaded, setLoaded] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
@@ -61,7 +63,10 @@ export const Img = memo(function Img({ src, title = '', className = '', eager, q
         decoding="async"
         loading={eager ? 'eager' : 'lazy'}
         onLoad={() => setLoaded(src)}
-        onError={() => setFailed(src)}
+        onError={() => {
+          setFailed(src)
+          onFail?.(src)
+        }}
       />
     </div>
   )

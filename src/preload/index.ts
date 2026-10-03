@@ -48,7 +48,8 @@ const api: LodestarApi = {
     moveInstall: invoke('games:moveInstall'),
     addLocal: invoke('games:addLocal'),
     setArtwork: invoke('games:setArtwork'),
-    createShortcut: invoke('games:createShortcut')
+    createShortcut: invoke('games:createShortcut'),
+    details: invoke('games:details')
   },
   downloads: {
     list: invoke('downloads:list'),

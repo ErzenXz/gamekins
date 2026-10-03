@@ -27,6 +27,7 @@ import type { DownloadJob, Game } from '@shared/types'
 import { DlcList } from '../components/library/DlcList'
 import { DownloadGlyph, PauseGlyph, PlayGlyph, StopGlyph } from '../components/library/glyphs'
 import { Img } from '../components/library/Img'
+import { DataSources, DetailsCard, FeaturesSection, HltbCard, MediaSection, ReviewsCard, useGameDetails } from './library/GameDetails'
 import { useTileJob, useLiveJob, usePlatform, usePrimary } from '../components/library/libraryData'
 import { LocalTile } from '../components/Capsule'
 import { baseName, bytes, dateTime, eta, hoursShort, img, lastPlayed, playtime, shortDate, speed } from '../lib/format'
@@ -70,6 +71,10 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
     }
   })
   const local = isLocal(game)
+  const { details } = useGameDetails(game.key)
+  const steam = details?.steam
+  const [heroFailed, setHeroFailed] = useState<string[]>([])
+  useEffect(() => setHeroFailed([]), [game.key])
 
   useLayoutEffect(() => {
     scroller.current?.scrollTo({ top: 0 })
@@ -96,7 +101,13 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
     }
   }
 
-  const art = game.images.wide ?? game.images.tall
+  // Like Steam: a clean, text-free hero banner with the logo on top. Steam's library hero is
+  // preferred (Epic's wide art usually has the title baked in); fall back if it doesn't exist.
+  const heroSources = [steam?.art.hero, game.images.wide, game.images.tall].filter(
+    (src): src is string => !!src && !heroFailed.includes(src)
+  )
+  const art = heroSources[0]
+  const steamHero = !!art && art === steam?.art.hero
   const s = useStore.getState()
 
   return (
@@ -114,14 +125,22 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
         <header className={`gp-hero ${art ? '' : 'no-art'}`} ref={hero}>
           <div className="gp-hero-art">
             {art ? (
-              <Img key={game.key} src={img(art, 1920)} title={game.title} eager quietFallback />
+              <Img
+                key={art}
+                src={img(art, 1920)}
+                title={game.title}
+                eager
+                quietFallback
+                onFail={() => setHeroFailed((f) => [...f, art])}
+              />
             ) : local && game.images.thumb ? (
               <img className="gp-hero-icon" src={game.images.thumb} alt="" draggable={false} />
             ) : null}
           </div>
           <HeroTags game={game} />
           <div className="gp-logo-area">
-            <GameLogo game={game} />
+            {/* Steam's logo only goes on Steam's text-free hero; Epic art already shows the title. */}
+            <GameLogo game={game} sources={steamHero ? [steam?.art.logo, game.images.logo] : [game.images.logo]} />
           </div>
         </header>
 
@@ -190,9 +209,14 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
         <div className="gp-columns">
           <div className="gp-left">
             <Activity game={game} job={job} platform={platform} kind={primary.kind} />
-            {!local && <About game={game} />}
+            <MediaSection steam={steam} />
+            {!local && <About game={game} extra={steam?.about} />}
+            <FeaturesSection steam={steam} />
+            <DataSources details={details} />
           </div>
           <aside className="gp-right">
+            <HltbCard hltb={details?.hltb} />
+            <ReviewsCard steam={steam} />
             {game.dlc.length > 0 && (
               <section className="gp-sec" ref={dlcRef}>
                 <h3 className="gp-sec-title">
@@ -209,6 +233,7 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
                 </div>
               </section>
             )}
+            <DetailsCard steam={steam} />
             <InfoCard game={game} />
             <ManageCard game={game} job={job} platform={platform} />
           </aside>
@@ -272,10 +297,11 @@ function HeroTags({ game }: { game: Game }): React.JSX.Element | null {
 }
 
 /** Logo bottom-left; falls back to the title (also when the logo fails to load). */
-function GameLogo({ game }: { game: Game }): React.JSX.Element {
-  const [failed, setFailed] = useState<string | null>(null)
-  const logo = game.images.logo
-  if (logo && failed !== logo) {
+function GameLogo({ game, sources }: { game: Game; sources: (string | undefined)[] }): React.JSX.Element {
+  const [failed, setFailed] = useState<string[]>([])
+  // First logo that loads; the title text if none does.
+  const logo = sources.find((l): l is string => !!l && !failed.includes(l))
+  if (logo) {
     return (
       <img
         key={logo}
@@ -283,7 +309,7 @@ function GameLogo({ game }: { game: Game }): React.JSX.Element {
         src={img(logo, 800)}
         alt={game.title}
         draggable={false}
-        onError={() => setFailed(logo)}
+        onError={() => setFailed((f) => [...f, logo])}
       />
     )
   }
@@ -643,9 +669,11 @@ function Activity({
   )
 }
 
-function About({ game }: { game: Game }): React.JSX.Element {
+function About({ game, extra }: { game: Game; extra?: string }): React.JSX.Element {
   const [more, setMore] = useState(false)
-  const text = game.description?.trim() || 'No description available.'
+  const epic = game.description?.trim() ?? ''
+  // Epic's catalog text is often a single line; Steam's store page usually says more.
+  const text = (extra && extra.length > epic.length + 40 ? extra : epic) || 'No description available.'
   const long = text.length > 600
   useEffect(() => setMore(false), [game.key])
   return (

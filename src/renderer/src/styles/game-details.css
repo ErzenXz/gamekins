@@ -1,0 +1,304 @@
+/* ───────── Game details: HowLongToBeat, reviews, media, features (Steam store data) ───────── */
+
+.gp-sec-title.gd-title-icon {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+/* How long to beat */
+.gd-hltb {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gd-hltb-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.gd-hltb-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  color: #8b929a;
+}
+.gd-hltb-label b {
+  font-size: 14px;
+  font-weight: 600;
+  color: #dcdedf;
+}
+.gd-hltb-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.gd-hltb-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.gd-hltb-fill.main {
+  background: linear-gradient(90deg, #47bfff, #1a9fff);
+}
+.gd-hltb-fill.extra {
+  background: linear-gradient(90deg, #8c7bff, #5b3cff);
+}
+.gd-hltb-fill.comp {
+  background: linear-gradient(90deg, #f3b33d, #d4772b);
+}
+
+/* Reviews */
+.gd-reviews {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.gd-review,
+.gd-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.18);
+  transition: background 0.15s;
+}
+.gd-review {
+  flex: 1;
+  min-width: 0;
+}
+.gd-review:hover,
+.gd-meta:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.gd-review-src {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #67707b;
+}
+.gd-review-sum {
+  font-size: 15px;
+  font-weight: 600;
+}
+/* Steam's review colours. */
+.gd-review-sum.pos {
+  color: #66c0f4;
+}
+.gd-review-sum.pos-mild {
+  color: #a8c4d8;
+}
+.gd-review-sum.mixed {
+  color: #b9a074;
+}
+.gd-review-sum.neg {
+  color: #a34c25;
+}
+.gd-review-meta {
+  font-size: 12px;
+  color: #8b929a;
+}
+.gd-meta {
+  align-items: center;
+  justify-content: center;
+}
+.gd-meta-score {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+.gd-meta-score.good {
+  background: #66cc33;
+}
+.gd-meta-score.ok {
+  background: #ffcc33;
+  color: #1b1f25;
+}
+.gd-meta-score.bad {
+  background: #ff0000;
+}
+
+/* Chips (genres, features) */
+.gd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.gd-features {
+  justify-content: flex-start;
+  margin-bottom: 4px;
+}
+.gd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #b8bcbf;
+  background: rgba(103, 193, 245, 0.1);
+}
+
+/* Media strip */
+.gd-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.gd-shot {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #1b1f25;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.gd-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    transform 0.25s,
+    filter 0.25s;
+}
+.gd-shot:hover img {
+  transform: scale(1.04);
+  filter: brightness(1.12);
+}
+.gd-play {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+}
+.gd-shot.trailer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 2px rgba(26, 159, 255, 0.6);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* Lightbox */
+.gd-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 9, 13, 0.92);
+  animation: gd-fade 0.15s ease-out;
+}
+@keyframes gd-fade {
+  from {
+    opacity: 0;
+  }
+}
+.gd-lightbox img {
+  max-width: min(92vw, 1600px);
+  max-height: 84vh;
+  border-radius: 4px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+.gd-lb-btn,
+.gd-lb-close {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #dcdedf;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.15s;
+}
+.gd-lb-btn:hover,
+.gd-lb-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.gd-lb-btn {
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  transform: translateY(-50%);
+}
+.gd-lb-btn.prev {
+  left: 24px;
+}
+.gd-lb-btn.next {
+  right: 24px;
+}
+.gd-lb-close {
+  top: 20px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+}
+.gd-lb-count {
+  position: absolute;
+  bottom: 22px;
+  font-size: 13px;
+  color: #8b929a;
+}
+
+/* System requirements */
+.gd-req {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.gd-req b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b929a;
+}
+.gd-req pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font: 12px/1.6 inherit;
+  font-family: inherit;
+  color: #acb2b8;
+}
+@media (max-width: 1100px) {
+  .gd-req {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Attribution */
+.gd-sources {
+  margin: 4px 2px 0;
+  font-size: 11px;
+  color: #5d656e;
+}
+.gd-sources button {
+  font-size: inherit;
+  color: #8b929a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gd-sources button:hover {
+  color: #dcdedf;
+}

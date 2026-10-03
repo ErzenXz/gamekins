@@ -374,7 +374,42 @@ export function installDevMock(): void {
       },
       setArtwork: async (key, kind, filePath) =>
         patchGame(key, (g) => ({ ...g, images: { ...g.images, [kind]: filePath ? sample[3].tall : undefined } })),
-      createShortcut: noop
+      createShortcut: noop,
+      details: async (key) => {
+        await new Promise((r) => setTimeout(r, 400))
+        const g = games.find((x) => x.key === key)
+        if (!g || g.provider === 'local') return null
+        const i = Math.max(0, games.indexOf(g)) % sample.length
+        const shots = sample.filter((_, k) => k !== i).slice(0, 6)
+        return {
+          fetchedAt: Date.now(),
+          title: g.title,
+          steam: {
+            appId: 100000 + i,
+            url: 'https://store.steampowered.com/',
+            name: g.title,
+            shortDescription: g.description,
+            about: `${g.description ?? ''}\n\nExplore a hand-crafted world, master a deep combat system and uncover secrets across dozens of hours of adventure.\n\n• Over 40 unique areas to explore\n• Dozens of weapons and abilities\n• Full controller support`,
+            genres: ['Action', 'Adventure', 'Indie', 'RPG'].slice(0, 2 + (i % 3)),
+            features: ['Single-player', 'Steam Achievements', 'Full controller support', 'Steam Cloud', 'Family Sharing'],
+            developers: [g.developer ?? 'Indie Studio'],
+            publishers: ['Mock Publishing'],
+            releaseDate: `Aug ${8 + i}, 20${17 + (i % 8)}`,
+            metacritic: i % 3 === 0 ? undefined : { score: 72 + i, url: 'https://www.metacritic.com/' },
+            reviews: { summary: ['Very Positive', 'Mostly Positive', 'Overwhelmingly Positive'][i % 3], positive: 9000 + i * 311, total: 10000 + i * 350 },
+            screenshots: shots.map((s) => ({ thumb: s.wide, full: s.wide })),
+            trailers: [{ name: `${g.title} — Launch Trailer`, thumb: shots[0]?.wide ?? sample[0].wide }],
+            art: {},
+            controllerSupport: 'full',
+            requirements: {
+              minimum: 'OS: Windows 10 64-bit\nProcessor: Intel Core i5-4460\nMemory: 8 GB RAM\nGraphics: GeForce GTX 960\nStorage: 20 GB available space',
+              recommended: 'OS: Windows 11 64-bit\nProcessor: Intel Core i7-8700\nMemory: 16 GB RAM\nGraphics: GeForce RTX 2060\nStorage: 20 GB SSD'
+            },
+            achievements: 30 + i
+          },
+          hltb: { id: 4000 + i, url: 'https://howlongtobeat.com/', name: g.title, mainHours: 5.5 + i, extraHours: 9 + i * 1.5, completionistHours: 14 + i * 2.5 }
+        }
+      }
     },
     downloads: {
       list: async () => jobs,

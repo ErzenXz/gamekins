@@ -21,6 +21,7 @@ import { downloads, freeBytes } from './core/downloads'
 import { library } from './core/library'
 import { settings, settingsStore } from './core/settings'
 import { initLog } from './core/log'
+import { gameDetails } from './core/metadata'
 import {
   artworkFromFile,
   createDesktopShortcut,
@@ -392,6 +393,11 @@ function registerIpc(): void {
   })
   handle('games:setArtwork', (key: string, kind: ArtworkKind, filePath: string | null) => {
     library.setArtwork(key, kind, filePath ? artworkFromFile(filePath, kind) : null)
+  })
+  handle('games:details', (key: string, force?: boolean) => {
+    const game = library.providerGame(key)
+    if (!game) return null
+    return gameDetails(key, game.title, force === true)
   })
   handle('games:createShortcut', async (key: string) => {
     await createDesktopShortcut(key)
