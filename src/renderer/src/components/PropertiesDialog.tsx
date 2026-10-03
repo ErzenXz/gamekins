@@ -35,6 +35,7 @@ import {
   resetArtwork
 } from '../lib/gameActions'
 import { act, errorMessage, jobFor, type PropertiesTab, useStore } from '../store'
+import { libraryIndex } from '../lib/entityIndex'
 import { Checkbox, OptionRow, Toggle } from './library/controls'
 import { DlcList } from './library/DlcList'
 import { Img, TitleCard } from './library/Img'
@@ -60,17 +61,21 @@ function tabsFor(game: Game): typeof TABS {
 
 /** Steam-style per-game Properties dialog, driven by `store.propertiesKey` (+ `propertiesTab`). */
 export function PropertiesDialog(): React.JSX.Element | null {
-  const key = useStore((s) => s.propertiesKey)
-  const game = useStore((s) => (s.propertiesKey ? s.games.find((g) => g.key === s.propertiesKey) : undefined))
+  const game = useStore((s) => (s.propertiesKey ? libraryIndex(s.games).gamesByKey.get(s.propertiesKey) : undefined))
+  return game ? <PropertiesBody key={game.key} game={game} /> : null
+}
+
+function PropertiesBody({ game }: { game: Game }): React.JSX.Element {
   const wanted = useStore((s) => s.propertiesTab)
-  const [tab, setTab] = useState<PropertiesTab>('general')
+  const [tab, setTab] = useState<PropertiesTab>(() => wanted ?? 'general')
 
   useEffect(() => {
-    setTab(wanted ?? 'general')
-    if (wanted) useStore.setState({ propertiesTab: null })
-  }, [key, wanted])
+    if (wanted) {
+      setTab(wanted)
+      useStore.setState({ propertiesTab: null })
+    }
+  }, [wanted])
 
-  if (!game) return null
   const close = (): void => useStore.getState().setPropertiesKey(null)
   const tabs = tabsFor(game)
   const current = tabs.some((t) => t.id === tab) ? tab : 'general'
@@ -113,7 +118,7 @@ export function PropertiesDialog(): React.JSX.Element | null {
           ))}
         </nav>
         <div className="props-panel scroll" role="tabpanel">
-          {current === 'general' && <General game={game} />}
+          {current === 'general' && <General key={game.key} game={game} />}
           {current === 'updates' && <Updates game={game} />}
           {current === 'files' && (isLocal(game) ? <Shortcut game={game} /> : <Files game={game} />)}
           {current === 'dlc' && (

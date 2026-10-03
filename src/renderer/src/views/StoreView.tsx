@@ -1,7 +1,9 @@
+import '../styles/store.css'
 import { ChevronLeft, ChevronRight, ExternalLink, Heart, Home, Lock, RotateCw, Search, ShoppingCart, WifiOff, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { STORE_HOME, STORE_LINKS, storeSearchUrl } from '../components/shell/storeLinks'
 import { useStore } from '../store'
+import { handledStoreRequest, rememberStoreRequest, rememberStoreURL, storeURL } from '../components/shell/storeSession'
 
 const TABS = STORE_LINKS.filter((l) => l.label !== 'Wishlist' && l.label !== 'Cart')
 const WISHLIST = STORE_LINKS.find((l) => l.label === 'Wishlist')!
@@ -17,6 +19,7 @@ interface WebviewElement extends HTMLElement {
   goForward(): void
   reload(): void
   stop(): void
+  setAudioMuted(muted: boolean): void
 }
 
 type FailEvent = Event & { errorCode?: number; errorDescription?: string; validatedURL?: string; isMainFrame?: boolean }
@@ -50,9 +53,17 @@ function displayUrl(url: string): string {
 export function StoreView({ visible }: { visible: boolean }): React.JSX.Element {
   const ref = useRef<WebviewElement>(null)
   const ready = useRef(false)
+  const visibleNow = useRef(visible)
+  visibleNow.current = visible
   const request = useStore((s) => s.storeRequest)
-  const [initial] = useState(() => useStore.getState().storeRequest?.url ?? STORE_HOME)
-  const handled = useRef(useStore.getState().storeRequest?.n ?? 0)
+  const [initial] = useState(() => {
+    const request = useStore.getState().storeRequest
+    if (request && request.n > handledStoreRequest) { rememberStoreRequest(request.n); rememberStoreURL(request.url); return request.url }
+    return storeURL()
+  })
+  const handled = useRef(handledStoreRequest)
+  const [guest, setGuest] = useState(0)
+  const [guestURL, setGuestURL] = useState(initial)
   const [nav, setNav] = useState({ back: false, forward: false, url: initial, loading: true })
   const [failed, setFailed] = useState<{ url: string; text: string } | null>(null)
   const [inert, setInert] = useState(false)
@@ -76,6 +87,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
   }
 
   function go(url: string): void {
+    rememberStoreURL(url)
     setFailed(null)
     const el = ref.current
     if (!el) return
@@ -104,13 +116,16 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
     const sync = (): void => {
       if (!ready.current) return
       try {
-        setNav((n) => ({ ...n, back: el.canGoBack(), forward: el.canGoForward(), url: el.getURL() || n.url }))
+        const url = el.getURL()
+        rememberStoreURL(url)
+        setNav((n) => ({ ...n, back: el.canGoBack(), forward: el.canGoForward(), url: url || n.url }))
       } catch {
         /* guest went away */
       }
     }
     const domReady = (): void => {
       ready.current = true
+      el.setAudioMuted(!visibleNow.current || document.visibilityState === 'hidden')
       sync()
     }
     const start = (): void => {
@@ -135,6 +150,12 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
       const url = (e as Event & { url?: string }).url ?? ''
       if (/purchase|checkout|order-confirmation/i.test(url)) void useStore.getState().refresh()
     }
+    const gone = (): void => {
+      ready.current = false
+      setFailed({ url: storeURL(), text: 'The store stopped unexpectedly. Reload to continue.' })
+      setNav((n) => ({ ...n, loading: false }))
+    }
+    el.addEventListener('render-process-gone', gone)
     el.addEventListener('dom-ready', domReady)
     el.addEventListener('did-start-loading', start)
     el.addEventListener('did-stop-loading', stop)
@@ -142,6 +163,8 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
     el.addEventListener('did-navigate', navigated)
     el.addEventListener('did-navigate-in-page', sync)
     return () => {
+      ready.current = false
+      el.removeEventListener('render-process-gone', gone)
       el.removeEventListener('dom-ready', domReady)
       el.removeEventListener('did-start-loading', start)
       el.removeEventListener('did-stop-loading', stop)
@@ -150,12 +173,32 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
       el.removeEventListener('did-navigate-in-page', sync)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [guest])
+
+  useEffect(() => {
+    const mute = (): void => call((el) => el.setAudioMuted(!visible || document.visibilityState === 'hidden'))
+    mute()
+    document.addEventListener('visibilitychange', mute)
+    return () => document.removeEventListener('visibilitychange', mute)
+  }, [visible, guest])
+
+  const reload = (): void => {
+    if (failed && !ready.current) {
+      rememberStoreURL(failed.url)
+      setGuestURL(failed.url)
+      setFailed(null)
+      setNav((n) => ({ ...n, url: storeURL(), loading: true }))
+      setGuest((n) => n + 1)
+    } else if (failed) go(failed.url)
+    else if (live()) call((el) => el.reload())
+    else go(nav.url)
+  }
 
   // Every "open in store" request navigates, even to a URL we already showed earlier.
   useEffect(() => {
     if (!request || request.n === handled.current) return
     handled.current = request.n
+    rememberStoreRequest(request.n)
     go(request.url)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request])
@@ -186,7 +229,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
         ) : (
           <button
             className="sb-btn"
-            onClick={() => (failed ? go(failed.url) : live() ? call((el) => el.reload()) : go(nav.url))}
+            onClick={reload}
             title="Reload"
           >
             <RotateCw size={15} />
@@ -241,9 +284,10 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
           <div />
         </div>
         <webview
+          key={guest}
           ref={ref as unknown as React.Ref<HTMLWebViewElement>}
           className="store-webview"
-          src={initial}
+          src={guestURL}
           partition="persist:epic"
           // Electron only checks that the attribute is present; React warns on a bare boolean.
           allowpopups={'true' as unknown as boolean}
@@ -258,7 +302,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
               <span className="mono">{displayUrl(failed.url)}</span>
             </p>
             <div className="store-overlay-actions">
-              <button className="btn btn-blue" onClick={() => go(failed.url)}>
+              <button className="btn btn-blue" onClick={reload}>
                 Retry
               </button>
               <button className="btn btn-ghost" onClick={() => void window.lodestar.app.openExternal(failed.url)}>

@@ -1,0 +1,141 @@
+/* Collections */
+.coll-page {
+  background: radial-gradient(100% 100% at 33% 45%, rgb(49, 61, 83) 0%, rgb(16, 19, 20) 100%);
+}
+.coll-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 26px 20px;
+  padding: 18px 10px 24px;
+}
+.coll-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  min-width: 0;
+}
+.coll-art {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition:
+    background 0.2s,
+    transform 0.4s var(--lib-cubic);
+  overflow: hidden;
+}
+.coll-tile:hover .coll-art {
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateY(-3px);
+}
+.coll-tile.new .coll-art {
+  color: #67707b;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+.coll-tile.new:hover .coll-art {
+  color: #fff;
+  border-color: rgba(26, 159, 255, 0.6);
+}
+.coll-cap {
+  position: absolute;
+  top: 12%;
+  height: 76%;
+  aspect-ratio: 3 / 4;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  transition: transform 0.4s var(--lib-cubic);
+}
+.coll-cap .img {
+  width: 100%;
+  height: 100%;
+}
+.coll-cap.c0 {
+  z-index: 3;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.coll-cap.c1 {
+  z-index: 2;
+  left: 50%;
+  transform: translateX(-95%) scale(0.86) rotate(-6deg);
+  filter: brightness(0.7);
+}
+.coll-cap.c2 {
+  z-index: 1;
+  left: 50%;
+  transform: translateX(-5%) scale(0.86) rotate(6deg);
+  filter: brightness(0.7);
+}
+.coll-tile:hover .coll-cap.c1 {
+  transform: translateX(-108%) scale(0.86) rotate(-9deg);
+}
+.coll-tile:hover .coll-cap.c2 {
+  transform: translateX(8%) scale(0.86) rotate(9deg);
+}
+.coll-empty {
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--lib-text-4);
+}
+.coll-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 300;
+  color: #d3d3d3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.coll-name span {
+  color: dimgray;
+}
+.coll-name .fav {
+  color: #67b3ff;
+}
+.coll-tile:hover .coll-name {
+  color: #fff;
+}
+.coll-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px 6px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 2px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--lib-text-3);
+}
+.coll-back:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.coll-actions {
+  display: flex;
+  gap: 4px;
+}
+.coll-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 2px;
+  color: var(--lib-text-3);
+}
+.coll-icon:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+

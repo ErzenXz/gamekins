@@ -11,6 +11,11 @@ const GB = 1024 ** 3
 const MB = 1024 ** 2
 
 export function installDevMock(): void {
+  // Local-only verification mode: block the sample artwork's remote URLs before mounting.
+  if (new URLSearchParams(location.search).has('offline')) {
+    const policy = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Security-Policy"]')
+    if (policy) policy.content = policy.content.replace('img-src \'self\' data: https:', 'img-src \'self\' data:')
+  }
   const now = Date.now()
   // Preview flags: ?mock=signedout | loading | many (600 games) | empty
   const flag = new URLSearchParams(location.search).get('mock') ?? ''

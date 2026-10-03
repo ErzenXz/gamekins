@@ -223,3 +223,49 @@ export interface AppInfo {
 }
 
 export type Toast = { kind: 'info' | 'success' | 'error'; message: string }
+
+// ───────────── Rich game details (Steam store data + HowLongToBeat) ─────────────
+
+export interface SteamInfo {
+  appId: number
+  url: string
+  name: string
+  shortDescription?: string
+  about?: string
+  genres: string[]
+  /** Steam "categories": Single-player, Controller support, Achievements... */
+  features: string[]
+  developers: string[]
+  publishers: string[]
+  releaseDate?: string
+  metacritic?: { score: number; url: string }
+  /** Steam user reviews, e.g. "Very Positive", 10152 of 10731 positive. */
+  reviews?: { summary: string; positive: number; total: number }
+  screenshots: { thumb: string; full: string }[]
+  trailers: { name: string; thumb: string }[]
+  /** Steam library art (may 404 for some titles; fall back gracefully). */
+  art: { hero?: string; logo?: string; cover?: string; header?: string }
+  website?: string
+  controllerSupport?: string
+  requirements?: { minimum?: string; recommended?: string }
+  achievements?: number
+}
+
+export interface HltbInfo {
+  id: number
+  url: string
+  name: string
+  mainHours?: number
+  extraHours?: number
+  completionistHours?: number
+  allStylesHours?: number
+  image?: string
+  score?: number
+}
+
+export interface GameDetails {
+  fetchedAt: number
+  title: string
+  steam?: SteamInfo
+  hltb?: HltbInfo
+}

@@ -2,10 +2,12 @@ import { Notification } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
-import { rm, statfs } from 'node:fs/promises'
+import { lstat, mkdir, readFile, readdir, rm, statfs, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { DownloadJob, DownloadKind } from '@shared/types'
+import type { DownloadJob, DownloadKind, ProviderId } from '@shared/types'
 import { provider } from '../providers'
+import { discardPartial } from '../providers/epic/installer'
+import { FsBoundary, pathKey } from '../providers/epic/fsBoundary'
 import { library } from './library'
 import { settings } from './settings'
 import { JsonStore } from './store'
@@ -13,6 +15,21 @@ import { JsonStore } from './store'
 const HISTORY = 60
 const ACTIVE: DownloadJob['state'][] = ['preparing', 'verifying', 'downloading', 'finalizing']
 const LIVE: DownloadJob['state'][] = [...ACTIVE, 'queued', 'paused']
+
+interface QueueJob extends DownloadJob {
+  providerId?: ProviderId
+  appName?: string
+  parentKey?: string
+  createdFolder?: boolean
+}
+
+interface ActiveRun {
+  job: QueueJob
+  controller: AbortController
+  generation: number
+  stopReason?: 'paused' | 'queued' | 'cancelled'
+  promise: Promise<void>
+}
 
 /** Free space on the volume that holds `path` (walks up to the nearest existing folder). */
 export async function freeBytes(path: string): Promise<number> {
@@ -32,19 +49,30 @@ class Throttle {
   private last = Date.now()
 
   async take(bytes: number, signal: AbortSignal): Promise<void> {
-    for (;;) {
+    let remaining = bytes
+    while (remaining > 0) {
+      signal.throwIfAborted()
       const limit = settings().bandwidthLimitMBps * 1024 * 1024
-      if (!limit) return
+      if (!Number.isFinite(limit) || limit <= 0) return
       const now = Date.now()
       // Allow up to one second of burst.
       this.allowance = Math.min(limit, this.allowance + ((now - this.last) / 1000) * limit)
       this.last = now
-      if (this.allowance >= bytes || bytes > limit) {
-        this.allowance -= bytes
-        return
-      }
-      if (signal.aborted) return
-      await new Promise((r) => setTimeout(r, Math.min(1000, ((bytes - this.allowance) / limit) * 1000)))
+      const used = Math.min(remaining, Math.max(0, this.allowance))
+      remaining -= used
+      this.allowance -= used
+      if (remaining === 0) return
+      await new Promise<void>((resolve, reject) => {
+        const stop = (): void => {
+          clearTimeout(timer)
+          reject(signal.reason)
+        }
+        const timer = setTimeout(() => {
+          signal.removeEventListener('abort', stop)
+          resolve()
+        }, Math.max(1, Math.min(1000, (remaining / limit) * 1000)))
+        signal.addEventListener('abort', stop, { once: true })
+      })
     }
   }
 }
@@ -54,8 +82,11 @@ class Throttle {
  * Unfinished jobs survive restarts and resume from the per-install resume log.
  */
 class Downloads extends EventEmitter {
-  private readonly store = new JsonStore<{ jobs: DownloadJob[] }>('downloads', { jobs: [] })
-  private active: { job: DownloadJob; controller: AbortController } | null = null
+  private readonly store = new JsonStore<{ jobs: QueueJob[] }>('downloads', { jobs: [] })
+  private active: ActiveRun | null = null
+  private generation = 0
+  private readonly stoppingPaths = new Set<string>()
+  private lastCheckpoint = 0
   private readonly throttle = new Throttle()
   private lastEmit = 0
   private emitTimer: NodeJS.Timeout | null = null
@@ -69,10 +100,16 @@ class Downloads extends EventEmitter {
       job.diskBps = 0
       job.diskHistory ??= []
       job.speedHistory ??= []
+      job.speedHistory = job.speedHistory.slice(-HISTORY)
+      job.diskHistory = job.diskHistory.slice(-HISTORY)
+      if (['done', 'cancelled', 'error'].includes(job.state)) {
+        job.speedHistory = []
+        job.diskHistory = []
+      }
     }
   }
 
-  get jobs(): DownloadJob[] {
+  get jobs(): QueueJob[] {
     return this.store.data.jobs
   }
 
@@ -92,9 +129,17 @@ class Downloads extends EventEmitter {
     this.pump()
   }
 
-  private emitNow(): void {
+  private emitNow(checkpoint = true): void {
     this.lastEmit = Date.now()
-    this.store.save()
+    if (checkpoint || this.lastEmit - this.lastCheckpoint >= 5000) {
+      this.lastCheckpoint = this.lastEmit
+      try {
+        this.store.flush()
+      } catch (err) {
+        // A failed checkpoint must not leave an active run without its cleanup barrier.
+        console.error('[downloads] queue checkpoint failed', err)
+      }
+    }
     this.emit('changed', this.jobs)
   }
 
@@ -104,7 +149,7 @@ class Downloads extends EventEmitter {
     const wait = Math.max(0, 250 - (Date.now() - this.lastEmit))
     this.emitTimer = setTimeout(() => {
       this.emitTimer = null
-      this.emitNow()
+      this.emitNow(false)
     }, wait)
   }
 
@@ -120,7 +165,11 @@ class Downloads extends EventEmitter {
     // Replace any finished/failed entry for the same game so the list stays tidy.
     this.store.data.jobs = this.jobs.filter((j) => j.gameKey !== gameKey)
     const parent = game.dlcOf ? library.get(game.dlcOf) : undefined
-    const job: DownloadJob = {
+    const job: QueueJob = {
+      providerId: game.provider,
+      appName: game.appName,
+      parentKey: game.dlcOf,
+      createdFolder: false,
       id: randomUUID(),
       gameKey,
       title: parent ? `${parent.title}: ${game.title}` : game.title,
@@ -149,20 +198,27 @@ class Downloads extends EventEmitter {
   /** Stop the active job but leave it first in line. */
   private preempt(job: DownloadJob): void {
     if (this.active?.job !== job) return
+    this.active.stopReason = 'queued'
     this.active.controller.abort()
     job.state = 'queued'
     job.speedBps = 0
     job.diskBps = 0
+    this.emitNow()
   }
 
-  pause(id: string): void {
+  async pause(id: string): Promise<void> {
     const job = this.jobs.find((j) => j.id === id)
-    if (!job) return
-    if (this.active?.job.id === id) this.active.controller.abort()
-    if (job.state !== 'done') job.state = 'paused'
+    if (!job || ['done', 'cancelled'].includes(job.state)) return
+    const active = this.active?.job === job ? this.active : null
+    if (active) {
+      active.stopReason = 'paused'
+      active.controller.abort()
+    }
+    job.state = 'paused'
     job.speedBps = 0
     job.diskBps = 0
     this.emitNow()
+    await active?.promise
   }
 
   resume(id: string): void {
@@ -170,6 +226,7 @@ class Downloads extends EventEmitter {
     if (!job || !['paused', 'error', 'queued'].includes(job.state)) return
     const retry = job.state === 'error'
     job.state = 'queued'
+    if (this.active?.job === job && this.active.controller.signal.aborted) this.active.stopReason = 'queued'
     job.error = undefined
     if (!retry) {
       // "Start now" / resume bumps it to the front, like Steam. A retry just rejoins the queue.
@@ -193,21 +250,41 @@ class Downloads extends EventEmitter {
 
   async cancel(id: string): Promise<void> {
     const job = this.jobs.find((j) => j.id === id)
-    if (!job) return
-    if (this.active?.job.id === id) this.active.controller.abort()
-    job.state = 'cancelled'
-    this.store.data.jobs = this.jobs.filter((j) => j !== job)
-    this.emitNow()
-    // A cancelled fresh install shouldn't leave half a game behind (never touch DLC's parent folder).
-    const game = library.providerGame(job.gameKey)
-    await new Promise((r) => setTimeout(r, 500))
-    if (job.kind === 'install' && !game?.dlcOf && !library.installInfo(job.gameKey)) {
-      await rm(job.installPath, { recursive: true, force: true }).catch(() => undefined)
-    } else if (game && job.kind !== 'install') {
-      // Cancelled update/repair: the game keeps working on its current version; drop the leftovers.
-      await provider(game.provider).discardPartial?.(job.installPath).catch(() => undefined)
+    if (!job || job.state === 'done' || this.stoppingPaths.has(pathKey(job.installPath))) return
+    const path = pathKey(job.installPath)
+    this.stoppingPaths.add(path)
+    const active = this.active?.job === job ? this.active : null
+    if (active) {
+      active.stopReason = 'cancelled'
+      active.controller.abort()
     }
-    this.pump()
+    job.state = 'cancelled'
+    this.emitNow()
+    try {
+      await active?.promise
+      const game = library.providerGame(job.gameKey)
+      if (game && !game.dlcOf && !job.parentKey && job.kind === 'install' && job.createdFolder &&
+          !library.installInfo(job.gameKey) && game.provider === job.providerId && game.appName === job.appName) {
+        const boundary = await FsBoundary.create(job.installPath)
+        const owner = join(job.installPath, '.lodestar', 'owner')
+        await boundary.check(owner)
+        const markerMatches = (await readFile(owner, 'utf8')) === job.id
+        const current = library.providerGame(job.gameKey)
+        if (markerMatches && current && !current.dlcOf && current.provider === job.providerId &&
+            current.appName === job.appName && !library.installInfo(job.gameKey)) {
+          await rm(job.installPath, { recursive: true, force: true })
+        }
+      } else if (job.providerId === 'epic' && job.appName) {
+        await discardPartial(job.installPath, job.appName, job.id)
+      }
+    } catch (err) {
+      console.warn('[downloads] partial cleanup failed', err)
+    } finally {
+      this.store.data.jobs = this.jobs.filter((j) => j !== job)
+      this.stoppingPaths.delete(path)
+      this.emitNow()
+      this.pump()
+    }
   }
 
   clearFinished(): void {
@@ -223,14 +300,22 @@ class Downloads extends EventEmitter {
       this.emitSoon()
       return
     }
-    const job = this.jobs.find((j) => j.state === 'queued')
+    const job = this.jobs.find((j) => j.state === 'queued' && !this.stoppingPaths.has(pathKey(j.installPath)))
     if (!job) return
-    void this.run(job)
+    const active: ActiveRun = {
+      job, controller: new AbortController(), generation: ++this.generation, promise: Promise.resolve()
+    }
+    this.active = active
+    active.promise = Promise.resolve().then(() => this.run(active))
   }
 
-  private async run(job: DownloadJob): Promise<void> {
-    const controller = new AbortController()
-    this.active = { job, controller }
+  private async run(active: ActiveRun): Promise<void> {
+    const { job, controller } = active
+    if (controller.signal.aborted) {
+      if (this.active === active) this.active = null
+      this.pump()
+      return
+    }
     console.info(`[downloads] start ${job.kind} ${job.title} -> ${job.installPath}`)
     const { signal } = controller
     job.state = 'preparing'
@@ -244,6 +329,7 @@ class Downloads extends EventEmitter {
     let lastDisk = job.writtenBytes
     let lastAt = Date.now()
     const sampler = setInterval(() => {
+      if (signal.aborted || this.active?.generation !== active.generation) return
       const now = Date.now()
       const dt = Math.max(1, now - lastAt) / 1000
       const net = Math.max(0, job.downloadedBytes - lastDown) / dt
@@ -266,27 +352,42 @@ class Downloads extends EventEmitter {
     try {
       const game = library.providerGame(job.gameKey)
       if (!game) throw new Error('This game is no longer in your library')
+      if ((job.providerId && game.provider !== job.providerId) || (job.appName && game.appName !== job.appName)) {
+        throw new Error('Queued game identity changed')
+      }
+      job.providerId ??= game.provider
+      job.appName ??= game.appName
+      job.parentKey ??= game.dlcOf
+      if (job.kind === 'install' && !job.parentKey && !game.dlcOf && !library.installInfo(job.gameKey)) {
+        await this.claimFolder(job, signal)
+      }
+      signal.throwIfAborted()
       const p = provider(game.provider)
       const task = p.createInstallTask(game, {
+        jobId: job.id,
+        createdFolder: job.createdFolder,
         kind: job.kind,
         installPath: job.installPath,
         existing: library.installInfo(job.gameKey),
+        throttleWithSignal: (bytes, workerSignal) => this.throttle.take(bytes, AbortSignal.any([signal, workerSignal])),
         throttle: (bytes) => this.throttle.take(bytes, signal)
       })
 
       const totals = await task.prepare(signal)
+      signal.throwIfAborted()
       Object.assign(job, {
         totalDownloadBytes: totals.totalDownloadBytes,
         totalWriteBytes: totals.totalWriteBytes,
         totalVerifyBytes: totals.totalVerifyBytes,
         verifiedBytes: 0
       })
-      if (job.kind === 'install') {
+      if (totals.requiredDiskBytes !== undefined || job.kind === 'install') {
         const free = await freeBytes(job.installPath)
-        if (free && free < totals.totalWriteBytes - job.writtenBytes) {
-          throw new Error('Not enough free disk space for this install')
+        if (free && free < (totals.requiredDiskBytes ?? Math.max(0, totals.totalWriteBytes - job.writtenBytes))) {
+          throw new Error('Not enough free disk space for this operation')
         }
       }
+      signal.throwIfAborted()
       job.state = totals.totalVerifyBytes ? 'verifying' : 'downloading'
       console.info(
         `[downloads] planned ${job.title}: download ${totals.totalDownloadBytes} B, write ${totals.totalWriteBytes} B, verify ${totals.totalVerifyBytes} B`
@@ -294,6 +395,8 @@ class Downloads extends EventEmitter {
       this.emitNow()
 
       const info = await task.run(signal, (prog) => {
+        if (signal.aborted || this.active?.generation !== active.generation) return
+        const transition = prog.phase !== undefined && prog.phase !== job.state
         if (prog.phase) job.state = prog.phase
         if (prog.downloadedBytes !== undefined) job.downloadedBytes = prog.downloadedBytes
         if (prog.writtenBytes !== undefined) job.writtenBytes = prog.writtenBytes
@@ -303,9 +406,11 @@ class Downloads extends EventEmitter {
           if (prog.totals.totalDownloadBytes !== undefined) job.totalDownloadBytes = prog.totals.totalDownloadBytes
           if (prog.totals.totalWriteBytes !== undefined) job.totalWriteBytes = prog.totals.totalWriteBytes
         }
-        this.emitSoon()
+        if (transition) this.emitNow()
+        else this.emitSoon()
       })
 
+      signal.throwIfAborted()
       library.setInstalled(job.gameKey, info)
       console.info(`[downloads] done ${job.title} (${info.version})`)
       job.state = 'done'
@@ -320,22 +425,56 @@ class Downloads extends EventEmitter {
         notify(`${job.title}: ${kindLabel(job.kind).toLowerCase()} failed`, job.error)
         console.error('[downloads]', err)
       }
-      // Aborted: pause()/cancel()/preempt() already set the state.
+      if (signal.aborted) job.state = active.stopReason ?? 'paused'
     } finally {
       clearInterval(sampler)
       job.speedBps = 0
       job.diskBps = 0
-      this.active = null
+      if (['done', 'cancelled', 'error'].includes(job.state)) {
+        job.speedHistory = []
+        job.diskHistory = []
+      }
+      if (this.active === active) this.active = null
       this.emitNow()
       this.pump()
     }
+  }
+
+  private async claimFolder(job: QueueJob, signal: AbortSignal): Promise<void> {
+    await mkdir(dirname(job.installPath), { recursive: true })
+    signal.throwIfAborted()
+    try {
+      await mkdir(job.installPath)
+      job.createdFolder = true
+      this.emitNow()
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+      if (!(await lstat(job.installPath)).isDirectory()) throw new Error('Install folder is not a directory')
+    }
+    const boundary = await FsBoundary.create(job.installPath)
+    const owner = join(job.installPath, '.lodestar', 'owner')
+    await boundary.check(owner)
+    const previous = await readFile(owner, 'utf8').catch((err: NodeJS.ErrnoException) => {
+      if (err.code !== 'ENOENT') throw err
+      return null
+    })
+    if (previous !== null && previous !== job.id) throw new Error('Install folder belongs to another job')
+    if (previous === null) {
+      if ((await readdir(job.installPath)).length) {
+        throw new Error('Install folder is not empty; use the import flow for existing games')
+      }
+      await mkdir(dirname(owner))
+      await boundary.check(owner)
+      await writeFile(owner, job.id, { flag: 'wx' })
+    }
+    signal.throwIfAborted()
   }
 
   /** Queue updates for installed games (and DLC) that have one, honouring global and per-game settings. */
   queueUpdates(): void {
     if (!settings().autoUpdate) return
     for (const g of library.listAll()) {
-      if (!g.updateAvailable || !g.install) continue
+      if (g.thirdPartyManagedApp || !g.updateAvailable || !g.install) continue
       if (library.prefsFor(g.dlcOf ?? g.key).autoUpdate === false) continue
       // A failed update stays failed until the user retries; don't re-queue it every refresh.
       if (this.jobs.some((j) => j.gameKey === g.key && j.state === 'error')) continue
@@ -357,6 +496,7 @@ class Downloads extends EventEmitter {
   }
 
   flush(): void {
+    this.lastCheckpoint = Date.now()
     this.store.flush()
   }
 }

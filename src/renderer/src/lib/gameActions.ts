@@ -1,5 +1,6 @@
 import type { ArtworkKind, DlcInfo, DownloadJob, Game } from '@shared/types'
-import { act, errorMessage, useStore } from '../store'
+import { act, commitCollections, errorMessage, useStore } from '../store'
+import { libraryIndex } from './entityIndex'
 
 export type PrimaryKind =
   | 'play'
@@ -376,80 +377,88 @@ export function collectionNameError(name: string, existing: string[], current?: 
   return null
 }
 
-function gamesByKey(keys: string[]): Game[] {
-  const all = useStore.getState().games
-  return keys.map((k) => all.find((g) => g.key === k)).filter(Boolean) as Game[]
+let collectionQueue: Promise<unknown> = Promise.resolve()
+function serializeCollection(edit: () => Promise<void>): Promise<boolean> {
+  const result = collectionQueue.then(async () => {
+    try { await edit(); return true }
+    catch (err) { useStore.getState().toast({ kind: 'error', message: errorMessage(err) }); return false }
+  })
+  collectionQueue = result
+  return result
 }
 
-export async function addToCollection(keys: string[], name: string): Promise<void> {
-  const games = gamesByKey(keys).filter((g) => !inCollection(g, name))
-  await act(async () => {
-    for (const g of games) {
-      await window.lodestar.games.setPrefs(g.key, { collections: [...(g.prefs.collections ?? []), name] })
-    }
-  }, games.length === 1 ? `Added ${games[0].title} to ${name}` : `Added ${games.length} games to ${name}`)
-  const s = useStore.getState()
-  if (s.emptyCollections.some((c) => same(c, name))) s.setEmptyCollections(s.emptyCollections.filter((c) => !same(c, name)))
+async function editCollections(keys: string[], change: (names: string[]) => string[]): Promise<Game[]> {
+  const changed: Game[] = []
+  for (const key of new Set(keys)) {
+    // Read after earlier queued calls finish, rather than capturing the caller's snapshot.
+    const game = libraryIndex(useStore.getState().games).gamesByKey.get(key)
+    if (!game) continue
+    const before = game.prefs.collections ?? []
+    const collections = change(before)
+    if (JSON.stringify(before) === JSON.stringify(collections)) continue
+    await window.lodestar.games.setPrefs(key, { collections })
+    commitCollections(key, collections)
+    changed.push(game)
+  }
+  return changed
 }
 
-export async function removeFromCollection(keys: string[], name: string): Promise<void> {
-  const games = gamesByKey(keys).filter((g) => inCollection(g, name))
-  await act(async () => {
-    for (const g of games) {
-      await window.lodestar.games.setPrefs(g.key, { collections: (g.prefs.collections ?? []).filter((c) => !same(c, name)) })
-    }
-  }, games.length === 1 ? `Removed ${games[0].title} from ${name}` : undefined)
+export function addToCollection(keys: string[], name: string): Promise<boolean> {
+  return serializeCollection(async () => {
+    const games = await editCollections(keys, (list) => list.some((c) => same(c, name)) ? list : [...list, name])
+    const s = useStore.getState()
+    if (s.games.some((g) => inCollection(g, name))) s.setEmptyCollections(s.emptyCollections.filter((c) => !same(c, name)))
+    if (games.length) s.toast({ kind: 'success', message: games.length === 1 ? `Added ${games[0].title} to ${name}` : `Added ${games.length} games to ${name}` })
+  })
+}
+
+export function removeFromCollection(keys: string[], name: string): Promise<boolean> {
+  return serializeCollection(async () => {
+    const games = await editCollections(keys, (list) => list.filter((c) => !same(c, name)))
+    if (games.length === 1) useStore.getState().toast({ kind: 'success', message: `Removed ${games[0].title} from ${name}` })
+  })
 }
 
 /** Create a collection, optionally with games in it. */
-export async function createCollection(name: string, keys: string[] = []): Promise<void> {
+export function createCollection(name: string, keys: string[] = []): Promise<boolean> {
   const n = name.trim()
   if (keys.length) return addToCollection(keys, n)
-  const s = useStore.getState()
-  s.setEmptyCollections([...s.emptyCollections, n])
-  s.toast({ kind: 'success', message: `Created collection ${n}` })
+  return serializeCollection(async () => {
+    const s = useStore.getState()
+    if (!collectionNames(s.games, s.emptyCollections).some((c) => same(c, n))) s.setEmptyCollections([...s.emptyCollections, n])
+    s.toast({ kind: 'success', message: 'Created collection ' + n })
+  })
 }
 
-export async function renameCollection(from: string, to: string): Promise<void> {
-  const n = to.trim()
-  const s = useStore.getState()
-  const games = s.games.filter((g) => inCollection(g, from))
-  await act(async () => {
-    for (const g of games) {
-      const list = (g.prefs.collections ?? []).filter((c) => !same(c, from))
-      await window.lodestar.games.setPrefs(g.key, { collections: [...list, n] })
-    }
-  }, `Renamed ${from} to ${n}`)
-  const st = useStore.getState()
-  if (st.emptyCollections.some((c) => same(c, from))) {
-    st.setEmptyCollections([...st.emptyCollections.filter((c) => !same(c, from)), ...(games.length ? [] : [n])])
-  }
-  if (st.libraryPage === `collection:${from}`) st.setLibraryPage(`collection:${n}`)
+export function renameCollection(from: string, to: string): Promise<boolean> {
+  return serializeCollection(async () => {
+    const n = to.trim()
+    const keys = useStore.getState().games.filter((g) => inCollection(g, from)).map((g) => g.key)
+    await editCollections(keys, (list) => [...list.filter((c) => !same(c, from) && !same(c, n)), n])
+    const st = useStore.getState()
+    if (st.emptyCollections.some((c) => same(c, from))) st.setEmptyCollections([...st.emptyCollections.filter((c) => !same(c, from)), ...(keys.length ? [] : [n])])
+    if (st.libraryPage === `collection:${from}`) st.setLibraryPage(`collection:${n}`)
+    st.toast({ kind: 'success', message: 'Renamed ' + from + ' to ' + n })
+  })
 }
 
-/** Deleting only removes the name from every game; the games stay in the library. */
+/** Deleting only removes the name; the games stay in the library. */
 export function confirmDeleteCollection(name: string): void {
   const s = useStore.getState()
   const count = s.games.filter((g) => inCollection(g, name)).length
   s.setConfirm({
-    title: `Delete collection ${name}?`,
-    message: count
-      ? `${count === 1 ? 'The game in it stays' : `The ${count} games in it stay`} in your library; only the collection goes away.`
-      : 'This collection is empty.',
-    confirmLabel: 'Delete',
-    danger: true,
+    title: 'Delete collection ' + name + '?',
+    message: count ? (count === 1 ? 'The game in it stays' : 'The ' + count + ' games in it stay') + ' in your library; only the collection goes away.' : 'This collection is empty.',
+    confirmLabel: 'Delete', danger: true,
     onConfirm: async () => {
-      const games = useStore.getState().games.filter((g) => inCollection(g, name))
-      await act(async () => {
-        for (const g of games) {
-          await window.lodestar.games.setPrefs(g.key, {
-            collections: (g.prefs.collections ?? []).filter((c) => !same(c, name))
-          })
-        }
-      }, `Deleted collection ${name}`)
-      const st = useStore.getState()
-      st.setEmptyCollections(st.emptyCollections.filter((c) => !same(c, name)))
-      if (st.libraryPage === `collection:${name}`) st.setLibraryPage('collections')
+      await serializeCollection(async () => {
+        const keys = useStore.getState().games.filter((g) => inCollection(g, name)).map((g) => g.key)
+        await editCollections(keys, (list) => list.filter((c) => !same(c, name)))
+        const st = useStore.getState()
+        st.setEmptyCollections(st.emptyCollections.filter((c) => !same(c, name)))
+        if (st.libraryPage === 'collection:' + name) st.setLibraryPage('collections')
+        st.toast({ kind: 'success', message: 'Deleted collection ' + name })
+      })
     }
   })
 }

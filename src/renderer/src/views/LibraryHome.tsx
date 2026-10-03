@@ -1,16 +1,15 @@
 import { Star, X } from 'lucide-react'
 import { useMemo } from 'react'
-import type { DownloadJob, Game } from '@shared/types'
+import type { Game } from '@shared/types'
 import { Capsule, CapsuleSkeleton } from '../components/Capsule'
 import {
   FILTER_LABELS,
   useCapsuleWidth,
   useCollections,
+  useCollectionMembers,
   useFilteredGames,
-  useJobMap,
   useLibraryGames
 } from '../components/library/libraryData'
-import { inCollection } from '../lib/gameActions'
 import { useStore } from '../store'
 import { FreeGamesShelf } from './library/FreeGamesShelf'
 import { GameGrid, GridTools } from './library/GameGrid'
@@ -26,7 +25,6 @@ export function openCollectionMenu(e: React.MouseEvent, name: string): void {
 export function LibraryHome(): React.JSX.Element {
   const all = useLibraryGames()
   const games = useFilteredGames()
-  const jobs = useJobMap()
   const width = useCapsuleWidth()
   const collections = useCollections()
   const search = useStore((s) => s.search)
@@ -44,18 +42,18 @@ export function LibraryHome(): React.JSX.Element {
         <>
           <FreeGamesShelf />
           <div className="lh-inner">
-            <RecentShelf games={visible} jobs={jobs} width={width} />
+            <RecentShelf games={visible} width={width} />
             {favorites.length > 0 && (
               <CollectionShelf
                 name="Favorites"
                 icon={<Star size={15} className="shelf-icon fav" fill="currentColor" />}
                 games={favorites}
-                jobs={jobs}
+
                 width={width}
               />
             )}
             {collections.map((c) => (
-              <CollectionShelf key={c} name={c} games={visible.filter((g) => inCollection(g, c))} jobs={jobs} width={width} />
+              <UserCollectionShelf key={c} name={c} width={width} />
             ))}
           </div>
         </>
@@ -99,7 +97,7 @@ export function LibraryHome(): React.JSX.Element {
             )}
           </div>
         ) : (
-          <GameGrid games={games} jobs={jobs} width={width} sort={sort} />
+          <GameGrid games={games} width={width} sort={sort} />
         )}
       </section>
       {!searching && collections.length === 0 && favorites.length === 0 && all.length > 0 && (
@@ -118,13 +116,11 @@ function CollectionShelf({
   name,
   icon,
   games,
-  jobs,
   width
 }: {
   name: string
   icon?: React.ReactNode
   games: Game[]
-  jobs: Map<string, DownloadJob>
   width: number
 }): React.JSX.Element | null {
   if (!games.length) return null
@@ -132,6 +128,8 @@ function CollectionShelf({
   return (
     <Shelf
       className="coll-shelf"
+      itemWidths={games.map(() => width)}
+      itemHeight={width * 4 / 3}
       title={
         <>
           {icon}
@@ -143,10 +141,15 @@ function CollectionShelf({
       onTitleContextMenu={fav ? undefined : (e) => openCollectionMenu(e, name)}
     >
       {games.map((g) => (
-        <Capsule key={g.key} game={g} job={jobs.get(g.key)} width={width} />
+        <Capsule key={g.key} game={g} width={width} />
       ))}
     </Shelf>
   )
+}
+
+function UserCollectionShelf({ name, width }: { name: string; width: number }): React.JSX.Element | null {
+  const games = useCollectionMembers(name)
+  return <CollectionShelf name={name} games={games} width={width} />
 }
 
 /** First-load placeholder: progress bar + skeleton capsules. */

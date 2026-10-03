@@ -3,7 +3,7 @@ import type { DownloadJob, Game } from '@shared/types'
 import { Capsule, LocalTile, openContextMenu, tileKeys } from '../../components/Capsule'
 import { DownloadGlyph, PlayGlyph } from '../../components/library/glyphs'
 import { Img } from '../../components/library/Img'
-import { jobSig, sameTile, usePrimary } from '../../components/library/libraryData'
+import { jobSig, sameTile, usePrimary, useGame, useTileJob } from '../../components/library/libraryData'
 import { hoursShort, img, lastPlayed, recentColumnLabel } from '../../lib/format'
 import { isQuickKind, jobProgress, runPrimary } from '../../lib/gameActions'
 import { useStore } from '../../store'
@@ -12,11 +12,9 @@ import { Shelf } from './Shelf'
 /** Steam's "Recent Games": a big landscape card for the latest game, then portraits under time-bucket labels. */
 export function RecentShelf({
   games,
-  jobs,
   width
 }: {
   games: Game[]
-  jobs: Map<string, DownloadJob>
   width: number
 }): React.JSX.Element | null {
   const recent = useMemo(
@@ -31,7 +29,7 @@ export function RecentShelf({
 
   let prev = ''
   return (
-    <Shelf title="Recent Games" className="recent-shelf">
+    <Shelf title="Recent Games" className="recent-shelf" itemWidths={recent.map((_, i) => i === 0 ? width * 2 + 16 : width)} itemHeight={Math.max(Math.round(width * 4 / 3), width * 4 / 3) + 20}>
       {recent.map((g, i) => {
         const label = recentColumnLabel(g.lastPlayed!)
         const show = label !== prev
@@ -40,9 +38,9 @@ export function RecentShelf({
           <div key={g.key} className="recent-col">
             <div className="recent-label">{show ? label : ''}</div>
             {i === 0 ? (
-              <FeaturedCard game={g} job={jobs.get(g.key)} width={width} />
+              <FeaturedCard game={g} width={width} />
             ) : (
-              <Capsule game={g} job={jobs.get(g.key)} width={width} />
+              <Capsule game={g} width={width} />
             )}
           </div>
         )
@@ -52,7 +50,9 @@ export function RecentShelf({
 }
 
 const FeaturedCard = memo(
-  function FeaturedCard({ game, job, width }: { game: Game; job?: DownloadJob; width: number }): React.JSX.Element {
+  function FeaturedCard({ game: supplied, width }: { game: Game; job?: DownloadJob; width: number }): React.JSX.Element {
+    const game = useGame(supplied.key) ?? supplied
+    const job = useTileJob(game.key)
     const primary = usePrimary(game, job)
     const quick = isQuickKind(primary.kind)
     const open = (): void => useStore.getState().navigate({ view: 'library', gameKey: game.key })

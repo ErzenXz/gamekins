@@ -1,13 +1,16 @@
 import { CircleAlert, Clock, Download, FolderSearch, LayoutGrid, LoaderCircle, LockKeyhole, LogIn, ShoppingBag, WifiOff } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { ProviderInfo } from '@shared/types'
 import { Sidebar } from '../components/Sidebar'
-import { LodestarMark } from '../components/TitleBar'
+import { LodestarMark } from '../components/LodestarMark'
+import { libraryIndex } from '../lib/entityIndex'
 import { img } from '../lib/format'
 import { act, useStore } from '../store'
-import { GamePage } from './GamePage'
-import { CollectionDetail, CollectionsPage } from './library/CollectionsPage'
 import { LibraryHome, LibraryLoading } from './LibraryHome'
+
+const GamePageHost = lazy(() => import('./library/GamePageHost'))
+const CollectionsPage = lazy(() => import('./library/CollectionsPage').then((m) => ({ default: m.CollectionsPage })))
+const CollectionDetail = lazy(() => import('./library/CollectionsPage').then((m) => ({ default: m.CollectionDetail })))
 
 const WIDTH_KEY = 'lodestar.sidebar.width'
 const NO_PROVIDERS: ProviderInfo[] = []
@@ -26,7 +29,7 @@ export function LibraryView(): React.JSX.Element {
   const signedIn = useStore((s) => s.accounts.length > 0)
   const hasGames = useStore((s) => s.games.length > 0)
   const gameKey = useStore((s) => (s.route.view === 'library' ? s.route.gameKey : undefined))
-  const gameExists = useStore((s) => (gameKey ? s.games.some((g) => g.key === gameKey) : false))
+  const gameExists = useStore((s) => (gameKey ? libraryIndex(s.games).gamesByKey.has(gameKey) : false))
   const page = useStore((s) => s.libraryPage)
   const refreshing = useStore((s) => s.refreshing)
   const loading = useStore((s) => s.libraryProgress.loading)
@@ -48,15 +51,10 @@ export function LibraryView(): React.JSX.Element {
       <Divider root={root} />
       <main className="library-main">
         <LibraryNotice />
-        <div className="library-content">{gameKey && !gameExists && hasGames ? <MissingGame /> : content}</div>
+        <div className="library-content"><Suspense fallback={null}>{gameKey && !gameExists && hasGames ? <MissingGame /> : content}</Suspense></div>
       </main>
     </div>
   )
-}
-
-function GamePageHost({ gameKey }: { gameKey: string }): React.JSX.Element | null {
-  const game = useStore((s) => s.games.find((g) => g.key === gameKey))
-  return game ? <GamePage game={game} /> : null
 }
 
 /** Steam's draggable splitter between the game list and the main pane. */

@@ -33,11 +33,10 @@ export function CollectionPrompt(): React.JSX.Element | null {
     if (unchanged) return close()
     setBusy(true)
     try {
-      if (rename) await renameCollection(prompt.name!, name)
-      else await createCollection(name, prompt.gameKeys)
+      const succeeded = rename ? await renameCollection(prompt.name!, name) : await createCollection(name, prompt.gameKeys)
+      if (succeeded) useStore.getState().setCollectionPrompt(null)
     } finally {
       setBusy(false)
-      useStore.getState().setCollectionPrompt(null)
     }
   }
 

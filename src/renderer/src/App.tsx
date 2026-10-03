@@ -7,6 +7,7 @@ import { TitleBar } from './components/TitleBar'
 import { Toasts } from './components/Toasts'
 import { bootstrap, useStore } from './store'
 import { LibraryView } from './views/LibraryView'
+import { watchStoreLifetime } from './components/shell/storeLifetime'
 
 // Everything but the library loads on first use: smaller startup bundle, faster first paint.
 const DownloadsView = lazy(() => import('./views/DownloadsView').then((m) => ({ default: m.DownloadsView })))
@@ -19,9 +20,6 @@ const PropertiesDialog = lazy(() =>
 const AddGameDialog = lazy(() =>
   import('./components/library/AddGameDialog').then((m) => ({ default: m.AddGameDialog }))
 )
-
-/** The store's web page is the heaviest thing we host; drop it after this long unused. */
-const STORE_IDLE_UNLOAD_MS = 10 * 60_000
 
 // Dev builds only: poke at state from DevTools (`__lodestarStore.getState()`).
 if (import.meta.env.DEV) Object.assign(window, { __lodestarStore: useStore, __lodestarBootstrap: bootstrap })
@@ -49,15 +47,7 @@ function Shell(): React.JSX.Element {
     }
   }, [])
 
-  useEffect(() => {
-    if (view === 'store') {
-      setStoreMounted(true)
-      return
-    }
-    // Free the store's renderer process (often 100MB+) when it hasn't been used for a while.
-    const t = setTimeout(() => setStoreMounted(false), STORE_IDLE_UNLOAD_MS)
-    return () => clearTimeout(t)
-  }, [view])
+  useEffect(() => watchStoreLifetime(setStoreMounted), [])
   // Dialogs are only fetched once something opens them.
   const installOpen = useStore((s) => s.installKey !== null)
   const propertiesOpen = useStore((s) => s.propertiesKey !== null)

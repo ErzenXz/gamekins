@@ -14,9 +14,10 @@ import {
   useCollections,
   useFilterCounts,
   useFilteredGames,
-  useJobMap,
   useLibraryGames,
-  usePlatform
+  usePlatform,
+  useGame,
+  useTileJob
 } from './library/libraryData'
 
 // Kept for older imports.
@@ -68,7 +69,6 @@ export function Sidebar(): React.JSX.Element {
   const all = useLibraryGames()
   const games = useFilteredGames()
   const counts = useFilterCounts()
-  const jobs = useJobMap()
   const collections = useCollections()
   const platform = usePlatform()
   const mac = platform === 'darwin'
@@ -407,7 +407,6 @@ export function Sidebar(): React.JSX.Element {
                 <SideRow
                   key={r.id}
                   game={r.game}
-                  job={jobs.get(r.game.key)}
                   selected={gameKey === r.game.key}
                   top={r.top}
                   platform={platform}
@@ -450,8 +449,7 @@ function playOrInstall(g: Game): void {
 
 const SideRow = memo(
   function SideRow({
-    game,
-    job,
+    game: supplied,
     selected,
     top,
     platform
@@ -462,6 +460,8 @@ const SideRow = memo(
     top: number
     platform: string
   }): React.JSX.Element {
+    const game = useGame(supplied.key) ?? supplied
+    const job = useTileJob(game.key)
     const launching = useStore((s) => !!s.launching[game.key])
     const open = (): void => useStore.getState().navigate({ view: 'library', gameKey: game.key })
     const local = game.provider === 'local'

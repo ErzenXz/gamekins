@@ -1,10 +1,11 @@
+import '../styles/settings.css'
 import { ExternalLink, Loader2, RefreshCw, TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { ProviderId, ProviderInfo, Settings } from '@shared/types'
 import { confirmSignOut } from '../components/shell/account'
 import { Select } from '../components/shell/Select'
 import { modKey } from '../components/shell/format'
-import { LodestarMark } from '../components/TitleBar'
+import { LodestarMark } from '../components/LodestarMark'
 import { act, bootstrap, useStore } from '../store'
 import { StorageManager } from './shell/StorageManager'
 

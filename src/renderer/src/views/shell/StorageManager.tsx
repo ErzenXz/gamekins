@@ -1,9 +1,10 @@
 import { FolderOpen, HardDrive, Loader2, RefreshCw, Star } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StorageDrive, StorageGame } from '@shared/types'
 import { Select } from '../../components/shell/Select'
 import { bytes, img } from '../../lib/format'
 import { act, errorMessage, jobFor, useStore } from '../../store'
+import { libraryIndex } from '../../lib/entityIndex'
 
 type Sort = 'size' | 'name'
 
@@ -17,9 +18,8 @@ const sameDrive = (a: string, b: string): boolean => a.toLowerCase().startsWith(
 export function StorageManager(): React.JSX.Element {
   const installDir = useStore((s) => s.settings?.installDir ?? '')
   // Reload when installs change (install, uninstall, move, size update).
-  const installSig = useStore((s) =>
-    s.games.reduce((acc, g) => (g.install ? `${acc}|${g.key}:${g.install.path}:${g.install.sizeBytes}` : acc), '')
-  )
+  const installSig = useStore((s) => libraryIndex(s.games).installationSignature)
+  const generation = useRef(0)
   const [drives, setDrives] = useState<StorageDrive[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -27,21 +27,25 @@ export function StorageManager(): React.JSX.Element {
   const [sort, setSort] = useState<{ by: Sort; desc: boolean }>({ by: 'size', desc: true })
 
   const load = useCallback(async () => {
+    const request = ++generation.current
     setLoading(true)
     try {
       const d = await window.lodestar.app.storage()
+      if (request !== generation.current) return
       setDrives(d)
       setError(null)
     } catch (err) {
+      if (request !== generation.current) return
       setError(errorMessage(err))
     } finally {
-      setLoading(false)
+      if (request === generation.current) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     void load()
-  }, [load, installSig])
+    return () => { generation.current++ }
+  }, [load, installSig, installDir])
 
   const defaultRoot = drives?.find((d) => sameDrive(installDir, d.root))?.root
   const drive = drives?.find((d) => d.root === root) ?? drives?.find((d) => d.root === defaultRoot) ?? drives?.[0]
@@ -175,7 +179,7 @@ function SortArrow({ on, desc }: { on: boolean; desc: boolean }): React.JSX.Elem
 }
 
 function StorageRow({ item, onChanged }: { item: StorageGame; onChanged: () => void }): React.JSX.Element {
-  const game = useStore((s) => s.games.find((g) => g.key === item.key))
+  const game = useStore((s) => libraryIndex(s.games).gamesByKey.get(item.key))
   const hasJob = useStore((s) => !!jobFor(s.jobs, item.key))
   const moving = useStore((s) => !!s.moving?.[item.key])
   const installDir = useStore((s) => s.settings?.installDir)

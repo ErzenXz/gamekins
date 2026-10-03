@@ -1,3 +1,4 @@
+import '../styles/game-page.css'
 import {
   Apple,
   ChevronDown,
@@ -26,7 +27,7 @@ import type { DownloadJob, Game } from '@shared/types'
 import { DlcList } from '../components/library/DlcList'
 import { DownloadGlyph, PauseGlyph, PlayGlyph, StopGlyph } from '../components/library/glyphs'
 import { Img } from '../components/library/Img'
-import { useJobMap, useLiveJob, usePlatform, usePrimary } from '../components/library/libraryData'
+import { useTileJob, useLiveJob, usePlatform, usePrimary } from '../components/library/libraryData'
 import { LocalTile } from '../components/Capsule'
 import { baseName, bytes, dateTime, eta, hoursShort, img, lastPlayed, playtime, shortDate, speed } from '../lib/format'
 import {
@@ -54,7 +55,7 @@ import { act, useStore } from '../store'
 const INFO_KEY = 'lodestar.gamepage.info'
 
 export function GamePage({ game }: { game: Game }): React.JSX.Element {
-  const job = useJobMap().get(game.key)
+  const job = useTileJob(game.key)
   const primary = usePrimary(game, job)
   const platform = usePlatform()
   const scroller = useRef<HTMLDivElement>(null)

@@ -1,3 +1,4 @@
+import '../styles/downloads.css'
 import { ChevronDown, ChevronUp, GripVertical, Pause, Play, RotateCw, Settings as Gear, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
 import type { DownloadJob } from '@shared/types'

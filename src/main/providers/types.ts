@@ -24,6 +24,8 @@ export interface InstallTotals {
   totalDownloadBytes: number
   totalWriteBytes: number
   totalVerifyBytes: number
+  /** Peak additional space required, including staged replacements. */
+  requiredDiskBytes?: number
 }
 
 /**
@@ -43,6 +45,10 @@ export interface InstallRequest {
   existing?: InstalledInfo
   /** Called with every downloaded byte count; resolves when we may continue (bandwidth limit). */
   throttle?: (bytes: number) => Promise<void>
+  /** Streaming throttles must also stop when an installer's internal workers abort. */
+  throttleWithSignal?: (bytes: number, signal: AbortSignal) => Promise<void>
+  jobId?: string
+  createdFolder?: boolean
 }
 
 export interface LaunchOptions {

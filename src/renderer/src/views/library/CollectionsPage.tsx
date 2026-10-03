@@ -1,9 +1,10 @@
+import '../../styles/collections.css'
 import { ChevronLeft, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { useMemo } from 'react'
 import type { Game } from '@shared/types'
 import { LocalTile } from '../../components/Capsule'
 import { Img, TitleCard } from '../../components/library/Img'
-import { useCapsuleWidth, useCollections, useJobMap, useLibraryGames } from '../../components/library/libraryData'
+import { useCapsuleWidth, useCollections, useLibraryGames } from '../../components/library/libraryData'
 import { img } from '../../lib/format'
 import { confirmDeleteCollection, inCollection } from '../../lib/gameActions'
 import { useStore } from '../../store'
@@ -113,7 +114,6 @@ function CollectionTile({
 /** One collection's games, with rename / delete. */
 export function CollectionDetail({ name }: { name: string }): React.JSX.Element {
   const games = useCollectionGames(name)
-  const jobs = useJobMap()
   const width = useCapsuleWidth()
   const sort = useStore((s) => s.librarySort)
   const names = useCollections()
@@ -161,7 +161,7 @@ export function CollectionDetail({ name }: { name: string }): React.JSX.Element 
             </p>
           </div>
         ) : (
-          <GameGrid games={games} jobs={jobs} width={width} sort={sort} />
+          <GameGrid games={games} width={width} sort={sort} />
         )}
       </div>
     </div>

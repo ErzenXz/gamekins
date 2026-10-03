@@ -6,7 +6,7 @@ import { confirmSignOut } from './shell/account'
 import { Dropdown, type MenuItem } from './shell/Dropdown'
 import { isMac, modKey } from './shell/format'
 import { STORE_LINKS } from './shell/storeLinks'
-import markUrl from '../assets/mark.png'
+import { LodestarMark } from './LodestarMark'
 
 const RUNNING = ['preparing', 'verifying', 'downloading', 'finalizing']
 const REDEEM_URL = 'https://www.epicgames.com/redeem'
@@ -399,21 +399,5 @@ function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
         </p>
       </div>
     </Modal>
-  )
-}
-
-/** The Lodestar guiding-star mark (branding/mark-1024.png, rendered to assets/mark.png). */
-export function LodestarMark({ size = 22 }: { size?: number }): React.JSX.Element {
-  return (
-    <img
-      src={markUrl}
-      width={size}
-      height={size}
-      alt=""
-      aria-hidden
-      draggable={false}
-      className="lodestar-mark"
-      style={{ display: 'block', objectFit: 'contain' }}
-    />
   )
 }

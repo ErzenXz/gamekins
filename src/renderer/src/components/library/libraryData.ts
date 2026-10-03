@@ -1,18 +1,38 @@
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { DownloadJob, Game } from '@shared/types'
 import { collectionNames, jobProgress, type Primary, primaryAction } from '../../lib/gameActions'
+import { byTitle, jobIndex, libraryIndex } from '../../lib/entityIndex'
 import { type LibraryFilter, type LibrarySort, useStore } from '../../store'
 
-const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
-/** Steam ignores a leading "The" when sorting titles. */
-const sortKey = (t: string): string => t.replace(/^the\s+/i, '')
-export const byTitle = (a: Game, b: Game): number => collator.compare(sortKey(a.title), sortKey(b.title))
+export { byTitle } from '../../lib/entityIndex'
 
-/** Library games (DLC records are shown under their base game, never on their own), A→Z. */
 export function useLibraryGames(): Game[] {
-  const games = useStore((s) => s.games)
-  return useMemo(() => games.filter((g) => !g.dlcOf).sort(byTitle), [games])
+  return useStore((s) => libraryIndex(s.games).sorted)
+}
+
+export function useGame(key: string): Game | undefined {
+  return useStore((s) => libraryIndex(s.games).gamesByKey.get(key))
+}
+
+export function useCollectionMembers(name: string): Game[] {
+  const all = useStore((s) => libraryIndex(s.games).collections.get(name.toLowerCase()) ?? EMPTY_GAMES)
+  return useMemo(() => all.filter((g) => !g.prefs.hidden), [all])
+}
+const EMPTY_GAMES: Game[] = []
+const filteredCache = new WeakMap<Game[], Map<string, Game[]>>()
+function filteredGames(all: Game[], search: string, filter: LibraryFilter): Game[] {
+  const q = search.trim().toLowerCase()
+  let cache = filteredCache.get(all)
+  if (!cache) { cache = new Map(); filteredCache.set(all, cache) }
+  const key = JSON.stringify([q, filter])
+  let games = cache.get(key)
+  if (!games) {
+    games = all.filter((g) => matchesFilter(g, filter) && (!q || g.title.toLowerCase().includes(q)))
+    if (cache.size >= 8) cache.delete(cache.keys().next().value!)
+    cache.set(key, games)
+  }
+  return games
 }
 
 export function matchesFilter(g: Game, filter: LibraryFilter): boolean {
@@ -30,18 +50,17 @@ export function useFilteredGames(): Game[] {
   const { search: liveSearch, filter } = useStore(useShallow((s) => ({ search: s.search, filter: s.filter })))
   // Typing stays responsive; the (possibly 1000-row) filter runs at lower priority.
   const search = useDeferredValue(liveSearch)
-  return useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return all.filter((g) => matchesFilter(g, filter) && (!q || g.title.toLowerCase().includes(q)))
-  }, [all, search, filter])
+  return filteredGames(all, search, filter)
 }
 
 export type FilterCounts = Record<LibraryFilter, number>
+const countsCache = new WeakMap<Game[], FilterCounts>()
 
 export function useFilterCounts(): FilterCounts {
   const all = useLibraryGames()
-  return useMemo(() => {
-    const c: FilterCounts = { all: 0, installed: 0, updates: 0, favorites: 0, hidden: 0 }
+  let c = countsCache.get(all)
+  if (!c) {
+    c = { all: 0, installed: 0, updates: 0, favorites: 0, hidden: 0 }
     for (const g of all) {
       if (g.prefs.hidden) {
         c.hidden++
@@ -52,8 +71,9 @@ export function useFilterCounts(): FilterCounts {
       if (matchesFilter(g, 'updates')) c.updates++
       if (g.prefs.favorite) c.favorites++
     }
-    return c
-  }, [all])
+    countsCache.set(all, c)
+  }
+  return c
 }
 
 export const FILTER_LABELS: Record<LibraryFilter, string> = {
@@ -64,45 +84,35 @@ export const FILTER_LABELS: Record<LibraryFilter, string> = {
   hidden: 'Hidden'
 }
 
-const live = (j: DownloadJob): boolean => j.state !== 'done' && j.state !== 'cancelled'
 
 /** Cheap fingerprint of the parts of a job that change what a tile shows. */
 export function jobSig(j: DownloadJob | undefined): string {
   return j ? `${j.id}:${j.state}:${Math.floor(jobProgress(j) * 100)}` : ''
 }
 
-let sigFor: DownloadJob[] | null = null
-let sigVal = ''
-/** Fingerprint of every live job (memoised per jobs array). */
-function liveJobsSig(jobs: DownloadJob[]): string {
-  if (jobs !== sigFor) {
-    sigFor = jobs
-    sigVal = jobs
-      .filter(live)
-      .map((j) => `${j.gameKey}=${jobSig(j)}`)
-      .join('|')
+/** Only a tile's state / whole-percent changes trigger its subscription. */
+const tileJobCache = new WeakMap<DownloadJob[], Map<string, DownloadJob>>()
+let previousTileJobs = new Map<string, DownloadJob>()
+export function tileJobIndex(jobs: DownloadJob[]): Map<string, DownloadJob> {
+  let index = tileJobCache.get(jobs)
+  if (!index) {
+    index = new Map()
+    for (const [key, job] of jobIndex(jobs)) {
+      const previous = previousTileJobs.get(key)
+      index.set(key, jobSig(previous) === jobSig(job) ? previous! : job)
+    }
+    tileJobCache.set(jobs, index)
+    previousTileJobs = index
   }
-  return sigVal
+  return index
 }
 
-/**
- * Live (not finished) download jobs keyed by game key. The map only changes when a job's state
- * or whole-percent progress changes, so download ticks (4/s) don't re-render the whole library.
- * Use `useLiveJob` where byte counts / speeds must be exact.
- */
-export function useJobMap(): Map<string, DownloadJob> {
-  const sig = useStore((s) => liveJobsSig(s.jobs))
-  return useMemo(() => {
-    const m = new Map<string, DownloadJob>()
-    for (const j of useStore.getState().jobs) if (live(j) && !m.has(j.gameKey)) m.set(j.gameKey, j)
-    return m
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sig])
+export function useTileJob(key: string): DownloadJob | undefined {
+  return useStore((s) => tileJobIndex(s.jobs).get(key))
 }
 
-/** The exact live job for one game (re-renders on every tick; keep it in small components). */
 export function useLiveJob(key: string): DownloadJob | undefined {
-  return useStore((s) => s.jobs.find((j) => j.gameKey === key && live(j)))
+  return useStore((s) => jobIndex(s.jobs).get(key))
 }
 
 /** Cheap equality for the parts of a game a tile / row renders (IPC sends fresh objects every update). */
@@ -128,7 +138,18 @@ export function sameTile(a: Game, b: Game): boolean {
   )
 }
 
+const sortCache = new WeakMap<Game[], Map<LibrarySort, Game[]>>()
 export function sortGames(list: Game[], sort: LibrarySort): Game[] {
+  let cache = sortCache.get(list)
+  if (!cache) { cache = new Map(); sortCache.set(list, cache) }
+  const cached = cache.get(sort)
+  if (cached) return cached
+  const out = sortUncached(list, sort)
+  cache.set(sort, out)
+  return out
+}
+
+function sortUncached(list: Game[], sort: LibrarySort): Game[] {
   const out = [...list]
   switch (sort) {
     case 'recent':
@@ -166,10 +187,15 @@ export function usePrimary(game: Game, job: DownloadJob | undefined): Primary {
 }
 
 /** All user collections (A→Z). */
+const collectionCache = new WeakMap<Game[], WeakMap<string[], string[]>>()
 export function useCollections(): string[] {
   const games = useStore((s) => s.games)
   const empty = useStore((s) => s.emptyCollections)
-  return useMemo(() => collectionNames(games, empty), [games, empty])
+  let cache = collectionCache.get(games)
+  if (!cache) { cache = new WeakMap(); collectionCache.set(games, cache) }
+  let names = cache.get(empty)
+  if (!names) { names = collectionNames(games, empty); cache.set(empty, names) }
+  return names
 }
 
 /** Steam's library display sizes (portrait capsule width). */
@@ -185,20 +211,6 @@ export function sizeName(px: number): CapsuleSize {
 /** Snap whatever is stored (older builds had a free slider) to a Steam size. */
 export function useCapsuleWidth(): number {
   return CAPSULE_SIZES[sizeName(useStore((s) => s.gridSize))]
-}
-
-/**
- * Render big lists in chunks: the first screenful immediately, the rest over the
- * next few frames, so opening the library with hundreds of games stays snappy.
- */
-export function useProgressiveCount(total: number, first = 72, step = 160): number {
-  const [count, setCount] = useState(first)
-  useEffect(() => {
-    if (count >= total) return
-    const t = setTimeout(() => startTransition(() => setCount((c) => c + step)), 16)
-    return () => clearTimeout(t)
-  }, [count, total, step])
-  return count
 }
 
 /** Steam splits some sorts into labelled groups ("Over 10 Hours", "Not Installed", "March"…). */

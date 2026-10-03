@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import type { DownloadJob, Game } from '@shared/types'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { Game } from '@shared/types'
 import { Capsule } from '../../components/Capsule'
 import { Dropdown } from '../../components/library/controls'
 import {
@@ -8,53 +8,105 @@ import {
   groupGames,
   SORT_LABELS,
   sizeName,
-  sortGames,
-  useProgressiveCount
+  sortGames
 } from '../../components/library/libraryData'
+import { useVirtualViewport, visibleRows } from '../../components/library/virtualWindow'
 import { recentColumnLabel } from '../../lib/format'
 import { type LibrarySort, useStore } from '../../store'
 
-/** Steam-sorted capsule grid with labelled subgroups, rendered progressively for big libraries. */
-export function GameGrid({
-  games,
-  jobs,
-  width,
-  sort
-}: {
-  games: Game[]
-  jobs: Map<string, DownloadJob>
-  width: number
-  sort: LibrarySort
-}): React.JSX.Element {
-  const allGroups = useMemo(() => groupGames(sortGames(games, sort), sort, recentColumnLabel), [games, sort])
-  const shown = useProgressiveCount(games.length)
-  const groups = useMemo(() => {
-    let left = shown
-    return allGroups
-      .map((g) => {
-        const out = { ...g, total: g.games.length, games: g.games.slice(0, Math.max(0, left)) }
-        left -= g.games.length
-        return out
-      })
-      .filter((g) => g.games.length)
-  }, [allGroups, shown])
-
+/** Virtualize complete rows so auto-fill columns, gaps and sort headings keep their geometry. */
+export function GameGrid({ games, width, sort }: { games: Game[]; width: number; sort: LibrarySort }): React.JSX.Element {
+  const groups = useMemo(() => groupGames(sortGames(games, sort), sort, recentColumnLabel), [games, sort])
+  const [focusRequest, setFocusRequest] = useState<{ key: string } | null>(null)
   return (
-    <div className="grid-groups" style={{ '--cap-w': `${width}px` } as React.CSSProperties}>
+    <div className="grid-groups" style={{ '--cap-w': width + 'px' } as React.CSSProperties} onKeyDownCapture={(e) => {
+      if (e.key !== 'Tab') return
+      const key = (e.target as HTMLElement).closest<HTMLElement>('.cap')?.dataset.ctxKey
+      const group = groups.find((g) => g.games.some((game) => game.key === key))
+      if (!group || key !== (e.shiftKey ? group.games[0]?.key : group.games.at(-1)?.key)) return
+      const order = groups.flatMap((g) => g.games)
+      const next = order[order.findIndex((g) => g.key === key) + (e.shiftKey ? -1 : 1)]
+      if (next) { e.preventDefault(); e.stopPropagation(); setFocusRequest({ key: next.key }) }
+    }}>
       {groups.map((grp) => (
         <div key={grp.label || 'all'} className="grid-group">
-          {grp.label && (
-            <div className="grid-group-label">
-              {grp.label} <span>({grp.total})</span>
-            </div>
-          )}
-          <div className="game-grid">
-            {grp.games.map((g) => (
-              <Capsule key={g.key} game={g} job={jobs.get(g.key)} width={width} />
-            ))}
-          </div>
+          {grp.label && <div className="grid-group-label">{grp.label} <span>({grp.games.length})</span></div>}
+          <GridRows games={grp.games} width={width} focusRequest={focusRequest} />
         </div>
       ))}
+    </div>
+  )
+}
+
+function GridRows({ games, width, focusRequest }: { games: Game[]; width: number; focusRequest: { key: string } | null }): React.JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  const view = useVirtualViewport(ref)
+  const columns = Math.max(1, Math.floor((view.width + 14) / ((view.capsuleWidth || width) + 14)))
+  const height = width * 4 / 3
+  const stride = height + 18
+  const rows = Math.ceil(games.length / columns)
+  const [start, end] = visibleRows(view.top - 8, view.bottom - 8, rows, stride)
+  const [focused, setFocused] = useState<string | null>(null)
+  const pending = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (focusRequest && games.some((g) => g.key === focusRequest.key)) { pending.current = focusRequest.key; setFocused(focusRequest.key) }
+    // A library update must not replay an already handled keyboard request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest])
+  const focusIndex = games.findIndex((g) => g.key === focused)
+  const focusRow = focusIndex < 0 ? -1 : Math.floor(focusIndex / columns)
+  const mountedRows = new Set(Array.from({ length: Math.max(0, end - start) }, (_, i) => start + i))
+  // Retain only the focused row outside the viewport; ordinary scrolling never loses focus.
+  if (focusRow >= 0) mountedRows.add(focusRow)
+  useLayoutEffect(() => {
+    if (!pending.current) return
+    const target = Array.from(ref.current?.querySelectorAll<HTMLElement>('.cap') ?? []).find((el) => el.dataset.ctxKey === pending.current)
+    if (target) {
+      target.focus({ preventScroll: true })
+      const scroll = ref.current?.closest<HTMLElement>('.scroll')
+      if (scroll) {
+        const y = target.getBoundingClientRect().top - scroll.getBoundingClientRect().top
+        if (y < 0) scroll.scrollTop += y
+        else if (y + height > scroll.clientHeight) scroll.scrollTop += y + height - scroll.clientHeight
+      }
+      pending.current = null
+    }
+  })
+  const onKey = (e: React.KeyboardEvent): void => {
+    const tile = (e.target as HTMLElement).closest<HTMLElement>('.cap')
+    const index = games.findIndex((g) => g.key === tile?.dataset.ctxKey)
+    if (index < 0) return
+    let next = index
+    if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) next++
+    else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) next--
+    else if (e.key === 'ArrowDown') next += columns
+    else if (e.key === 'ArrowUp') next -= columns
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = games.length - 1
+    else return
+    if (next < 0 || next >= games.length) return
+    e.preventDefault()
+    const key = games[next].key
+    pending.current = key
+    setFocused(key)
+    const el = ref.current
+    const scroll = el?.closest<HTMLElement>('.scroll')
+    if (el && scroll) {
+      const y = el.getBoundingClientRect().top - scroll.getBoundingClientRect().top + 8 + Math.floor(next / columns) * stride
+      if (y < 0) scroll.scrollTop += y
+      else if (y + height > scroll.clientHeight) scroll.scrollTop += y + height - scroll.clientHeight
+    }
+  }
+  return (
+    <div ref={ref} className="game-grid" style={{ gridTemplateRows: 'repeat(' + rows + ', ' + height + 'px)' }}
+      onKeyDown={onKey}
+      onFocus={(e) => setFocused((e.target as HTMLElement).closest<HTMLElement>('.cap')?.dataset.ctxKey ?? null)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocused(null) }}>
+      {[...mountedRows].sort((a, b) => a - b).flatMap((row) => games.slice(row * columns, (row + 1) * columns).map((g, col) => (
+        <div key={g.key} className="virtual-grid-cell" style={{ gridRow: row + 1, gridColumn: col + 1 }}>
+          <Capsule game={g} width={width} />
+        </div>
+      )))}
     </div>
   )
 }

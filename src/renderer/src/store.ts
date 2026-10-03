@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Account, AppInfo, DownloadJob, FreeGame, Game, LibraryProgress, Settings, Toast } from '@shared/types'
+import { jobIndex, shareEntities, shareSnapshot } from './lib/entityIndex'
 
 export type Route =
   | { view: 'store'; url?: string }
@@ -96,6 +97,8 @@ interface State {
   // ── Shell additions ──
   /** Last "open this URL in the store" request; `n` changes on every request, even for the same URL. */
   storeRequest: { url: string; n: number } | null
+  /** Explicit Store tab activations can recreate a guest unloaded during gameplay. */
+  storeActivation: number
   /** The Epic session ended without the user signing out (expired / revoked). */
   sessionExpired: boolean
   /** A sign-in window is open (one at a time). */
@@ -203,6 +206,7 @@ export const useStore = create<State>((set, get) => ({
   libraryPage: 'home',
   sideRecent: readJson<boolean>('lodestar.sidebar.recent', false),
   storeRequest: null,
+  storeActivation: 0,
   sessionExpired: false,
   signingIn: false,
   bootErrors: [],
@@ -284,6 +288,7 @@ export const useStore = create<State>((set, get) => ({
 
   navigate(route) {
     const { route: cur, back } = get()
+    if (route.view === 'store') set({ storeActivation: get().storeActivation + 1 })
     // Every "open in store" request navigates, even to the URL already shown (it may have moved on).
     if (route.view === 'store' && route.url) set({ storeRequest: { url: route.url, n: ++storeNonce } })
     if (same(cur, route)) return
@@ -351,7 +356,9 @@ export const useStore = create<State>((set, get) => ({
     if (get().refreshing) return
     set({ refreshing: true })
     try {
-      set({ games: await window.lodestar.library.refresh() })
+      const revision = eventRevisions.library
+      const games = await window.lodestar.library.refresh()
+      if (revision === eventRevisions.library) applyLibrary(games)
     } catch (err) {
       get().toast({ kind: 'error', message: errorMessage(err) })
     } finally {
@@ -359,7 +366,9 @@ export const useStore = create<State>((set, get) => ({
     }
   },
   async saveSettings(patch) {
-    set({ settings: await window.lodestar.settings.set(patch) })
+    const revision = ++eventRevisions.settings
+    const settings = await window.lodestar.settings.set(patch)
+    if (revision === eventRevisions.settings) set({ settings })
   }
 }))
 
@@ -380,16 +389,48 @@ export async function act(fn: () => Promise<unknown>, success?: string): Promise
 }
 
 let subscribed = false
+const eventRevisions = { library: 0, downloads: 0, accounts: 0, settings: 0 }
+const pendingCollections = new Map<string, string[]>()
+
+/** Retain successful renderer edits until the coalesced library event acknowledges them. */
+export function commitCollections(key: string, collections: string[]): void {
+  pendingCollections.set(key, collections)
+  useStore.setState((s) => ({ games: s.games.map((g) => g.key === key ? { ...g, prefs: { ...g.prefs, collections } } : g) }))
+}
+
+export function applyLibrary(games: Game[]): void {
+  const present = new Set(games.map((g) => g.key))
+  for (const key of pendingCollections.keys()) if (!present.has(key)) pendingCollections.delete(key)
+  const reconciled = games.map((g) => {
+    const collections = pendingCollections.get(g.key)
+    if (!collections) return g
+    if (JSON.stringify(g.prefs.collections ?? []) === JSON.stringify(collections)) {
+      pendingCollections.delete(g.key)
+      return g
+    }
+    return { ...g, prefs: { ...g.prefs, collections } }
+  })
+  useStore.setState((s) => ({ games: shareEntities(s.games, reconciled) }))
+}
+
+function applyDownloads(jobs: DownloadJob[]): void {
+  useStore.setState((s) => {
+    const previous = new Map(s.jobs.map((j) => [j.id, j]))
+    const shared = jobs.map((j) => shareSnapshot(previous.get(j.id), j)!)
+    return { jobs: shared.length === s.jobs.length && shared.every((j, i) => j === s.jobs[i]) ? s.jobs : shared }
+  })
+}
 
 /** Subscribe to main-process events once per page (StrictMode runs mount effects twice in dev). */
 function subscribe(): void {
   if (subscribed) return
   subscribed = true
   const v = window.lodestar
-  v.on.library((games) => useStore.setState({ games }))
+  v.on.library((games) => { eventRevisions.library++; applyLibrary(games) })
   v.on.libraryProgress((libraryProgress) => useStore.setState({ libraryProgress }))
-  v.on.downloads((jobs) => useStore.setState({ jobs }))
+  v.on.downloads((jobs) => { eventRevisions.downloads++; applyDownloads(jobs) })
   v.on.accounts((accounts) => {
+    eventRevisions.accounts++
     const prev = useStore.getState().accounts
     // A provider vanished without the user signing out: its session expired.
     const lost = prev.some((a) => !accounts.some((b) => b.provider === a.provider))
@@ -423,7 +464,7 @@ export function bootstrap(): Promise<void> {
 async function load(): Promise<void> {
   const v = window.lodestar
   subscribe()
-  const s = useStore.getState()
+  const revisions = { ...eventRevisions }
   const parts = [
     ['app info', v.app.info()],
     ['library', v.library.get()],
@@ -431,27 +472,24 @@ async function load(): Promise<void> {
     ['accounts', v.accounts.list()],
     ['settings', v.settings.get()]
   ] as const
-  const results = await Promise.allSettled(parts.map(([, p]) => p))
   const errors: string[] = []
-  const ok = <T>(i: number, fallback: T): T => {
-    const r = results[i]
-    if (r.status === 'fulfilled') return r.value as T
-    errors.push(`${parts[i][0]}: ${errorMessage(r.reason)}`)
-    return fallback
-  }
-  const info = ok<AppInfo | null>(0, s.info)
-  useStore.setState({
-    info:
-      info ??
-      // Keep the shell usable even without app info.
-      { version: '—', platform: /Mac/i.test(navigator.platform) ? 'darwin' : 'win32', providers: [] },
-    games: ok(1, s.games),
-    jobs: ok(2, s.jobs),
-    accounts: ok(3, s.accounts),
-    settings: ok(4, s.settings),
-    bootErrors: errors
-  })
+  // Each domain commits as soon as it resolves. Events win over older snapshots,
+  // including retries; failures leave the current state intact.
+  await Promise.all(parts.map(async ([name, request]) => {
+    try {
+      const value = await request
+      if (name === 'app info') {
+        useStore.setState({ info: value as AppInfo })
+        document.documentElement.dataset.platform = (value as AppInfo).platform
+      } else if (name === 'library' && revisions.library === eventRevisions.library) applyLibrary(value as Game[])
+      else if (name === 'downloads' && revisions.downloads === eventRevisions.downloads) applyDownloads(value as DownloadJob[])
+      else if (name === 'accounts' && revisions.accounts === eventRevisions.accounts) useStore.setState({ accounts: value as Account[] })
+      else if (name === 'settings' && revisions.settings === eventRevisions.settings) useStore.setState({ settings: value as Settings })
+    } catch (err) { errors.push(`${name}: ${errorMessage(err)}`) }
+  }))
+  if (!useStore.getState().info) useStore.setState({ info: { version: '—', platform: /Mac/i.test(navigator.platform) ? 'darwin' : 'win32', providers: [] } })
   document.documentElement.dataset.platform = useStore.getState().info!.platform
+  useStore.setState({ bootErrors: errors })
 
   // Free games are a nice-to-have; never block startup on them.
   v.library
@@ -462,5 +500,5 @@ async function load(): Promise<void> {
 
 /** The live download job for a game, if any. */
 export function jobFor(jobs: DownloadJob[], key: string): DownloadJob | undefined {
-  return jobs.find((j) => j.gameKey === key && !['done', 'cancelled'].includes(j.state))
+  return jobIndex(jobs).get(key)
 }

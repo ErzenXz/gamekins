@@ -14,7 +14,8 @@
     "dist:win": "electron-vite build && electron-builder --win nsis",
     "dist:store": "electron-vite build && electron-builder --win appx",
     "dist:mac": "electron-vite build && electron-builder --mac dmg",
-    "dev:web": "vite --config vite.web.config.ts"
+    "dev:web": "vite --config vite.web.config.ts",
+    "test": "node --test src/main/providers/epic/integrity.test.cjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",

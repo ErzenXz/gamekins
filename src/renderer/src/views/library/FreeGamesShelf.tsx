@@ -1,5 +1,5 @@
 import { Gift } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Img } from '../../components/library/Img'
 import { img, shortDate } from '../../lib/format'
 import { useStore } from '../../store'
@@ -9,6 +9,12 @@ const norm = (t: string): string => t.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 /** "Free on Epic this week", laid out like Steam's What's New shelf (event capsules, paged). */
 export function FreeGamesShelf(): React.JSX.Element | null {
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth)
+  useEffect(() => {
+    const resize = (): void => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [])
   const free = useStore((s) => s.freeGames)
   const games = useStore((s) => s.games)
   const owned = useMemo(() => new Set(games.map((g) => norm(g.title))), [games])
@@ -17,7 +23,7 @@ export function FreeGamesShelf(): React.JSX.Element | null {
 
   return (
     <div className="whatsnew">
-      <Shelf title="Free on Epic this week" className="whatsnew-shelf">
+      <Shelf title="Free on Epic this week" className="whatsnew-shelf" itemWidths={sorted.map(() => Math.max(240, Math.min(330, windowWidth * 0.26)))}>
         {sorted.map((f) => {
           const inLib = owned.has(norm(f.title))
           return (
