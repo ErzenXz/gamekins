@@ -1757,6 +1757,16 @@ button.shelf-title:hover {
   gap: 18px 14px;
   padding: 8px 0 14px;
 }
+/* Off-screen tiles skip style, layout and paint entirely (and their loading shimmer stops),
+   which keeps big libraries cheap to open, scroll and leave idle. content-visibility clips to
+   the box, so the wrapper gets an invisible 28px margin to leave room for the hover glow. */
+.game-grid > .cap-wrap {
+  content-visibility: auto;
+  box-sizing: content-box;
+  padding: 28px;
+  margin: -28px;
+  contain-intrinsic-size: auto var(--cap-w, 154px) auto calc(var(--cap-w, 154px) * 4 / 3);
+}
 .lh-loading .game-grid {
   padding: 8px 10px;
 }
