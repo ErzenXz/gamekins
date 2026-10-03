@@ -1,7 +1,7 @@
 import { app, BrowserWindow, safeStorage, shell } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readFile, rm, rmdir, writeFile } from 'node:fs/promises'
+import { access, readFile, rm, rmdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, parse, resolve, sep } from 'node:path'
 import type { Account, FreeGame, InstalledInfo, Platform } from '@shared/types'
@@ -26,7 +26,8 @@ import {
   readEgstoreManifest,
   removeEglRecord,
   scanEglInstalls,
-  scanEgstoreFolders
+  listEgstoreFolders,
+  readEgstoreManifests
 } from './launcherData'
 import { parseManifest } from './manifest'
 
@@ -149,7 +150,7 @@ export class EpicProvider implements GameProvider {
       title: 'Sign in to Epic Games',
       autoHideMenuBar: true,
       backgroundColor: '#18181c',
-      webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true }
+      webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true, spellcheck: false }
     })
     // Epic's login rejects obviously-embedded browsers; look like plain Chrome.
     win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|lodestar)\/\S+/gi, ''))
@@ -165,7 +166,7 @@ export class EpicProvider implements GameProvider {
           height: 700,
           autoHideMenuBar: true,
           backgroundColor: '#18181c',
-          webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true }
+          webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true, spellcheck: false }
         }
       }
     })
@@ -329,34 +330,76 @@ export class EpicProvider implements GameProvider {
     if (!unclaimed.length) return found
 
     // Folders the launcher forgot about: match them to owned games (and their DLC).
+    // Parsing big manifests (Fortnite's are ~10 MB) and checking thousands of files is slow,
+    // so results are cached per folder and only recomputed when its manifests change.
+    const cache = await this.loadAdoptCache()
+    const next: AdoptCache = {}
     const roots = [...defaultEpicRoots(), settings().installDir]
-    for (const folder of await scanEgstoreFolders(roots)) {
-      if (claimed.has(resolve(folder.path).toLowerCase())) continue
-      const [base, ...extra] = folder.manifests
-      const m = base.manifest
-      const game = matchFolder(unclaimed, m.buildVersion, basename(folder.path), (g) => this.folderName(g))
-      if (!game || found.has(game.appName)) continue
-      if (m.launchExe && !existsSync(join(folder.path, m.launchExe))) continue // gutted install
-      const record = (mf: typeof m, manifestId: string): InstalledInfo => ({
-        path: folder.path,
-        version: mf.buildVersion,
-        executable: mf.launchExe,
-        launchCommand: mf.launchCommand,
-        platform: this.platform,
-        sizeBytes: installedSize(mf, folder.path),
-        source: 'epic-launcher',
-        installedAt: Date.now(),
-        manifestId
-      })
-      found.set(game.appName, record(m, base.file.replace(/\.manifest$/i, '')))
-      // DLC manifests carry the DLC's store app name.
-      for (const d of extra) {
-        const dlc = this.lastGames.find((g) => g.dlcOf === `epic:${game.appName}` && g.appName === d.manifest.appName)
-        if (dlc && !found.has(dlc.appName)) found.set(dlc.appName, record(d.manifest, d.file.replace(/\.manifest$/i, '')))
+    for (const ref of await listEgstoreFolders(roots)) {
+      const id = resolve(ref.path).toLowerCase()
+      if (claimed.has(id)) continue
+      let entry = cache[id]
+      if (!entry || entry.sig !== ref.sig) entry = await this.adoptFolder(ref.path, ref.sig, unclaimed)
+      next[id] = entry
+      for (const [appName, info] of entry.apps) {
+        if (found.has(appName)) continue
+        if (!this.lastGames.some((g) => g.appName === appName)) continue // no longer owned
+        found.set(appName, info)
       }
-      console.info(`[epic] adopted ${game.title} from ${folder.path}${folder.pending ? ' (unfinished update pending)' : ''}`)
+      if (entry.apps.length && !cache[id]) {
+        const title = this.lastGames.find((g) => g.appName === entry.apps[0][0])?.title ?? entry.apps[0][0]
+        console.info(`[epic] adopted ${title} from ${ref.path}${ref.pending ? ' (unfinished update pending)' : ''}`)
+      }
     }
+    await this.saveAdoptCache(next)
     return found
+  }
+
+  private async adoptFolder(path: string, sig: string, unclaimed: ProviderGame[]): Promise<AdoptEntry> {
+    const manifests = await readEgstoreManifests(path).catch(() => [])
+    const apps: [string, InstalledInfo][] = []
+    if (manifests.length) {
+      const [base, ...extra] = manifests
+      const m = base.manifest
+      const game = matchFolder(unclaimed, m.buildVersion, basename(path), (g) => this.folderName(g))
+      const gutted = !!m.launchExe && !existsSync(join(path, m.launchExe))
+      if (game && !gutted) {
+        const record = async (mf: typeof m, manifestId: string): Promise<InstalledInfo> => ({
+          path,
+          version: mf.buildVersion,
+          executable: mf.launchExe,
+          launchCommand: mf.launchCommand,
+          platform: this.platform,
+          sizeBytes: await installedSize(mf, path),
+          source: 'epic-launcher',
+          installedAt: Date.now(),
+          manifestId
+        })
+        apps.push([game.appName, await record(m, base.file.replace(/\.manifest$/i, ''))])
+        // DLC manifests carry the DLC's store app name.
+        for (const d of extra) {
+          const dlc = this.lastGames.find((g) => g.dlcOf === `epic:${game.appName}` && g.appName === d.manifest.appName)
+          if (dlc) apps.push([dlc.appName, await record(d.manifest, d.file.replace(/\.manifest$/i, ''))])
+        }
+      }
+    }
+    return { sig, apps }
+  }
+
+  private adoptCacheFile(): string {
+    return join(this.dir, 'adopted.json')
+  }
+
+  private async loadAdoptCache(): Promise<AdoptCache> {
+    try {
+      return JSON.parse(await readFile(this.adoptCacheFile(), 'utf8'))
+    } catch {
+      return {}
+    }
+  }
+
+  private async saveAdoptCache(cache: AdoptCache): Promise<void> {
+    await writeFile(this.adoptCacheFile(), JSON.stringify(cache)).catch(() => undefined)
   }
 
   private isDlc(appName: string): boolean {
@@ -554,8 +597,20 @@ function matchFolder(
 }
 
 /** Bytes of the files from this manifest that are actually on disk (optional packs may be missing). */
-function installedSize(m: { files: { filename: string; size: number }[] }, dir: string): number {
+async function installedSize(m: { files: { filename: string; size: number }[] }, dir: string): Promise<number> {
   let n = 0
-  for (const f of m.files) if (existsSync(join(dir, f.filename))) n += f.size
+  // Non-blocking and batched: thousands of stat calls must not freeze the main process.
+  for (let i = 0; i < m.files.length; i += 64) {
+    const batch = m.files.slice(i, i + 64)
+    const ok = await Promise.all(batch.map((f) => access(join(dir, f.filename)).then(() => true, () => false)))
+    batch.forEach((f, k) => ok[k] && (n += f.size))
+  }
   return n
 }
+
+interface AdoptEntry {
+  /** Signature of the folder's manifests when this was computed. */
+  sig: string
+  apps: [string, InstalledInfo][]
+}
+type AdoptCache = Record<string, AdoptEntry>

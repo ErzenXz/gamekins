@@ -1,18 +1,27 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BottomBar } from './components/BottomBar'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { GameContextMenu } from './components/ContextMenu'
-import { InstallDialog } from './components/InstallDialog'
-import { AddGameDialog } from './components/library/AddGameDialog'
-import { PropertiesDialog } from './components/PropertiesDialog'
 import { ErrorBoundary } from './components/shell/ErrorBoundary'
 import { TitleBar } from './components/TitleBar'
 import { Toasts } from './components/Toasts'
 import { bootstrap, useStore } from './store'
-import { DownloadsView } from './views/DownloadsView'
 import { LibraryView } from './views/LibraryView'
-import { SettingsView } from './views/SettingsView'
-import { StoreView } from './views/StoreView'
+
+// Everything but the library loads on first use: smaller startup bundle, faster first paint.
+const DownloadsView = lazy(() => import('./views/DownloadsView').then((m) => ({ default: m.DownloadsView })))
+const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })))
+const StoreView = lazy(() => import('./views/StoreView').then((m) => ({ default: m.StoreView })))
+const InstallDialog = lazy(() => import('./components/InstallDialog').then((m) => ({ default: m.InstallDialog })))
+const PropertiesDialog = lazy(() =>
+  import('./components/PropertiesDialog').then((m) => ({ default: m.PropertiesDialog }))
+)
+const AddGameDialog = lazy(() =>
+  import('./components/library/AddGameDialog').then((m) => ({ default: m.AddGameDialog }))
+)
+
+/** The store's web page is the heaviest thing we host; drop it after this long unused. */
+const STORE_IDLE_UNLOAD_MS = 10 * 60_000
 
 // Dev builds only: poke at state from DevTools (`__lodestarStore.getState()`).
 if (import.meta.env.DEV) Object.assign(window, { __lodestarStore: useStore, __lodestarBootstrap: bootstrap })
@@ -41,8 +50,18 @@ function Shell(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (view === 'store') setStoreMounted(true)
+    if (view === 'store') {
+      setStoreMounted(true)
+      return
+    }
+    // Free the store's renderer process (often 100MB+) when it hasn't been used for a while.
+    const t = setTimeout(() => setStoreMounted(false), STORE_IDLE_UNLOAD_MS)
+    return () => clearTimeout(t)
   }, [view])
+  // Dialogs are only fetched once something opens them.
+  const installOpen = useStore((s) => s.installKey !== null)
+  const propertiesOpen = useStore((s) => s.propertiesKey !== null)
+  const addGameOpen = useStore((s) => s.addGameOpen)
 
   useEffect(() => {
     // Mouse back/forward buttons, like a browser (and like Steam).
@@ -71,16 +90,20 @@ function Shell(): React.JSX.Element {
           <>
             {storeMounted && (
               <ErrorBoundary scope="view" onHome={goHome}>
-                <StoreView visible={view === 'store'} />
+                <Suspense fallback={null}>
+                  <StoreView visible={view === 'store'} />
+                </Suspense>
               </ErrorBoundary>
             )}
             {view !== 'store' && (
               // Keyed per view so each tab switch gets a quick fade-in (and a fresh error boundary).
               <div className="view" key={view}>
                 <ErrorBoundary scope="view" onHome={goHome}>
-                  {view === 'library' && <LibraryView />}
-                  {view === 'downloads' && <DownloadsView />}
-                  {view === 'settings' && <SettingsView />}
+                  <Suspense fallback={null}>
+                    {view === 'library' && <LibraryView />}
+                    {view === 'downloads' && <DownloadsView />}
+                    {view === 'settings' && <SettingsView />}
+                  </Suspense>
                 </ErrorBoundary>
               </div>
             )}
@@ -90,9 +113,11 @@ function Shell(): React.JSX.Element {
       {view !== 'store' && <BottomBar />}
       {ready && (
         <>
-          <InstallDialog />
-          <PropertiesDialog />
-          <AddGameDialog />
+          <Suspense fallback={null}>
+            {installOpen && <InstallDialog />}
+            {propertiesOpen && <PropertiesDialog />}
+            {addGameOpen && <AddGameDialog />}
+          </Suspense>
           <GameContextMenu />
         </>
       )}

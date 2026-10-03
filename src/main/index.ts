@@ -101,7 +101,9 @@ function createWindow(show = !startHidden): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
-      webviewTag: true
+      webviewTag: true,
+      // No spellchecker: it loads dictionaries and runs on every input for no benefit here.
+      spellcheck: false
     }
   })
 
@@ -133,6 +135,7 @@ function guardWebviews(): void {
       prefs.nodeIntegration = false
       prefs.contextIsolation = true
       prefs.sandbox = true
+      prefs.spellcheck = false
       params.partition = EPIC_PARTITION
       if (!isStoreUrl(params.src)) event.preventDefault()
     })
@@ -505,7 +508,10 @@ if (!app.requestSingleInstanceLock()) {
     const startUrl = pendingUrl ?? process.argv.find((a) => a.startsWith(`${PROTOCOL}://`))
     if (startUrl) handleLodestarUrl(startUrl)
     void refreshLibrary()
-    setInterval(() => void refreshLibrary(), REFRESH_EVERY_MS)
+    // Periodic refresh, but never while a game is running: stay out of the way while you play.
+    setInterval(() => {
+      if (!library.anyRunning()) void refreshLibrary()
+    }, REFRESH_EVERY_MS)
 
     app.on('activate', () => showWindow())
   })

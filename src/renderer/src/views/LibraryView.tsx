@@ -233,18 +233,16 @@ export function SignIn(): React.JSX.Element {
       <div className="signin-bg" aria-hidden>
         {art.length > 0 && (
           <div className="signin-mosaic">
-            {Array.from({ length: 12 }, (_, i) => (
-              <img key={i} src={img(art[i % art.length], 480)} alt="" draggable={false} />
+            {Array.from({ length: 8 }, (_, i) => (
+              <img key={i} src={img(art[i % art.length], 360)} alt="" draggable={false} decoding="async" />
             ))}
           </div>
         )}
-        <div className="signin-aurora a" />
-        <div className="signin-aurora b" />
-        <div className="signin-aurora c" />
-        <div className="signin-grain" />
+        <div className="signin-glow" />
       </div>
 
       <div className="signin-card">
+        <div className="signin-main">
         <div className="signin-mark">
           <LodestarMark size={64} />
         </div>
@@ -275,7 +273,9 @@ export function SignIn(): React.JSX.Element {
           <LockKeyhole size={12} /> Sign-in happens on Epic&apos;s own page. Lodestar never sees your password; it only
           receives a login token, stored encrypted on this device.
         </p>
+        </div>
 
+        <div className="signin-side">
         <div className="signin-features">
           {FEATURES.map((f) => (
             <div key={f.title} className="signin-feature">
@@ -298,6 +298,7 @@ export function SignIn(): React.JSX.Element {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   )

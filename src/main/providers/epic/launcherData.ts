@@ -148,6 +148,42 @@ export async function scanEgstoreFolders(roots: string[]): Promise<EgstoreFolder
   return out
 }
 
+export interface EgstoreFolderRef {
+  path: string
+  /** Changes whenever any of the folder's Epic manifests change (name/size/mtime). */
+  sig: string
+  pending: boolean
+}
+
+/**
+ * Cheap version of {@link scanEgstoreFolders}: only stats the manifests, so callers can
+ * skip re-parsing folders that haven't changed since last time.
+ */
+export async function listEgstoreFolders(roots: string[]): Promise<EgstoreFolderRef[]> {
+  const out: EgstoreFolderRef[] = []
+  const seen = new Set<string>()
+  for (const root of roots) {
+    if (!root || !existsSync(root)) continue
+    const entries = await readdir(root).catch(() => [] as string[])
+    for (const name of entries) {
+      const path = join(root, name)
+      if (seen.has(path.toLowerCase())) continue
+      seen.add(path.toLowerCase())
+      const egs = join(path, '.egstore')
+      const files = (await readdir(egs).catch(() => [] as string[])).filter((n) => n.endsWith('.manifest'))
+      if (!files.length) continue
+      const parts = await Promise.all(
+        files.sort().map(async (n) => {
+          const st = await stat(join(egs, n)).catch(() => null)
+          return st ? `${n}:${st.size}:${Math.round(st.mtimeMs)}` : n
+        })
+      )
+      out.push({ path, sig: parts.join('|'), pending: existsSync(join(egs, 'Pending')) })
+    }
+  }
+  return out
+}
+
 export function defaultEpicRoots(): string[] {
   if (process.platform === 'win32') {
     const pf = process.env.ProgramFiles || 'C:\\Program Files'

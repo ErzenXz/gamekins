@@ -4002,14 +4002,21 @@ button.gp-tag:hover {
   color: #ff9a86;
 }
 
-/* ───────── Sign in ───────── */
+/* ───────── Sign in ─────────
+   Always fits the window (no scrolling): the card is laid out from the view's own size via
+   container queries, dropping secondary content as space gets tight. The background is
+   static and cheap (no blur filters, no endless animations), so it costs ~0 GPU at idle. */
 .signin {
   position: relative;
+  height: 100%;
+  min-height: 0;
   display: grid;
   place-items: center;
-  overflow: hidden auto;
-  padding: 30px 0;
+  overflow: hidden;
+  padding: clamp(12px, 3cqh, 32px) clamp(14px, 3cqw, 40px);
   background: #0b0f15;
+  container-type: size;
+  container-name: signin;
 }
 .signin-bg {
   position: absolute;
@@ -4019,15 +4026,13 @@ button.gp-tag:hover {
 }
 .signin-mosaic {
   position: absolute;
-  inset: -30%;
+  inset: -20%;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 14px;
   align-content: center;
   transform: rotate(-9deg);
-  opacity: 0.2;
-  filter: saturate(1.2) blur(1px);
-  animation: lib-drift 40s ease-in-out infinite alternate;
+  opacity: 0.16;
 }
 .signin-mosaic img {
   width: 100%;
@@ -4038,86 +4043,58 @@ button.gp-tag:hover {
 .signin-mosaic img:nth-child(even) {
   transform: translateY(40%);
 }
-@keyframes lib-drift {
-  to {
-    transform: rotate(-9deg) translate(-4%, -6%);
-  }
-}
-.signin-aurora {
-  position: absolute;
-  width: 640px;
-  height: 640px;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.5;
-  mix-blend-mode: screen;
-}
-.signin-aurora.a {
-  top: -220px;
-  left: -120px;
-  background: radial-gradient(circle, #1a9fff, transparent 65%);
-  animation: lib-float-a 18s ease-in-out infinite alternate;
-}
-.signin-aurora.b {
-  right: -200px;
-  bottom: -260px;
-  background: radial-gradient(circle, #5b3cff, transparent 65%);
-  animation: lib-float-b 22s ease-in-out infinite alternate;
-}
-.signin-aurora.c {
-  top: 30%;
-  left: 45%;
-  width: 420px;
-  height: 420px;
-  opacity: 0.25;
-  background: radial-gradient(circle, #05a85a, transparent 65%);
-  animation: lib-float-a 26s ease-in-out infinite alternate-reverse;
-}
-@keyframes lib-float-a {
-  to {
-    transform: translate(180px, 120px) scale(1.15);
-  }
-}
-@keyframes lib-float-b {
-  to {
-    transform: translate(-160px, -140px) scale(1.1);
-  }
-}
-.signin-grain {
+.signin-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 25%, rgba(6, 9, 13, 0.9) 100%);
+  background:
+    radial-gradient(60% 55% at 12% 0%, rgba(26, 159, 255, 0.28), transparent 70%),
+    radial-gradient(55% 50% at 100% 100%, rgba(70, 60, 255, 0.2), transparent 70%),
+    radial-gradient(ellipse at center, transparent 30%, rgba(6, 9, 13, 0.92) 100%);
 }
+
 .signin-card {
   position: relative;
-  width: min(580px, calc(100% - 40px));
-  padding: 44px 48px 32px;
-  text-align: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(20px, 3.5cqw, 48px);
+  width: min(980px, 100%);
+  max-height: 100%;
+  padding: clamp(22px, 4.5cqh, 44px) clamp(22px, 4cqw, 48px);
   border-radius: 14px;
-  background: rgba(22, 28, 37, 0.72);
+  background: rgba(20, 26, 35, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(22px) saturate(1.3);
   box-shadow:
-    0 40px 120px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  animation: lib-fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+    0 30px 90px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: lib-fade-up 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.signin-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.signin-side {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2cqh, 18px);
+  min-width: 0;
 }
 .signin-mark {
   display: inline-grid;
-  filter: drop-shadow(0 0 26px rgba(26, 159, 255, 0.6));
-  animation: lib-bob 6s ease-in-out infinite;
+  filter: drop-shadow(0 0 22px rgba(26, 159, 255, 0.55));
 }
-@keyframes lib-bob {
-  50% {
-    transform: translateY(-6px);
-  }
+.signin-mark img {
+  width: clamp(40px, 8cqh, 64px);
+  height: clamp(40px, 8cqh, 64px);
 }
 .signin-card h1 {
-  margin: 18px 0 12px;
-  font-size: 34px;
+  margin: clamp(10px, 2cqh, 18px) 0 clamp(8px, 1.4cqh, 12px);
+  font-size: clamp(24px, 3.2cqw, 36px);
   font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
   color: #fff;
 }
 .signin-card h1 span {
@@ -4127,10 +4104,10 @@ button.gp-tag:hover {
   color: transparent;
 }
 .signin-lead {
-  max-width: 450px;
-  margin: 0 auto 26px;
-  font-size: 15px;
-  line-height: 1.6;
+  max-width: 440px;
+  margin: 0 0 clamp(14px, 3cqh, 26px);
+  font-size: clamp(13px, 1.5cqw, 15px);
+  line-height: 1.55;
   color: #9aa4ad;
 }
 .signin-btn {
@@ -4138,14 +4115,14 @@ button.gp-tag:hover {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  height: 50px;
-  padding: 0 34px;
+  height: clamp(42px, 7cqh, 50px);
+  padding: 0 30px;
   border-radius: 4px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(to right, #47bfff 0%, #1a44c2 60%);
-  box-shadow: 0 10px 30px rgba(26, 100, 255, 0.35);
+  box-shadow: 0 10px 28px rgba(26, 100, 255, 0.32);
   transition:
     background 0.15s,
     transform 0.15s,
@@ -4154,14 +4131,14 @@ button.gp-tag:hover {
 .signin-btn:not(:disabled):hover {
   background: linear-gradient(to right, #66ccff 0%, #2a58dc 60%);
   transform: translateY(-1px);
-  box-shadow: 0 14px 38px rgba(26, 120, 255, 0.5);
+  box-shadow: 0 14px 36px rgba(26, 120, 255, 0.45);
 }
 .signin-btn:disabled {
   opacity: 0.85;
 }
 .signin-fine {
-  max-width: 400px;
-  margin: 16px auto 26px;
+  max-width: 420px;
+  margin: clamp(10px, 2cqh, 16px) 0 0;
   font-size: 12px;
   line-height: 1.5;
   color: #6d7680;
@@ -4174,12 +4151,11 @@ button.gp-tag:hover {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  text-align: left;
 }
 .signin-feature {
   display: flex;
   gap: 12px;
-  padding: 12px;
+  padding: clamp(9px, 1.6cqh, 13px);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -4199,7 +4175,7 @@ button.gp-tag:hover {
   font-size: 13px;
   color: #fff;
 }
-.signin-feature span {
+.signin-feature div > span {
   font-size: 12px;
   line-height: 1.4;
   color: #8f98a0;
@@ -4208,9 +4184,7 @@ button.gp-tag:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  margin-top: 22px;
   font-size: 11px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -4225,12 +4199,71 @@ button.gp-tag:hover {
   color: #8f98a0;
   background: rgba(255, 255, 255, 0.05);
 }
-@media (max-width: 640px) {
+
+/* Narrow: one centered column, features drop to a single column then disappear. */
+@container signin (max-width: 820px) {
+  .signin-card {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(600px, 100%);
+    text-align: center;
+  }
+  .signin-main {
+    align-items: center;
+  }
+  .signin-lead,
+  .signin-fine {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .signin-soon {
+    justify-content: center;
+  }
+}
+/* Single column needs more height: shed the feature tiles first. */
+@container signin (max-width: 820px) and (max-height: 780px) {
+  .signin-features {
+    display: none;
+  }
+}
+@container signin (max-width: 520px) {
   .signin-features {
     grid-template-columns: 1fr;
   }
+}
+/* Short windows (any width): progressively drop secondary content. */
+@container signin (max-height: 520px) {
+  .signin-feature div > span {
+    display: none;
+  }
+  .signin-feature {
+    align-items: center;
+  }
+  .signin-feature-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+@container signin (max-height: 440px) {
+  .signin-side {
+    display: none;
+  }
   .signin-card {
-    padding: 32px 22px 24px;
+    grid-template-columns: minmax(0, 1fr);
+    width: min(600px, 100%);
+    text-align: center;
+  }
+  .signin-main {
+    align-items: center;
+  }
+  .signin-lead {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+@container signin (max-height: 360px) {
+  .signin-lead,
+  .signin-fine {
+    display: none;
   }
 }
 
@@ -4240,9 +4273,6 @@ button.gp-tag:hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .signin-mosaic,
-  .signin-aurora,
-  .signin-mark,
   .gp-job.downloading .gp-job-bar > div {
     animation: none;
   }

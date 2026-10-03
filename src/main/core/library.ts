@@ -20,9 +20,21 @@ interface Running {
   dir: string
   /** How long a game may show no processes before we call it closed (launchers are slow to hand off). */
   grace: number
+  /** Game processes found by the last full scan; re-checked for free with signal 0. */
+  pids: number[]
 }
 
-const WATCH_EVERY_MS = 4000
+const WATCH_EVERY_MS = 5000
+
+/** Is this process still alive? Signal 0 checks existence without touching it (costs nothing). */
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 
 /**
  * The merged view of everything: owned games from every provider, what's on disk,
@@ -132,6 +144,7 @@ class Library extends EventEmitter {
 
   /** Pull owned games from every signed-in provider and reconcile installs on disk. */
   async refresh(): Promise<Game[]> {
+    const t0 = Date.now()
     const errors: Error[] = []
     this.progress({ loading: true, done: 0, total: 0 })
     try {
@@ -172,6 +185,7 @@ class Library extends EventEmitter {
       this.progress({ loading: false, done: 0, total: 0, error: errors[0]?.message })
     }
     this.changed()
+    console.info(`[library] refreshed in ${Date.now() - t0} ms${errors.length ? ` (${errors.length} error)` : ''}`)
     if (errors.length) throw errors[0]
     return this.list()
   }
@@ -285,7 +299,8 @@ class Library extends EventEmitter {
       started: now,
       lastSeen: now,
       dir: install.path,
-      grace: child ? 20_000 : 90_000
+      grace: child ? 20_000 : 90_000,
+      pids: []
     }
     this.running.set(key, entry)
     this.playtime.update((d) => {
@@ -320,10 +335,18 @@ class Library extends EventEmitter {
         this.watcher = null
         return
       }
-      const procs = await listProcesses().catch(() => [])
       const now = Date.now()
+      // Cheap path first: the child we spawned, or game processes we already know about.
+      // A full process scan (spawns PowerShell/ps) only happens when those are all gone,
+      // so a running game costs ~nothing to watch.
+      const unknown = [...this.running.values()].filter((r) => {
+        r.pids = r.pids.filter(pidAlive)
+        return !r.childAlive && r.pids.length === 0
+      })
+      const procs = unknown.length ? await listProcesses().catch(() => []) : []
       for (const [key, r] of [...this.running]) {
-        const alive = r.childAlive || under(procs, r.dir).length > 0
+        if (unknown.includes(r)) r.pids = under(procs, r.dir).map((p) => p.pid)
+        const alive = r.childAlive || r.pids.length > 0
         if (alive) r.lastSeen = now
         else if (now - r.started > r.grace && now - r.lastSeen > WATCH_EVERY_MS * 2) this.finish(key)
       }
