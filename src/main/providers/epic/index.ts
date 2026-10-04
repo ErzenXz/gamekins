@@ -1,12 +1,16 @@
-import { app, BrowserWindow, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, safeStorage, shell, session as electronSession } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, renameSync, realpathSync } from 'node:fs'
+import { randomUUID, createHash } from 'node:crypto'
+import { FsBoundary, manifestTarget, pathKey } from './fsBoundary'
+import { splitArgs } from '../../core/args'
 import { access, readFile, rm, rmdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, parse, resolve, sep } from 'node:path'
 import type { Account, FreeGame, InstalledInfo, Platform } from '@shared/types'
 import { settings } from '../../core/settings'
 import { dataDir } from '../../core/store'
+import { object, text, string } from '../../core/validation'
 import type { GameProvider, InstallRequest, InstallTask, LaunchOptions, ProviderGame } from '../types'
 import {
   type CatalogItem,
@@ -25,6 +29,7 @@ import {
   defaultEpicRoots,
   readEgstoreManifest,
   removeEglRecord,
+  relocateEglRecords,
   scanEglInstalls,
   listEgstoreFolders,
   readEgstoreManifests
@@ -35,6 +40,10 @@ import { parseManifest } from './manifest'
 export const EPIC_PARTITION = 'persist:epic'
 
 type CatalogCache = Record<string, CatalogItem>
+const validSession = (value: unknown): boolean => object(value) && string(value.access_token) && !!value.access_token &&
+  string(value.refresh_token) && !!value.refresh_token && text(value.account_id) && string(value.displayName) &&
+  typeof value.expires_at === 'string' && Number.isFinite(Date.parse(value.expires_at)) &&
+  typeof value.refresh_expires_at === 'string' && Number.isFinite(Date.parse(value.refresh_expires_at))
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length)
@@ -46,15 +55,6 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return out
-}
-
-/** Split a launch command the way a shell would (quotes group words). */
-function splitArgs(cmd: string): string[] {
-  const out: string[] = []
-  const re = /"([^"]*)"|'([^']*)'|(\S+)/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(cmd))) out.push(m[1] ?? m[2] ?? m[3])
   return out
 }
 
@@ -71,6 +71,16 @@ export class EpicProvider implements GameProvider {
   readonly name = 'Epic Games'
   readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : 'Windows'
 
+  private generation = 0
+  private sessionWrites: Promise<void> = Promise.resolve()
+  private loginPromise: Promise<Account> | null = null
+  private loginWindow: BrowserWindow | null = null
+  partialRefreshError?: string
+  accountGeneration(): number { return this.generation }
+  seedLibrary(games: ProviderGame[]): void { this.lastGames = games }
+  private assertGeneration(generation: number): void {
+    if (generation !== this.generation) throw new Error('Account changed during operation')
+  }
   private session: EpicSession | null = null
   private refreshing: Promise<EpicSession> | null = null
   private catalog: CatalogCache = {}
@@ -88,6 +98,7 @@ export class EpicProvider implements GameProvider {
       const raw = await readFile(join(this.dir, 'session.bin'))
       const json = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString('utf8')
       this.session = JSON.parse(json)
+      if (!validSession(this.session)) throw new Error('Invalid saved Epic session')
     } catch {
       this.session = null
     }
@@ -98,12 +109,25 @@ export class EpicProvider implements GameProvider {
     }
   }
 
-  private async saveSession(s: EpicSession | null): Promise<void> {
+  private saveSession(s: EpicSession | null, generation = this.generation): Promise<void> {
+    this.assertGeneration(generation)
+    if (s && !validSession(s)) throw new Error('Invalid Epic session response')
     this.session = s
     const file = join(this.dir, 'session.bin')
-    if (!s) return rm(file, { force: true })
-    const json = JSON.stringify(s)
-    await writeFile(file, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(json) : json)
+    const work = this.sessionWrites.catch(() => undefined).then(async () => {
+      this.assertGeneration(generation)
+      if (!s) { await rm(file, { force: true }); return }
+      const json = JSON.stringify(s)
+      const tmp = file + '.' + randomUUID() + '.tmp'
+      try {
+        await writeFile(tmp, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(json) : json, { flag: 'wx', mode: 0o600 })
+        this.assertGeneration(generation)
+        // The generation check and promotion are synchronous: logout cannot interleave.
+        renameSync(tmp, file)
+      } finally { await rm(tmp, { force: true }).catch(() => undefined) }
+    })
+    this.sessionWrites = work
+    return work
   }
 
   account(): Account | null {
@@ -112,36 +136,53 @@ export class EpicProvider implements GameProvider {
   }
 
   private async accessToken(): Promise<string> {
+    const generation = this.generation
     const s = this.session
     if (!s) throw new Error('Not signed in to Epic Games')
     if (new Date(s.expires_at).getTime() - Date.now() > 10 * 60_000) return s.access_token
     if (new Date(s.refresh_expires_at).getTime() < Date.now()) return this.expire()
     this.refreshing ??= refreshSession(s.refresh_token)
       .then(async (next) => {
-        await this.saveSession(next)
+        this.assertGeneration(generation)
+        await this.saveSession(next, generation)
         return next
       })
       .catch(async (err) => {
         // Refresh token rejected (revoked, password changed...): the session is dead.
+        if (generation !== this.generation) throw err
         if ((err as { status?: number }).status === 400 || (err as { status?: number }).status === 401) {
           await this.expire()
         }
         throw err
       })
-      .finally(() => (this.refreshing = null))
-    return (await this.refreshing).access_token
+      .finally(() => { if (generation === this.generation) this.refreshing = null })
+    const next = await this.refreshing
+    this.assertGeneration(generation)
+    return next.access_token
   }
 
   /** Called when the session dies so the UI can ask the user to sign in again. */
   onSessionExpired: (() => void) | null = null
 
   private async expire(): Promise<never> {
+    ++this.generation
+    this.refreshing = null
     await this.saveSession(null)
     this.onSessionExpired?.()
     throw new Error('Your Epic Games session expired. Please sign in again.')
   }
 
   login(parent: BrowserWindow): Promise<Account> {
+    if (this.loginPromise) return this.loginPromise
+    const work = this.loginImpl(parent)
+    this.loginPromise = work
+    void work.finally(() => { if (this.loginPromise === work) this.loginPromise = null }).catch(() => undefined)
+    return work
+  }
+
+  private loginImpl(parent: BrowserWindow): Promise<Account> {
+    const generation = ++this.generation
+    this.refreshing = null
     const win = new BrowserWindow({
       parent,
       modal: true,
@@ -152,6 +193,7 @@ export class EpicProvider implements GameProvider {
       backgroundColor: '#18181c',
       webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true, spellcheck: false }
     })
+    this.loginWindow = win
     // Epic's login rejects obviously-embedded browsers; look like plain Chrome.
     win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|lodestar)\/\S+/gi, ''))
     // Social sign-ins (Google, Apple, Facebook, consoles…) may use popups that report back
@@ -176,48 +218,71 @@ export class EpicProvider implements GameProvider {
 
     return new Promise((resolvePromise, reject) => {
       let settled = false
+      let exchanging = false
       const finish = (err: Error | null, account?: Account): void => {
         if (settled) return
         settled = true
+        if (this.loginWindow === win) this.loginWindow = null
         if (!win.isDestroyed()) win.close()
         if (err) reject(err)
         else resolvePromise(account!)
       }
 
       win.webContents.on('did-finish-load', async () => {
-        if (!win.webContents.getURL().startsWith(LOGIN_REDIRECT_URL.split('?')[0])) return
+        if (settled || exchanging || !win.webContents.getURL().startsWith(LOGIN_REDIRECT_URL.split('?')[0])) return
+        exchanging = true
         try {
           const text: string = await win.webContents.executeJavaScript('document.body.innerText')
           const { authorizationCode } = JSON.parse(text)
           if (!authorizationCode) {
             // Logged-in cookie without a fresh code: go back through the login page once.
+            exchanging = false
             await win.loadURL(LOGIN_URL)
             return
           }
           const session = await exchangeAuthCode(authorizationCode)
-          await this.saveSession(session)
+          if (settled) throw new Error('Sign-in was cancelled')
+          this.assertGeneration(generation)
+          await this.saveSession(session, generation)
+          this.assertGeneration(generation)
+          if (settled) throw new Error('Sign-in was cancelled')
           finish(null, this.account()!)
         } catch (err) {
           finish(err as Error)
         }
       })
-      win.on('closed', () => finish(new Error('Sign-in was cancelled')))
+      win.on('closed', () => {
+        if (!settled && generation === this.generation) { ++this.generation; this.refreshing = null }
+        finish(new Error('Sign-in was cancelled'))
+      })
       void win.loadURL(LOGIN_URL)
     })
   }
 
   async logout(): Promise<void> {
     const token = this.session?.access_token
-    await this.saveSession(null)
+    ++this.generation
+    this.loginPromise = null
+    if (this.loginWindow && !this.loginWindow.isDestroyed()) this.loginWindow.close()
+    this.loginWindow = null
+    this.refreshing = null
+    this.lastGames = []
+    this.partialRefreshError = undefined
+    this.session = null
+    const partition = electronSession.fromPartition(EPIC_PARTITION)
+    await Promise.all([this.saveSession(null), partition.clearStorageData(), partition.clearCache()])
     if (token) await killSession(token).catch(() => undefined)
   }
 
   async fetchLibrary(onProgress?: (done: number, total: number) => void): Promise<ProviderGame[]> {
     if (!this.session) return []
+    const generation = this.generation
+    this.partialRefreshError = undefined
     const [records, assets] = await Promise.all([
       this.api.libraryItems(),
       this.api.assets(this.platform).catch(() => [])
     ])
+    this.assertGeneration(generation)
     const latest = new Map(assets.map((a) => [a.appName, a.buildVersion]))
 
     const owned = new Map<string, (typeof records)[number]>()
@@ -229,11 +294,16 @@ export class EpicProvider implements GameProvider {
     const missing = [...owned.values()].filter((r) => !this.catalog[r.catalogItemId])
     let done = 0
     onProgress?.(0, missing.length)
-    await mapLimit(missing, 12, async (r) => {
+    let failed = 0
+    const fetched = await mapLimit(missing, 12, async (r) => {
+      this.assertGeneration(generation)
       const item = await this.api.catalogItem(r.namespace, r.catalogItemId).catch(() => undefined)
-      if (item) this.catalog[r.catalogItemId] = item
+      if (!item) failed++
       onProgress?.(++done, missing.length)
+      return { id: r.catalogItemId, item }
     })
+    this.assertGeneration(generation)
+    for (const { id, item } of fetched) if (item) this.catalog[id] = item
     if (missing.length) await writeFile(join(this.dir, 'catalog.json'), JSON.stringify(this.catalog))
 
     // catalogItemId -> appName, to attach DLC to the game they belong to.
@@ -242,7 +312,16 @@ export class EpicProvider implements GameProvider {
     const games: ProviderGame[] = []
     for (const r of owned.values()) {
       const item = this.catalog[r.catalogItemId]
-      if (!item) continue
+      if (!item) {
+        const cached = this.lastGames.find((g) => g.appName === r.appName)
+        games.push(cached ? { ...cached, latestVersion: latest.get(r.appName) ?? cached.latestVersion } : {
+          key: 'epic:' + r.appName, provider: 'epic', appName: r.appName, title: r.appName,
+          namespace: r.namespace, catalogItemId: r.catalogItemId, images: {},
+          platforms: latest.has(r.appName) ? [this.platform] : [], latestVersion: latest.get(r.appName),
+          canRunOffline: false, requiresOwnershipToken: false
+        })
+        continue
+      }
       const main = item.mainGameItem as { id?: string } | undefined
       let dlcOf: string | undefined
       if (main) {
@@ -284,7 +363,9 @@ export class EpicProvider implements GameProvider {
         dlcOf
       })
     }
+    this.assertGeneration(generation)
     this.lastGames = games
+    if (failed) this.partialRefreshError = `Partial refresh: metadata unavailable for ${failed} owned games`
     return games
   }
 
@@ -339,7 +420,7 @@ export class EpicProvider implements GameProvider {
       const id = resolve(ref.path).toLowerCase()
       if (claimed.has(id)) continue
       let entry = cache[id]
-      if (!entry || entry.sig !== ref.sig) entry = await this.adoptFolder(ref.path, ref.sig, unclaimed)
+      if (!entry || entry.sig !== ref.sig || (!entry.apps.length && Date.now() - (entry.at ?? 0) >= 24 * 60 * 60_000) || entry.apps.some(([, i]) => i.executable && !existsSync(join(i.path, i.executable)))) entry = await this.adoptFolder(ref.path, ref.sig, unclaimed)
       next[id] = entry
       for (const [appName, info] of entry.apps) {
         if (found.has(appName)) continue
@@ -353,6 +434,13 @@ export class EpicProvider implements GameProvider {
     }
     await this.saveAdoptCache(next)
     return found
+  }
+
+  async relocateInstall(from: string, to: string): Promise<void> {
+    await relocateEglRecords(from, to)
+    const cache = await this.loadAdoptCache()
+    for (const entry of Object.values(cache)) for (const [, info] of entry.apps) if (pathKey(info.path) === pathKey(from)) info.path = to
+    await this.saveAdoptCache(cache)
   }
 
   private async adoptFolder(path: string, sig: string, unclaimed: ProviderGame[]): Promise<AdoptEntry> {
@@ -383,7 +471,7 @@ export class EpicProvider implements GameProvider {
         }
       }
     }
-    return { sig, apps }
+    return { sig, apps, at: Date.now() }
   }
 
   private adoptCacheFile(): string {
@@ -413,7 +501,29 @@ export class EpicProvider implements GameProvider {
   }
 
   private manifestFile(appName: string): string {
-    return join(dataDir('manifests', 'epic'), `${appName}.manifest`)
+    return join(dataDir('manifests', 'epic'), `${createHash('sha256').update(appName).digest('hex')}.manifest`)
+  }
+
+  private async ownManifest(appName: string): Promise<Buffer | null> {
+    const file = this.manifestFile(appName)
+    await (await FsBoundary.create(dirname(file))).check(file)
+    if (existsSync(file)) return readFile(file)
+    // Migrate old safe leaf names without ever resolving an app identifier as a path.
+    if (!/^[a-zA-Z0-9_.+-]{1,200}$/.test(appName)) return null
+    const root = dataDir('manifests', 'epic')
+    const legacy = join(root, `${appName}.manifest`)
+    if (!existsSync(legacy)) return null
+    const boundary = await FsBoundary.create(root)
+    await boundary.check(legacy)
+    const data = await readFile(legacy)
+    if (parseManifest(data).appName !== appName) return null
+    const tmp = `${file}.${randomUUID()}.tmp`
+    try {
+      await writeFile(tmp, data, { flag: 'wx' })
+      renameSync(tmp, file)
+      await rm(legacy, { force: true })
+    } finally { await rm(tmp, { force: true }).catch(() => undefined) }
+    return data
   }
 
   createInstallTask(game: ProviderGame, req: InstallRequest): InstallTask {
@@ -424,11 +534,12 @@ export class EpicProvider implements GameProvider {
         maxWorkers: () => settings().maxWorkers,
         installPrerequisites: () => settings().installPrerequisites,
         loadInstalledManifest: async (install) => {
-          const own = this.manifestFile(game.appName)
-          if (install.source === 'lodestar' && existsSync(own)) return readFile(own)
+          const own = await this.ownManifest(game.appName)
+          if (install.source === 'lodestar' && own) return own
           const egs = await readEgstoreManifest(install.path, { manifestId: install.manifestId, appName: game.appName })
-          return egs ?? (existsSync(own) ? readFile(own) : null)
+          return egs ?? own
         },
+        installedManifestPath: (appName) => this.manifestFile(appName),
         saveInstalledManifest: (appName, data) => writeFile(this.manifestFile(appName), data)
       },
       game,
@@ -480,7 +591,8 @@ export class EpicProvider implements GameProvider {
       args.push(`-epicapp=${game.appName}`, '-epicenv=Prod')
       if (game.requiresOwnershipToken && code) {
         const token = await this.api.ownershipToken(s.account_id, game.namespace, game.catalogItemId)
-        const ovt = join(dataDir('epic', 'ovt'), `${game.appName}.ovt`)
+        const ovt = join(dataDir('epic', 'ovt'), `${createHash('sha256').update(game.appName).digest('hex')}.ovt`)
+        await (await FsBoundary.create(dirname(ovt))).check(ovt)
         await writeFile(ovt, token)
         args.push(`-epicovt=${ovt}`)
       }
@@ -502,25 +614,46 @@ export class EpicProvider implements GameProvider {
     return spawn(exe, args, { cwd: dirname(exe), detached: true, stdio: 'ignore' })
   }
 
-  private async removeManifestFiles(game: ProviderGame, install: InstalledInfo): Promise<void> {
-    const own = this.manifestFile(game.appName)
-    const data = existsSync(own)
-      ? await readFile(own)
-      : await readEgstoreManifest(install.path, { manifestId: install.manifestId, appName: game.appName })
-    if (data) {
-      const m = parseManifest(data)
-      const root = resolve(install.path)
-      const dirs = new Set<string>()
-      for (const f of m.files) {
-        const p = resolve(root, f.filename)
-        if (!p.startsWith(root + sep)) continue
-        await rm(p, { force: true }).catch(() => undefined)
-        for (let d = dirname(p); d.startsWith(root + sep); d = dirname(d)) dirs.add(d)
+  private async exactInstalledManifest(appName: string, install: InstalledInfo): Promise<Buffer | null> {
+    if (install.source === 'lodestar') {
+      const data = await this.ownManifest(appName)
+      if (data) {
+        const m = parseManifest(data)
+        if (m.appName === appName && m.buildVersion === install.version) return data
       }
-      // Tidy up folders the game's files leave empty (deepest first); rmdir refuses non-empty ones.
-      for (const d of [...dirs].sort((a, b) => b.length - a.length)) await rmdir(d).catch(() => undefined)
-      if (install.manifestId) await rm(join(root, '.egstore', `${install.manifestId}.manifest`), { force: true })
-      await rmdir(root).catch(() => undefined)
+    }
+    return readEgstoreManifest(install.path, { manifestId: install.manifestId, appName, exact: true })
+  }
+
+  private async removeManifestFiles(game: ProviderGame, install: InstalledInfo, shared: { appName: string; install: InstalledInfo }[]): Promise<void> {
+    const own = this.manifestFile(game.appName)
+    const data = await this.exactInstalledManifest(game.appName, install)
+    if (!data) throw new Error('No exact manifest match; refusing to delete shared installation files')
+    const m = parseManifest(data)
+    const boundary = await FsBoundary.create(install.path)
+    const root = boundary.root
+    const protectedFiles = new Set<string>()
+    for (const record of shared) {
+      const other = await this.exactInstalledManifest(record.appName, record.install)
+      if (!other) throw new Error('Cannot establish shared file ownership; refusing deletion')
+      for (const file of parseManifest(other).files) protectedFiles.add(pathKey(manifestTarget(root, file.filename)))
+    }
+    const files = m.files.map((f) => manifestTarget(root, f.filename)).filter((file) => !protectedFiles.has(pathKey(file)))
+    for (const file of files) await boundary.check(file, true)
+    const dirs = new Set<string>()
+    for (const file of files) {
+      await boundary.check(file, true)
+      await rm(file, { force: true })
+      for (let d = dirname(file); pathKey(d) !== pathKey(root); d = dirname(d)) dirs.add(d)
+    }
+    for (const dir of [...dirs].sort((a, b) => b.length - a.length)) {
+      await boundary.check(dir)
+      await rmdir(dir).catch(() => undefined)
+    }
+    if (install.manifestId) {
+      const file = manifestTarget(root, '.egstore/' + install.manifestId + '.manifest')
+      await boundary.check(file)
+      await rm(file, { force: true })
     }
     await rm(own, { force: true })
   }
@@ -529,17 +662,19 @@ export class EpicProvider implements GameProvider {
     return discardPartial(installPath)
   }
 
-  async uninstall(game: ProviderGame, install: InstalledInfo): Promise<void> {
+  async uninstall(game: ProviderGame, install: InstalledInfo, shared: { appName: string; install: InstalledInfo }[] = []): Promise<void> {
     if (game.dlcOf || install.ownsFolder === false) {
       // DLC shares its game's folder, and "located" installs live in a folder the user chose:
       // remove only the files the game's manifest put there.
-      await this.removeManifestFiles(game, install)
+      await this.removeManifestFiles(game, install, shared)
       await removeEglRecord(game.appName)
       return
     }
-    const target = resolve(install.path)
-    const forbidden = [homedir(), resolve(settings().installDir), parse(target).root].map((p) => resolve(p))
-    if (forbidden.includes(target)) throw new Error(`Refusing to delete ${target}`)
+    const boundary = await FsBoundary.create(install.path)
+    await boundary.check(install.path)
+    const target = realpathSync(install.path)
+    const forbidden = [homedir(), resolve(settings().installDir), parse(target).root].map((p) => pathKey(existsSync(p) ? realpathSync(p) : resolve(p)))
+    if (forbidden.includes(pathKey(target))) throw new Error(`Refusing to delete ${target}`)
     await rm(target, { recursive: true, force: true })
     await rm(this.manifestFile(game.appName), { force: true })
     await removeEglRecord(game.appName) // in case the Epic launcher also had a record of it
@@ -609,6 +744,7 @@ async function installedSize(m: { files: { filename: string; size: number }[] },
 }
 
 interface AdoptEntry {
+  at?: number
   /** Signature of the folder's manifests when this was computed. */
   sig: string
   apps: [string, InstalledInfo][]

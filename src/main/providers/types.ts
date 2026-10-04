@@ -49,6 +49,8 @@ export interface InstallRequest {
   throttleWithSignal?: (bytes: number, signal: AbortSignal) => Promise<void>
   jobId?: string
   createdFolder?: boolean
+  /** Preserve committed content even if a later prerequisite phase is cancelled. */
+  onCommitted?: (info: InstalledInfo) => void
 }
 
 export interface LaunchOptions {
@@ -64,6 +66,9 @@ export interface GameProvider {
   readonly alwaysOn?: boolean
 
   init(): Promise<void>
+  seedLibrary?(games: ProviderGame[]): void
+  accountGeneration?(): number
+  partialRefreshError?: string
   account(): Account | null
   login(parent: BrowserWindow): Promise<Account>
   logout(): Promise<void>
@@ -71,6 +76,7 @@ export interface GameProvider {
   /** Owned games (and DLC, with `dlcOf` set) with metadata and their latest live version. */
   fetchLibrary(onProgress?: (done: number, total: number) => void): Promise<ProviderGame[]>
   /** Installs made by the provider's own launcher that we should adopt. */
+  relocateInstall?(from: string, to: string): Promise<void>
   scanExternalInstalls(): Promise<Map<string, InstalledInfo>>
   /** Default folder name for a fresh install. */
   folderName(game: ProviderGame): string
@@ -86,5 +92,5 @@ export interface GameProvider {
   /** Remove leftovers of a cancelled update/repair (temp files, resume logs). */
   discardPartial?(installPath: string): Promise<void>
   /** For DLC (`game.dlcOf`), removes only the DLC's own files. */
-  uninstall(game: ProviderGame, install: InstalledInfo): Promise<void>
+  uninstall(game: ProviderGame, install: InstalledInfo, shared?: { appName: string; install: InstalledInfo }[]): Promise<void>
 }

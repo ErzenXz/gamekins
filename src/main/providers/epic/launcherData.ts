@@ -2,8 +2,9 @@
 // records so games it installed show up in Lodestar without re-downloading.
 
 import { existsSync } from 'node:fs'
-import { readdir, readFile, stat, unlink } from 'node:fs/promises'
+import { readdir, readFile, stat, unlink, writeFile, rename } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import type { InstalledInfo, Platform } from '@shared/types'
 import { type Manifest, parseManifest } from './manifest'
@@ -104,13 +105,13 @@ export async function readEgstoreManifests(installPath: string): Promise<Egstore
  */
 export async function readEgstoreManifest(
   installPath: string,
-  opts: { manifestId?: string; appName?: string } = {}
+  opts: { manifestId?: string; appName?: string; exact?: boolean } = {}
 ): Promise<Buffer | null> {
   const all = await readEgstoreManifests(installPath)
   if (!all.length) return null
   const byId = opts.manifestId && all.find((m) => m.file.toLowerCase() === `${opts.manifestId}.manifest`.toLowerCase())
   const byApp = opts.appName && all.find((m) => m.manifest.appName === opts.appName)
-  return (byId || byApp || all[0]).data
+  return (byId || byApp || (opts.exact ? undefined : all[0]))?.data ?? null
 }
 
 export interface EgstoreFolder {
@@ -198,5 +199,18 @@ export function defaultEpicRoots(): string[] {
 export async function removeEglRecord(appName: string): Promise<void> {
   for (const { file, item } of await readItems()) {
     if (item.AppName === appName) await unlink(file).catch(() => undefined)
+  }
+}
+
+/** Keep adopted launcher's exact records in sync with a confirmed relocation. */
+export async function relocateEglRecords(from: string, to: string): Promise<void> {
+  const key = (p: string): string => process.platform === 'win32' ? p.toLowerCase() : p
+  for (const { file, item } of await readItems()) {
+    if (key(item.InstallLocation) !== key(from)) continue
+    const tmp = file + '.' + randomUUID() + '.tmp'
+    try {
+      await writeFile(tmp, JSON.stringify({ ...item, InstallLocation: to }), { flag: 'wx' })
+      await rename(tmp, file)
+    } finally { await unlink(tmp).catch(() => undefined) }
   }
 }

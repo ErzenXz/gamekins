@@ -1,10 +1,13 @@
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
+import { join } from 'node:path'
+import { operations } from './operations'
+import { pathKey } from '../providers/epic/fsBoundary'
 import { existsSync } from 'node:fs'
-import type { ArtworkKind, DlcInfo, Game, GameImages, GamePrefs, InstalledInfo, LibraryProgress } from '@shared/types'
+import type { ArtworkKind, CollectionEdit, DlcInfo, Game, GameImages, GamePrefs, InstalledInfo, LibraryProgress } from '@shared/types'
 import { providers, provider } from '../providers'
 import type { ProviderGame } from '../providers/types'
-import { killAll, listProcesses, under } from './processes'
+import { listProcesses, trackedProcesses, terminateTracked, type Proc } from './processes'
 import { JsonStore } from './store'
 
 interface PlayRecord {
@@ -14,27 +17,19 @@ interface PlayRecord {
 
 interface Running {
   child: ChildProcess | null
-  childAlive: boolean
   started: number
+  checkpoint: number
   lastSeen: number
   dir: string
-  /** How long a game may show no processes before we call it closed (launchers are slow to hand off). */
+  executable: string
+  local: boolean
+  group: string
   grace: number
-  /** Game processes found by the last full scan; re-checked for free with signal 0. */
-  pids: number[]
+  processes: Proc[]
+  spawnedPid?: number
 }
-
 const WATCH_EVERY_MS = 5000
-
-/** Is this process still alive? Signal 0 checks existence without touching it (costs nothing). */
-function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === 'EPERM'
-  }
-}
+const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
 
 /**
  * The merged view of everything: owned games from every provider, what's on disk,
@@ -46,11 +41,33 @@ class Library extends EventEmitter {
   private readonly installed = new JsonStore<{ games: Record<string, InstalledInfo> }>('installed', { games: {} })
   private readonly playtime = new JsonStore<{ games: Record<string, PlayRecord> }>('playtime', { games: {} })
   private readonly prefs = new JsonStore<{ games: Record<string, GamePrefs> }>('game-prefs', { games: {} })
-  /** User-picked artwork (data: URLs), overriding the store's images. */
+  /** User-picked artwork URLs, overriding the store images. */
   private readonly artwork = new JsonStore<{ games: Record<string, GameImages> }>('artwork', { games: {} })
   private readonly running = new Map<string, Running>()
-  /** Launches in progress (auth/token calls can take a moment); blocks double-clicks. */
-  private readonly launching = new Set<string>()
+  /** Persisted identities reserve games still running after a launcher restart. */
+  private readonly sessions = new JsonStore<{ games: Record<string, Omit<Running, 'child'>> }>('active-sessions', { games: {} })
+  private revision = 0
+  private composedRevision = -1
+  private composed: Game[] = []
+  private allComposed: Game[] = []
+  private scanPromise: Promise<void> | null = null
+  private readonly providerGenerations = new Map<string, number>()
+  private refreshPromise: Promise<Game[]> | null = null
+  private refreshSignature = ''
+
+  constructor() {
+    super()
+    operations.groupFor = (key) => this.cache.data.games[key]?.dlcOf ?? this.sessions.data.games[key]?.group ?? key
+    // Reserve persisted groups before any queue work is permitted.
+    for (const [key, r] of Object.entries(this.sessions.data.games)) {
+      this.running.set(key, { ...r, child: null, started: Date.now(), checkpoint: Date.now(), lastSeen: Date.now(), grace: 0 })
+      operations.setRunning(key, true)
+    }
+  }
+
+  async reconcileSessions(): Promise<void> {
+    try { await this.scan() } finally { this.ensureWatcher() }
+  }
   private watcher: NodeJS.Timeout | null = null
   private emitTimer: NodeJS.Timeout | null = null
 
@@ -64,6 +81,7 @@ class Library extends EventEmitter {
 
   /** Base games (what the UI lists). DLC appears inside its game's `dlc` array. */
   list(): Game[] {
+    if (this.composedRevision === this.revision) return this.composed
     const dlcByParent = new Map<string, ProviderGame[]>()
     const out: ProviderGame[] = []
     for (const g of Object.values(this.cache.data.games)) {
@@ -73,14 +91,18 @@ class Library extends EventEmitter {
         dlcByParent.set(g.dlcOf, arr)
       } else out.push(g)
     }
-    return out
+    this.composed = out
       .map((g) => this.compose(g, dlcByParent.get(g.key) ?? []))
-      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }))
+      .sort((a, b) => collator.compare(a.title, b.title))
+    this.allComposed = Object.values(this.cache.data.games).map((g) => this.compose(g, []))
+    this.composedRevision = this.revision
+    return this.composed
   }
 
   /** Every record including DLC, for update checks. */
   listAll(): Game[] {
-    return Object.values(this.cache.data.games).map((g) => this.compose(g, []))
+    this.list()
+    return this.allComposed
   }
 
   get(key: string): Game | undefined {
@@ -131,6 +153,7 @@ class Library extends EventEmitter {
 
   /** Coalesce bursts of changes into one UI update. */
   private changed(): void {
+    this.revision++
     if (this.emitTimer) return
     this.emitTimer = setTimeout(() => {
       this.emitTimer = null
@@ -143,28 +166,46 @@ class Library extends EventEmitter {
   }
 
   /** Pull owned games from every signed-in provider and reconcile installs on disk. */
-  async refresh(): Promise<Game[]> {
+  refresh(): Promise<Game[]> {
+    const signature = JSON.stringify(providers.map((p) => [p.id, p.accountGeneration?.(), this.providerGenerations.get(p.id)]))
+    if (this.refreshPromise && signature === this.refreshSignature) return this.refreshPromise
+    this.refreshSignature = signature
+    const work = this.refreshImpl().finally(() => { if (this.refreshPromise === work) this.refreshPromise = null })
+    this.refreshPromise = work
+    return work
+  }
+
+  private async refreshImpl(): Promise<Game[]> {
     const t0 = Date.now()
     const errors: Error[] = []
     this.progress({ loading: true, done: 0, total: 0 })
     try {
       for (const p of providers) {
         if (!p.account() && !p.alwaysOn) continue
+        const generation = this.providerGenerations.get(p.id) ?? 0
+        const accountGeneration = p.accountGeneration?.()
+        const current = (): boolean => (this.providerGenerations.get(p.id) ?? 0) === generation && p.accountGeneration?.() === accountGeneration
         try {
+          p.seedLibrary?.(Object.values(this.cache.data.games).filter((g) => g.provider === p.id))
           const games = await p.fetchLibrary((done, total) => this.progress({ loading: true, done, total }))
+          if (!current()) continue
           const nextCache = Object.fromEntries(
             Object.entries(this.cache.data.games).filter(([, g]) => g.provider !== p.id)
           )
           for (const g of games) nextCache[g.key] = g
           this.cache.set({ games: nextCache })
+          if (p.partialRefreshError) errors.push(new Error(p.partialRefreshError))
         } catch (err) {
           errors.push(err as Error)
         }
         try {
+          if (!current()) continue
           const external = await p.scanExternalInstalls()
+          if (!current()) continue
           this.installed.update((d) => {
             for (const [appName, info] of external) {
               const key = `${p.id}:${appName}`
+              if (operations.blocked(key)) continue
               const mine = d.games[key]
               // Adopt launcher installs we don't know about and keep adopted ones in sync. Once Lodestar has
               // installed/updated a game itself (source "lodestar") our record wins over the launcher's.
@@ -177,9 +218,11 @@ class Library extends EventEmitter {
           console.warn('[library] external install scan failed', err)
         }
       }
-      // Forget installs whose folder vanished (deleted by hand, drive unplugged...).
+      // Keep unavailable drive records so reconnecting restores the installation.
       this.installed.update((d) => {
-        for (const [key, info] of Object.entries(d.games)) if (!existsSync(info.path)) delete d.games[key]
+        for (const [key, info] of Object.entries(d.games)) {
+          if (!operations.blocked(key)) info.unavailable = !existsSync(info.path)
+        }
       })
     } finally {
       this.progress({ loading: false, done: 0, total: 0, error: errors[0]?.message })
@@ -192,6 +235,7 @@ class Library extends EventEmitter {
 
   /** Drop a provider's games after sign-out (installs stay on disk and come back on sign-in). */
   forgetProvider(id: string): void {
+    this.providerGenerations.set(id, (this.providerGenerations.get(id) ?? 0) + 1)
     this.cache.set({
       games: Object.fromEntries(Object.entries(this.cache.data.games).filter(([, g]) => g.provider !== id))
     })
@@ -213,8 +257,25 @@ class Library extends EventEmitter {
   /** After a folder move: repoint every install (game + its DLC) that lived in `from`. */
   relocate(from: string, to: string): void {
     this.installed.update((d) => {
-      for (const info of Object.values(d.games)) if (info.path === from) info.path = to
+      for (const info of Object.values(d.games)) if (pathKey(info.path) === pathKey(from)) { info.path = to; info.unavailable = false }
     })
+    if (!this.installed.flush()) throw new Error('Could not persist the new install location; source preserved')
+    this.changed()
+  }
+
+  async migrateArtwork(): Promise<void> {
+    const { cacheArtwork } = await import('./artwork')
+    for (const images of Object.values(this.artwork.data.games)) {
+      for (const kind of ['tall', 'wide', 'logo', 'thumb'] as const) {
+        const value = images[kind]
+        if (!value?.startsWith('data:image/')) continue
+        try {
+          const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(value)
+          if (match) images[kind] = await cacheArtwork(Buffer.from(match[2], 'base64'))
+        } catch (err) { console.warn('[artwork] cached image migration failed; preserving original', err) }
+      }
+    }
+    this.artwork.save()
     this.changed()
   }
 
@@ -277,117 +338,154 @@ class Library extends EventEmitter {
   }
 
   async launch(key: string): Promise<void> {
-    const game = this.cache.data.games[key]
-    const install = this.installed.data.games[key]
-    if (!game || !install) throw new Error('Game is not installed')
-    if (this.running.has(key) || this.launching.has(key)) return
-    this.launching.add(key)
-    const prefs = this.prefsFor(key)
-    let child: ChildProcess | null
+    if (this.running.has(key)) return
+    const release = operations.acquire(key, 'launch')
     try {
-      child = await provider(game.provider).launch(game, install, {
-        extraArgs: prefs.launchArgs,
-        viaOfficialLauncher: prefs.launchViaOfficial
-      })
-    } finally {
-      this.launching.delete(key)
-    }
-    const now = Date.now()
-    const entry: Running = {
-      child,
-      childAlive: !!child,
-      started: now,
-      lastSeen: now,
-      dir: install.path,
-      grace: child ? 20_000 : 90_000,
-      pids: []
-    }
-    this.running.set(key, entry)
-    this.playtime.update((d) => {
-      d.games[key] = { seconds: d.games[key]?.seconds ?? 0, last: now }
-    })
-    if (child) {
-      child.once('exit', () => {
-        entry.childAlive = false
-        entry.lastSeen = Date.now()
-      })
-      child.once('error', (err) => {
-        console.error('[launch]', err)
-        entry.childAlive = false
-        this.finish(key)
-      })
-      child.unref()
-    }
-    this.changed()
-    this.emit('running', key, true)
-    this.ensureWatcher()
+      const game = this.cache.data.games[key]
+      const install = this.installed.data.games[key]
+      if (!game || !install) throw new Error('Game is not installed')
+      if (install.unavailable || !existsSync(install.path) || !existsSync(join(install.path, install.executable))) {
+        throw new Error('Drive not connected or executable missing')
+      }
+      const prefs = this.prefsFor(key)
+      const child = await provider(game.provider).launch(game, install, { extraArgs: prefs.launchArgs, viaOfficialLauncher: prefs.launchViaOfficial })
+      const now = Date.now()
+      const entry: Running = {
+        child, started: now, checkpoint: now, lastSeen: now, dir: install.path,
+        executable: join(install.path, install.executable), local: game.provider === 'local',
+        group: operations.groupFor(key), grace: child ? 20_000 : 90_000, processes: [], spawnedPid: child?.pid
+      }
+      this.running.set(key, entry)
+      operations.setRunning(key, true)
+      this.playtime.update((d) => { d.games[key] = { seconds: d.games[key]?.seconds ?? 0, last: now } })
+      if (child) {
+        child.once('error', (err) => { console.error('[launch]', err) })
+        child.unref()
+      }
+      // Capture the spawned identity while the process is new. Scan failure retains the reservation.
+      try {
+        const procs = await listProcesses()
+        if (child?.pid) entry.processes = procs.filter((p) => p.pid === child.pid)
+        entry.processes = trackedProcesses(procs, entry.processes, entry.dir, entry.executable, entry.local)
+      } catch (err) { console.warn('[launch] identity scan failed', err) }
+      this.persistSessions()
+      this.changed()
+      this.emit('running', key, true)
+      this.ensureWatcher()
+    } finally { release() }
   }
 
-  /**
-   * Games often start through a bootstrapper that exits right away, so "running"
-   * means "any process from the game's folder is alive", checked every few seconds.
-   */
   private ensureWatcher(): void {
-    if (this.watcher) return
-    this.watcher = setInterval(async () => {
-      if (!this.running.size) {
-        clearInterval(this.watcher!)
-        this.watcher = null
-        return
-      }
-      const now = Date.now()
-      // Cheap path first: the child we spawned, or game processes we already know about.
-      // A full process scan (spawns PowerShell/ps) only happens when those are all gone,
-      // so a running game costs ~nothing to watch.
-      const unknown = [...this.running.values()].filter((r) => {
-        r.pids = r.pids.filter(pidAlive)
-        return !r.childAlive && r.pids.length === 0
-      })
-      const procs = unknown.length ? await listProcesses().catch(() => []) : []
-      for (const [key, r] of [...this.running]) {
-        if (unknown.includes(r)) r.pids = under(procs, r.dir).map((p) => p.pid)
-        const alive = r.childAlive || r.pids.length > 0
-        if (alive) r.lastSeen = now
-        else if (now - r.started > r.grace && now - r.lastSeen > WATCH_EVERY_MS * 2) this.finish(key)
-      }
+    if (this.watcher || !this.running.size) return
+    this.watcher = setTimeout(async () => {
+      this.watcher = null
+      try { await this.scan() }
+      catch (err) { console.warn('[processes] scan failed; retaining running protection', err) }
+      for (const [key, r] of this.running) if (Date.now() - r.checkpoint >= 60_000) this.checkpoint(key, Date.now())
+      this.persistSessions()
+      this.ensureWatcher()
     }, WATCH_EVERY_MS)
+  }
+
+  private scan(): Promise<void> {
+    if (this.scanPromise) return this.scanPromise
+    const entries = [...this.running]
+    this.scanPromise = (async () => {
+      if (!entries.length) return
+      const procs = await listProcesses()
+      const now = Date.now()
+      for (const [key, r] of entries) {
+        if (this.running.get(key) !== r) continue
+        r.processes = trackedProcesses(procs, r.processes, r.dir, r.executable, r.local)
+        if (r.processes.length) r.lastSeen = now
+        else if (now - r.started >= r.grace && now - r.lastSeen >= WATCH_EVERY_MS * 2) this.finish(key)
+        if (this.running.get(key) === r && now - r.checkpoint >= 60_000) this.checkpoint(key, now)
+      }
+      this.persistSessions()
+    })().finally(() => { this.scanPromise = null })
+    return this.scanPromise
+  }
+
+  private persistSessions(): void {
+    const games = Object.fromEntries([...this.running].map(([key, { child: _child, ...r }]) => [key, r]))
+    this.sessions.set({ games })
+  }
+
+  private checkpoint(key: string, end: number): void {
+    const r = this.running.get(key)
+    if (!r) return
+    this.playtime.update((d) => {
+      const rec = d.games[key] ?? { seconds: 0 }
+      rec.seconds += Math.max(0, (end - r.checkpoint) / 1000)
+      rec.last = end
+      d.games[key] = rec
+    })
+    r.checkpoint = Math.max(r.checkpoint, end)
+    this.changed()
   }
 
   private finish(key: string): void {
     const r = this.running.get(key)
     if (!r) return
+    this.checkpoint(key, Math.max(r.lastSeen, r.started))
     this.running.delete(key)
-    // Count until the last moment we saw it alive.
-    const end = Math.max(r.lastSeen, r.started)
-    this.playtime.update((d) => {
-      const rec = d.games[key] ?? { seconds: 0 }
-      rec.seconds += Math.round((end - r.started) / 1000)
-      rec.last = end
-      d.games[key] = rec
-    })
+    operations.setRunning(key, false)
+    this.persistSessions()
     this.changed()
     this.emit('running', key, false)
   }
 
   async stop(key: string): Promise<void> {
-    const r = this.running.get(key)
-    if (!r) return
-    r.child?.kill()
-    killAll(under(await listProcesses(), r.dir))
-    r.childAlive = false
-    r.lastSeen = Date.now()
-    this.finish(key)
+    const release = operations.acquire(key, 'stop', true)
+    try {
+      const r = this.running.get(key)
+      if (!r) return
+      // Await a pending watcher before taking the stop snapshot.
+      await this.scanPromise
+      const procs = await listProcesses()
+      r.processes = trackedProcesses(procs, r.processes, r.dir, r.executable, r.local)
+      if (!r.processes.length && Date.now() - r.started < r.grace) throw new Error('Game launch is still handing off; try Stop again shortly')
+      await terminateTracked(r.processes)
+      r.lastSeen = Date.now()
+      this.finish(key)
+    } finally { release() }
+  }
+
+  editCollections(edit: CollectionEdit): Game[] {
+    // Validate all targets before the single mutation, against current main state.
+    for (const key of edit.gameKeys) if (!this.providerGame(key)) throw new Error('Unknown game: ' + key)
+    const same = (a: string, b: string): boolean => a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0
+    const keys = edit.operation === 'rename' || edit.operation === 'delete' ? Object.keys(this.cache.data.games) : edit.gameKeys
+    const changed: string[] = []
+    this.prefs.update((d) => {
+      for (const key of new Set(keys)) {
+        const before = d.games[key]?.collections ?? []
+        const has = before.some((n) => same(n, edit.name))
+        let next = before
+        if (edit.operation === 'add' && !has) next = [...before, edit.name]
+        if (edit.operation === 'remove' || edit.operation === 'delete') next = before.filter((n) => !same(n, edit.name))
+        if (edit.operation === 'rename' && has) next = [...before.filter((n) => !same(n, edit.name) && !same(n, edit.replacement!)), edit.replacement!]
+        if (JSON.stringify(next) !== JSON.stringify(before)) {
+          d.games[key] = { ...d.games[key], collections: next }; changed.push(key)
+        }
+      }
+    })
+    this.changed()
+    return changed.map((key) => this.get(key)!)
   }
 
   /** Recently played installed games, for the tray menu. */
   recent(limit = 5): Game[] {
     return this.list()
-      .filter((g) => g.install && g.lastPlayed)
+      .filter((g) => g.install && !g.install.unavailable && g.lastPlayed)
       .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))
       .slice(0, limit)
   }
 
   flush(): void {
+    for (const key of this.running.keys()) this.checkpoint(key, Date.now())
+    this.persistSessions()
+    this.sessions.flush()
     this.cache.flush()
     this.installed.flush()
     this.playtime.flush()

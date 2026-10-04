@@ -9,6 +9,7 @@ const { dirname, join, resolve } = require('node:path')
 const Module = require('node:module')
 const ts = require('typescript')
 const { deflateSync } = require('node:zlib')
+require('../../core/batch-c.test.cjs')
 
 const sha = (buffer) => createHash('sha1').update(buffer).digest()
 const deferred = () => {
@@ -130,7 +131,7 @@ async function fixture(t, options = {}) {
     return result
   }
   return { root, load, installer, manifestModule, boundary, api, game, games, installs, library, settings, installTask,
-    queue: () => new (load(resolve(__dirname, '../../core/downloads.ts')).Downloads)(),
+    queue: () => { const queue = new (load(resolve(__dirname, '../../core/downloads.ts')).Downloads)(); queue.start(); return queue },
     setTaskFactory: (fn) => { taskFactory = fn } }
 }
 
@@ -318,13 +319,13 @@ test('malformed binary bounds, excessive counts and decompression expansion fail
   const { manifestModule: m } = await fixture(t)
   const empty = Buffer.from(JSON.stringify(manifest([], 0)))
   assert.equal(m.parseManifest(Buffer.concat([Buffer.from('\uFEFF \r\n\t'), empty])).files.length, 0)
-  for (let size = 0; size < 41; size++) assert.throws(() => m.decodeChunk(chunk(1).subarray(0, size)))
+  for (let size = 0; size < 41; size++) await assert.rejects(() => m.decodeChunk(chunk(1).subarray(0, size)))
   const bomb = chunk(1, Buffer.alloc(2 * 1024 * 1024), true)
-  assert.throws(() => m.decodeChunk(bomb), /larger|size|length/i)
+  await assert.rejects(() => m.decodeChunk(bomb), /larger|size|length/i)
   const valid = chunk(1, Buffer.alloc(1024 * 1024, 1), true, 3)
-  assert.equal(m.decodeChunk(valid).length, 1024 * 1024)
+  assert.equal((await m.decodeChunk(valid)).length, 1024 * 1024)
   valid[41] ^= 1
-  assert.throws(() => m.decodeChunk(valid), /hash/)
+  await assert.rejects(() => m.decodeChunk(valid), /hash/)
   const body = Buffer.alloc(4)
   body.writeUInt32LE(0xffffffff)
   const header = Buffer.alloc(37)

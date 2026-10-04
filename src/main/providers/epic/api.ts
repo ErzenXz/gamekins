@@ -124,7 +124,7 @@ async function request(url: string, init: RequestInit & { raw?: boolean }): Prom
   headers.set('User-Agent', USER_AGENT)
   // Token exchanges must not be replayed blindly; everything else is safe to retry.
   const isOauth = url.includes('/oauth/token')
-  const res = await fetchRetry(url, { ...init, headers }, isOauth ? 2 : 4)
+  const res = await fetchRetry(url, { ...init, headers }, isOauth ? 1 : 4)
   if (!res.ok) {
     let detail = ''
     try {

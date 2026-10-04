@@ -20,11 +20,17 @@ export function createTray(actions: TrayActions): void {
   tray.on('click', () => actions.show())
   if (process.platform === 'darwin') tray.on('right-click', () => tray?.popUpContextMenu())
 
+  let signature = ''
+  let tooltip = ''
   const rebuild = (): void => {
     if (!tray) return
     const recent = library.recent(5)
     const active = downloads.jobs.find((j) => ['downloading', 'verifying', 'preparing'].includes(j.state))
-    tray.setToolTip(active ? `Lodestar — ${active.title}` : 'Lodestar')
+    const nextTooltip = active ? `Lodestar — ${active.title}` : 'Lodestar'
+    if (nextTooltip !== tooltip) { tooltip = nextTooltip; tray.setToolTip(tooltip) }
+    const nextSignature = JSON.stringify(recent.map((g) => [g.key, g.title, g.running]))
+    if (nextSignature === signature) return
+    signature = nextSignature
     tray.setContextMenu(
       Menu.buildFromTemplate([
         ...(recent.length

@@ -4,10 +4,12 @@
 import { app, shell } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync }  from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import type { Account, InstalledInfo, LocalProgram, Platform } from '@shared/types'
+import { splitArgs } from '../../core/args'
+import { openPathChecked } from '../../core/external'
 import { JsonStore } from '../../core/store'
 import type { GameProvider, InstallTask, LaunchOptions, ProviderGame } from '../types'
 
@@ -16,6 +18,7 @@ interface LocalEntry {
   title: string
   exe: string
   args: string
+  workingDirectory?: string
   icon?: string
   addedAt: number
 }
@@ -85,6 +88,7 @@ export class LocalProvider implements GameProvider {
         version: '',
         executable: basename(e.exe),
         launchCommand: e.args,
+        workingDirectory: e.workingDirectory,
         platform: this.platform,
         sizeBytes: 0,
         source: 'local',
@@ -101,13 +105,9 @@ export class LocalProvider implements GameProvider {
   async add(paths: string[]): Promise<string[]> {
     const keys: string[] = []
     for (const p of paths) {
-      const existing = store.data.games.find((g) => g.exe.toLowerCase() === p.toLowerCase())
-      if (existing) {
-        keys.push(`local:${existing.id}`)
-        continue
-      }
       let exe = p
       let args = ''
+      let workingDirectory: string | undefined
       let title = prettyName(p)
       // Windows shortcuts: add what they point at.
       if (process.platform === 'win32' && extname(p).toLowerCase() === '.lnk') {
@@ -115,12 +115,19 @@ export class LocalProvider implements GameProvider {
           const link = shell.readShortcutLink(p)
           exe = link.target
           args = link.args ?? ''
+          workingDirectory = link.cwd || undefined
           title = basename(p, '.lnk')
         } catch {
           /* keep the .lnk itself */
         }
       }
-      const entry: LocalEntry = { id: randomUUID().slice(0, 8), title, exe, args, icon: await iconFor(exe), addedAt: Date.now() }
+      const keyOf = (path: string): string => {
+        const canonical = existsSync(path) ? realpathSync(path) : path
+        return process.platform === 'win32' ? canonical.toLowerCase() : canonical
+      }
+      const existing = store.data.games.find((g) => keyOf(g.exe) === keyOf(exe) && g.args === args)
+      if (existing) { keys.push('local:' + existing.id); continue }
+      const entry: LocalEntry = { workingDirectory, id: randomUUID().slice(0, 8), title, exe, args, icon: await iconFor(exe), addedAt: Date.now() }
       store.update((d) => d.games.push(entry))
       keys.push(`local:${entry.id}`)
     }
@@ -138,18 +145,17 @@ export class LocalProvider implements GameProvider {
   async launch(game: ProviderGame, install: InstalledInfo, opts: LaunchOptions): Promise<ChildProcess | null> {
     const exe = join(install.path, install.executable)
     if (!existsSync(exe)) throw new Error(`Can't find ${exe}. It may have been moved or uninstalled.`)
-    const args = [install.launchCommand, opts.extraArgs].filter(Boolean).join(' ').match(/"[^"]*"|\S+/g) ?? []
-    const clean = args.map((a) => a.replace(/^"|"$/g, ''))
+    const clean = splitArgs([install.launchCommand, opts.extraArgs].filter(Boolean).join(' '))
     if (process.platform === 'darwin' && exe.endsWith('.app')) {
       return spawn('open', ['-W', '-a', exe, '--args', ...clean], { detached: true, stdio: 'ignore' })
     }
     const ext = extname(exe).toLowerCase()
     if (process.platform === 'win32' && !['.exe', '.bat', '.cmd'].includes(ext)) {
       // URLs, documents etc.: let Windows decide how to open them.
-      await shell.openPath(exe)
+      await openPathChecked(exe)
       return null
     }
-    return spawn(exe, clean, { cwd: dirname(exe), detached: true, stdio: 'ignore', shell: ext === '.bat' || ext === '.cmd' })
+    return spawn(exe, clean, { cwd: install.workingDirectory || dirname(exe), detached: true, stdio: 'ignore', shell: ext === '.bat' || ext === '.cmd' })
   }
 
   /** "Uninstall" for a non-Epic game only removes it from the library; its files are not ours. */
@@ -186,7 +192,9 @@ export async function listPrograms(): Promise<LocalProgram[]> {
             // Windows' own tools (Character Map, Administrative Tools...) aren't games.
             if (target.toLowerCase().startsWith((process.env.SystemRoot || 'C:\\Windows').toLowerCase() + '\\')) continue
             const name = basename(p, '.lnk')
-            if (!out.has(target.toLowerCase())) out.set(target.toLowerCase(), { name, path: target })
+            const canonical = realpathSync(target).toLowerCase()
+            const id = canonical + '\0' + (link.args ?? '')
+            if (!out.has(id)) out.set(id, { name, path: target, shortcutPath: p, arguments: link.args ?? '', workingDirectory: link.cwd || undefined })
           } catch {
             /* unreadable shortcut */
           }

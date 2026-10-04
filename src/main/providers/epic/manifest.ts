@@ -2,7 +2,9 @@
 // Format notes are based on the community reverse-engineering done for Legendary.
 
 import { createHash } from 'node:crypto'
-import { inflateSync } from 'node:zlib'
+import { inflate, inflateSync } from 'node:zlib'
+import { promisify } from 'node:util'
+const inflateAsync = promisify(inflate)
 
 const MANIFEST_MAGIC = 0x44bec00c
 const CHUNK_MAGIC = 0xb1fe3aa2
@@ -362,7 +364,7 @@ export function chunkPath(manifest: Manifest, chunk: ChunkInfo): string {
 }
 
 /** Decode a downloaded .chunk file into its raw (uncompressed) payload. */
-export function decodeChunk(data: Buffer, expected?: ChunkInfo): Buffer {
+export async function decodeChunk(data: Buffer, expected?: ChunkInfo): Promise<Buffer> {
   if (data.length > MAX_CHUNK_FILE_BYTES) throw new Error('Chunk exceeds supported size')
   const r = new Reader(data)
   if (r.u32() !== CHUNK_MAGIC) throw new Error('Bad chunk magic')
@@ -381,7 +383,7 @@ export function decodeChunk(data: Buffer, expected?: ChunkInfo): Buffer {
       (expected && (guid !== expected.guid || hash !== expected.hash || data.length !== expected.fileSize ||
         uncompressedSize !== expected.windowSize))) throw new Error('Invalid chunk header or identity')
   const payload = data.subarray(headerSize, headerSize + compressedSize)
-  const decoded = storedAs & 0x1 ? inflateSync(payload, { maxOutputLength: uncompressedSize }) : payload
+  const decoded = storedAs & 0x1 ? await inflateAsync(payload, { maxOutputLength: uncompressedSize }) : payload
   if (decoded.length !== uncompressedSize) throw new Error('Chunk size mismatch')
   const digest = createHash('sha1').update(decoded).digest()
   if ((sha && (hashType & 2) && !digest.equals(sha)) ||

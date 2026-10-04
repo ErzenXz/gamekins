@@ -1,5 +1,6 @@
 import type {
   Account,
+  CollectionEdit,
   AppInfo,
   DownloadJob,
   DownloadKind,
@@ -52,6 +53,7 @@ export interface LodestarApi {
     launch(key: string): Promise<void>
     stop(key: string): Promise<void>
     openFolder(key: string): Promise<void>
+    editCollections(edit: CollectionEdit): Promise<Game[]>
     setPrefs(key: string, patch: Partial<GamePrefs>): Promise<void>
     /** Move the install into `baseDir` (keeps its folder name). Resolves when done. */
     moveInstall(key: string, baseDir: string): Promise<void>

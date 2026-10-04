@@ -45,6 +45,7 @@ const api: LodestarApi = {
     stop: invoke('games:stop'),
     openFolder: invoke('games:openFolder'),
     setPrefs: invoke('games:setPrefs'),
+    editCollections: invoke('games:editCollections'),
     moveInstall: invoke('games:moveInstall'),
     addLocal: invoke('games:addLocal'),
     setArtwork: invoke('games:setArtwork'),

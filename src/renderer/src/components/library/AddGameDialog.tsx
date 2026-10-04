@@ -7,7 +7,9 @@ import { Modal } from '../Modal'
 
 type SortCol = 'name' | 'path'
 
-const norm = (p: string): string => p.replace(/[\\/]+$/, '').toLowerCase()
+const norm = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+const pickedPath = (p: LocalProgram): string => p.shortcutPath ?? p.path
+const programId = (p: LocalProgram): string => norm(p.path) + '\0' + (p.arguments ?? '')
 
 /** Steam's "Add a Non-Steam Game" dialog, driven by `store.addGameOpen`. */
 export function AddGameDialog(): React.JSX.Element | null {
@@ -47,7 +49,7 @@ function AddGameBody(): React.JSX.Element {
   // Programs already in the library can't be added twice.
   const owned = useMemo(() => {
     const set = new Set<string>()
-    for (const g of games) if (g.provider === 'local' && g.install?.path) set.add(norm(g.install.path))
+    for (const g of games) if (g.provider === 'local' && g.install?.path) set.add(norm(g.install.path + '/' + g.install.executable) + '\0' + g.install.launchCommand)
     return set
   }, [games])
 
@@ -80,7 +82,7 @@ function AddGameBody(): React.JSX.Element {
       setPrograms((prev) => merge(prev ?? [], picked))
       setChecked((prev) => {
         const next = new Set(prev)
-        for (const f of files) if (!owned.has(norm(f))) next.add(f)
+        for (const f of files) if (!owned.has(norm(f) + '\0')) next.add(f)
         return next
       })
       setFilter('')
@@ -90,7 +92,7 @@ function AddGameBody(): React.JSX.Element {
   }
 
   const add = async (): Promise<void> => {
-    const paths = [...checked].filter((p) => !owned.has(norm(p)))
+    const paths = [...checked].filter((p) => !owned.has(programId(programs?.find((row) => pickedPath(row) === p) ?? { name: '', path: p })))
     if (!paths.length) return
     setBusy(true)
     setError(null)
@@ -109,7 +111,7 @@ function AddGameBody(): React.JSX.Element {
     }
   }
 
-  const count = [...checked].filter((p) => !owned.has(norm(p))).length
+  const count = [...checked].filter((p) => !owned.has(programId(programs?.find((row) => pickedPath(row) === p) ?? { name: '', path: p }))).length
   const head = (col: SortCol, label: string): React.JSX.Element => (
     <button
       className={`agd-th ${col} ${sort.col === col ? 'sorted' : ''}`}
@@ -191,12 +193,12 @@ function AddGameBody(): React.JSX.Element {
               </div>
             ) : (
               rows.map((p) => {
-                const inLib = owned.has(norm(p.path))
-                const on = inLib || checked.has(p.path)
+                const inLib = owned.has(programId(p))
+                const on = inLib || checked.has(pickedPath(p))
                 return (
-                  <label key={p.path} className={`agd-row ${on ? 'on' : ''} ${inLib ? 'owned' : ''}`} title={p.path}>
+                  <label key={pickedPath(p)} className={`agd-row ${on ? 'on' : ''} ${inLib ? 'owned' : ''}`} title={p.path}>
                     <span className="agd-c-check">
-                      <input type="checkbox" checked={on} disabled={inLib} onChange={() => toggle(p.path)} />
+                      <input type="checkbox" checked={on} disabled={inLib} onChange={() => toggle(pickedPath(p))} />
                       <span className="agd-box" aria-hidden>
                         <svg viewBox="0 0 18 18">
                           <path d="M3.5 9.5l3.5 3.5 7.5-8" />
@@ -233,10 +235,10 @@ function AddGameBody(): React.JSX.Element {
 
 /** Add `extra` entries in front of `list`, skipping paths already present. */
 function merge(list: LocalProgram[], extra: LocalProgram[]): LocalProgram[] {
-  const seen = new Set(list.map((p) => norm(p.path)))
-  return [...extra.filter((p) => !seen.has(norm(p.path))), ...list]
+  const seen = new Set(list.map(programId))
+  return [...extra.filter((p) => !seen.has(programId(p))), ...list]
 }
 
 function titleFor(path: string, programs: LocalProgram[] | null): string {
-  return programs?.find((p) => p.path === path)?.name ?? baseName(path)
+  return programs?.find((p) => pickedPath(p) === path)?.name ?? baseName(path)
 }

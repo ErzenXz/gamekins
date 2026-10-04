@@ -331,7 +331,8 @@ export class EpicInstallTask implements InstallTask {
     signal.throwIfAborted()
     // Individual promotions are not crash-transactional; a commit journal is a separate change.
     const manifestPath = this.deps.installedManifestPath?.(this.game.appName) ??
-      join(dataDir('manifests', 'epic'), `${this.game.appName}.manifest`)
+      join(dataDir('manifests', 'epic'), `${createHash('sha256').update(this.game.appName).digest('hex')}.manifest`)
+    await (await FsBoundary.create(dirname(manifestPath))).check(manifestPath)
     await writeAtomic(manifestPath, this.manifestData, signal)
     signal.throwIfAborted()
     await this.boundary.check(this.resumeLog)
@@ -355,15 +356,19 @@ export class EpicInstallTask implements InstallTask {
       prereqsInstalled: this.req.existing?.prereqsInstalled
     }
 
+    if (this.deps.platform === 'Windows' && m.prereqPath && info.prereqsInstalled !== true) {
+      info.prereqsInstalled = false
+    }
+    this.req.onCommitted?.({ ...info })
     if (
-      this.req.kind === 'install' &&
+      info.prereqsInstalled !== true &&
       this.deps.platform === 'Windows' &&
       m.prereqPath &&
       this.deps.installPrerequisites()
     ) {
       signal.throwIfAborted()
       await this.boundary.check(this.target(m.prereqPath))
-      info.prereqsInstalled = await runElevated(this.target(m.prereqPath), m.prereqArgs).catch(() => false)
+      info.prereqsInstalled = await runElevated(this.target(m.prereqPath), m.prereqArgs, signal).catch(() => false)
     }
     signal.throwIfAborted()
     return info
@@ -848,7 +853,7 @@ function sha1File(path: string, signal: AbortSignal): Promise<Buffer> {
 }
 
 /** Run a prerequisite installer with a UAC prompt. Resolves true on success. */
-function runElevated(exe: string, args: string): Promise<boolean> {
+export function runElevated(exe: string, args: string, signal: AbortSignal, timeoutMs = 10 * 60_000): Promise<boolean> {
   return new Promise((resolvePromise) => {
     if (!existsSync(exe)) return resolvePromise(false)
     const q = (s: string): string => `'${s.replace(/'/g, "''")}'`
@@ -859,11 +864,23 @@ function runElevated(exe: string, args: string): Promise<boolean> {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        `$p = Start-Process -FilePath ${q(exe)}${argList} -Verb RunAs -Wait -PassThru; exit $p.ExitCode`
+        `$p = Start-Process -FilePath ${q(exe)}${argList} -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode`
       ],
       { windowsHide: true }
     )
-    ps.on('exit', (code) => resolvePromise(code === 0))
-    ps.on('error', () => resolvePromise(false))
+    let settled = false
+    const done = (success: boolean): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal.removeEventListener('abort', abort)
+      resolvePromise(success)
+    }
+    const abort = (): void => { ps.kill(); done(false) }
+    const timer = setTimeout(abort, timeoutMs)
+    signal.addEventListener('abort', abort, { once: true })
+    if (signal.aborted) abort()
+    ps.on('exit', (code) => done(code === 0))
+    ps.on('error', () => done(false))
   })
 }

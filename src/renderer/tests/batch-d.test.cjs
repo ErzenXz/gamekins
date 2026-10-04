@@ -11,6 +11,27 @@ const { addToCollection, renameCollection, removeFromCollection, confirmDeleteCo
 const game = (key, overrides = {}) => ({ key, title: key, images: {}, prefs: {}, dlc: [], platforms: ['Windows'], playtimeSeconds: 0, ...overrides })
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 const tick = () => new Promise((resolve) => setImmediate(resolve))
+// Simulate the main-owned collection transaction rather than the old per-game patch API.
+function collectionApi(initial, before = async () => {}) {
+  let games = structuredClone(initial)
+  return { editCollections: async (edit) => {
+    await before(edit)
+    const changed = []
+    games = games.map((g) => {
+      if (!['rename', 'delete'].includes(edit.operation) && !edit.gameKeys.includes(g.key)) return g
+      const old = g.prefs.collections ?? []
+      let collections = old
+      if (edit.operation === 'add' && !old.includes(edit.name)) collections = [...old, edit.name]
+      if (edit.operation === 'remove' || edit.operation === 'delete') collections = old.filter((n) => n !== edit.name)
+      if (edit.operation === 'rename' && old.includes(edit.name)) collections = [...old.filter((n) => n !== edit.name && n !== edit.replacement), edit.replacement]
+      if (JSON.stringify(old) === JSON.stringify(collections)) return g
+      const next = { ...g, prefs: { ...g.prefs, collections } }
+      changed.push(next)
+      return next
+    })
+    return changed
+  } }
+}
 
 test('indexes share unchanged entities and include nested DLC installation changes', () => {
   const games = [game('The Alpha', { prefs: { collections: ['Story'] } }), game('Beta', { dlc: [{ key: 'dlc', install: { path: 'D:/games', sizeBytes: 100 } }] })]
@@ -89,7 +110,7 @@ test('collection calls serialize against the latest state before coalesced event
   applyLibrary([game('a')])
   const first = deferred()
   const calls = []
-  window.lodestar.games = { setPrefs: async (key, patch) => { calls.push({ key, patch }); if (calls.length === 1) await first.promise } }
+  window.lodestar.games = collectionApi([game('a')], async (edit) => { calls.push(edit); if (calls.length === 1) await first.promise })
   const a = addToCollection(['a'], 'Story')
   const b = addToCollection(['a'], 'Co-op')
   await tick()
@@ -97,7 +118,8 @@ test('collection calls serialize against the latest state before coalesced event
   first.resolve()
   assert.equal(await a, true)
   assert.equal(await b, true)
-  assert.deepEqual(calls[1].patch.collections, ['Story', 'Co-op'])
+  assert.deepEqual(calls[1], { operation: 'add', gameKeys: ['a'], name: 'Co-op' })
+  assert.deepEqual(useStore.getState().games[0].prefs.collections, ['Story', 'Co-op'])
   applyLibrary([game('a')]) // Delayed pre-edit event.
   assert.deepEqual(useStore.getState().games[0].prefs.collections, ['Story', 'Co-op'])
   assert.equal(await removeFromCollection(['a'], 'Story'), true)
@@ -108,17 +130,17 @@ test('collection calls serialize against the latest state before coalesced event
 test('failed bulk edits stop follow-up navigation/empty-state changes and leave the queue usable', async () => {
   applyLibrary([game('a', { prefs: { collections: ['Old'] } }), game('b', { prefs: { collections: ['Old'] } })])
   useStore.setState({ emptyCollections: ['Old'], libraryPage: 'collection:Old' })
-  window.lodestar.games.setPrefs = async (key) => { if (key === 'b') throw new Error('write failed') }
+  window.lodestar.games = collectionApi(useStore.getState().games, async () => { throw new Error('write failed') })
   assert.equal(await renameCollection('Old', 'New'), false)
   assert.equal(useStore.getState().libraryPage, 'collection:Old')
   assert.deepEqual(useStore.getState().emptyCollections, ['Old'])
-  assert.deepEqual(useStore.getState().games[0].prefs.collections, ['New'])
+  assert.deepEqual(useStore.getState().games[0].prefs.collections, ['Old'])
   assert.deepEqual(useStore.getState().games[1].prefs.collections, ['Old'])
   confirmDeleteCollection('Old')
   await useStore.getState().confirm.onConfirm()
   assert.equal(useStore.getState().libraryPage, 'collection:Old')
   assert.deepEqual(useStore.getState().emptyCollections, ['Old'])
-  window.lodestar.games.setPrefs = async () => undefined
+  window.lodestar.games = collectionApi(useStore.getState().games)
   assert.equal(await renameCollection('Old', 'New'), true)
   assert.equal(useStore.getState().libraryPage, 'collection:New')
 })

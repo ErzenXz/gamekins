@@ -1,25 +1,12 @@
 // Odds and ends behind Steam-style features: custom artwork, desktop shortcuts,
 // the storage manager and the lodestar:// link protocol.
 
-import { app, nativeImage } from 'electron'
-import { statfs, writeFile } from 'node:fs/promises'
-import { join, parse, resolve } from 'node:path'
-import type { ArtworkKind, StorageDrive } from '@shared/types'
+import { app } from 'electron'
+import { existsSync } from 'node:fs'
+import { statfs, stat, realpath, writeFile } from 'node:fs/promises'
+import { join, parse, resolve, dirname } from 'node:path'
+import type { StorageDrive } from '@shared/types'
 import { library } from './library'
-
-const ART_WIDTH: Record<ArtworkKind, number> = { tall: 600, wide: 1920, logo: 800 }
-
-/** Load a picked image and shrink it to a sensible size, as a data: URL. */
-export function artworkFromFile(file: string, kind: ArtworkKind): string {
-  let img = nativeImage.createFromPath(file)
-  if (img.isEmpty()) throw new Error("That file isn't an image Lodestar can read (use PNG or JPG).")
-  const { width } = img.getSize()
-  if (width > ART_WIDTH[kind]) img = img.resize({ width: ART_WIDTH[kind], quality: 'best' })
-  // Logos need transparency; covers and heroes are photos.
-  return kind === 'logo'
-    ? `data:image/png;base64,${img.toPNG().toString('base64')}`
-    : `data:image/jpeg;base64,${img.toJPEG(88).toString('base64')}`
-}
 
 export const PROTOCOL = 'lodestar'
 
@@ -30,7 +17,7 @@ export function launchUrl(key: string): string {
 /** "lodestar://launch/epic%3AFortnite" -> "epic:Fortnite" */
 export function parseLaunchUrl(url: string): string | null {
   const m = /^lodestar:\/\/launch\/([^/?#]+)/i.exec(url)
-  return m ? decodeURIComponent(m[1]) : null
+  try { return m ? decodeURIComponent(m[1]) : null } catch { return null }
 }
 
 /** Make lodestar:// links open this app (dev runs need the script path too). */
@@ -65,7 +52,29 @@ export async function createDesktopShortcut(key: string): Promise<string> {
 /** Drives holding installed games (plus the default install drive), with per-game sizes. */
 export async function storageInfo(installDir: string): Promise<StorageDrive[]> {
   const drives = new Map<string, StorageDrive>()
-  const driveOf = (p: string): string => (process.platform === 'win32' ? parse(resolve(p)).root.toUpperCase() : '/')
+  const driveOf = async (p: string): Promise<string> => {
+    if (process.platform === 'win32') return parse(resolve(p)).root.toUpperCase()
+    let existing = resolve(p)
+    const external = process.platform === 'darwin' && /^\/Volumes\/[^/]+/.exec(existing)?.[0]
+    if (external && !existsSync(external)) return external
+    for (;;) {
+      try { await stat(existing); break }
+      catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+        if (dirname(existing) === existing) return existing
+        existing = dirname(existing)
+      }
+    }
+    // macOS mounts are distinguished by device id, including external volumes and symlinks.
+    let mount = await realpath(existing)
+    const device = (await stat(mount)).dev
+    while (dirname(mount) !== mount) {
+      const parent = dirname(mount)
+      if ((await stat(parent)).dev !== device) break
+      mount = parent
+    }
+    return mount
+  }
   const ensure = async (root: string): Promise<StorageDrive> => {
     let d = drives.get(root)
     if (!d) {
@@ -83,11 +92,11 @@ export async function storageInfo(installDir: string): Promise<StorageDrive[]> {
     }
     return d
   }
-  await ensure(driveOf(installDir))
+  await ensure(await driveOf(installDir))
   for (const g of library.list()) {
     if (!g.install || g.provider === 'local') continue
     const dlcBytes = g.dlc.reduce((n, d) => n + (d.install?.sizeBytes ?? 0), 0)
-    const d = await ensure(driveOf(g.install.path))
+    const d = await ensure(await driveOf(g.install.path))
     d.games.push({ key: g.key, title: g.title, path: g.install.path, sizeBytes: g.install.sizeBytes + dlcBytes })
   }
   for (const d of drives.values()) d.games.sort((a, b) => b.sizeBytes - a.sizeBytes)

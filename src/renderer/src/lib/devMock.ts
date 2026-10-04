@@ -336,6 +336,26 @@ export function installDevMock(): void {
       },
       stop: async (key) => patchGame(key, (g) => ({ ...g, running: false })),
       openFolder: noop,
+      editCollections: async (edit) => {
+        for (const key of edit.gameKeys) if (!games.some((g) => g.key === key)) throw new Error('Unknown game')
+        const same = (a: string, b: string): boolean => a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0
+        const changed: Game[] = []
+        games = games.map((g) => {
+          if (!['rename', 'delete'].includes(edit.operation) && !edit.gameKeys.includes(g.key)) return g
+          const before = g.prefs.collections ?? []
+          const has = before.some((n) => same(n, edit.name))
+          let next = before
+          if (edit.operation === 'add' && !has) next = [...before, edit.name]
+          if (edit.operation === 'remove' || edit.operation === 'delete') next = before.filter((n) => !same(n, edit.name))
+          if (edit.operation === 'rename' && has) next = [...before.filter((n) => !same(n, edit.name) && !same(n, edit.replacement!)), edit.replacement!]
+          if (JSON.stringify(next) === JSON.stringify(before)) return g
+          const updated = { ...g, prefs: { ...g.prefs, collections: next } }
+          changed.push(updated)
+          return updated
+        })
+        emitGames()
+        return changed
+      },
       setPrefs: async (key, patch) => patchGame(key, (g) => ({ ...g, prefs: { ...g.prefs, ...patch } })),
       moveInstall: async (key, baseDir) => {
         await new Promise((r) => setTimeout(r, 1500))

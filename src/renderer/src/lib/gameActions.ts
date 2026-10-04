@@ -1,6 +1,5 @@
-import type { ArtworkKind, DlcInfo, DownloadJob, Game } from '@shared/types'
+import type { ArtworkKind, CollectionEdit, DlcInfo, DownloadJob, Game } from '@shared/types'
 import { act, commitCollections, errorMessage, useStore } from '../store'
-import { libraryIndex } from './entityIndex'
 
 export type PrimaryKind =
   | 'play'
@@ -96,7 +95,7 @@ export function canLocate(game: Game, job: DownloadJob | undefined, platform: st
 /** Verify / update / move are only safe while nothing else touches the files. */
 export function canModify(game: Game, job: DownloadJob | undefined): boolean {
   const s = useStore.getState()
-  return !!game.install && !job && !game.running && !s.moving[game.key] && !s.launching[game.key]
+  return !!game.install && !game.install.unavailable && !job && !game.running && !s.moving[game.key] && !s.launching[game.key]
 }
 
 export function canVerify(game: Game, job: DownloadJob | undefined): boolean {
@@ -117,6 +116,7 @@ export function primaryAction(
     if (job.state === 'error') return { kind: 'retry', label: 'Retry' }
     return { kind: 'pause', label: 'Pause' }
   }
+  if (game.install?.unavailable) return { kind: 'unavailable', label: 'Drive not connected' }
   if (game.install) {
     if (game.updateAvailable && !isLocal(game)) return { kind: 'update', label: 'Update' }
     return { kind: 'play', label: 'Play' }
@@ -387,25 +387,15 @@ function serializeCollection(edit: () => Promise<void>): Promise<boolean> {
   return result
 }
 
-async function editCollections(keys: string[], change: (names: string[]) => string[]): Promise<Game[]> {
-  const changed: Game[] = []
-  for (const key of new Set(keys)) {
-    // Read after earlier queued calls finish, rather than capturing the caller's snapshot.
-    const game = libraryIndex(useStore.getState().games).gamesByKey.get(key)
-    if (!game) continue
-    const before = game.prefs.collections ?? []
-    const collections = change(before)
-    if (JSON.stringify(before) === JSON.stringify(collections)) continue
-    await window.lodestar.games.setPrefs(key, { collections })
-    commitCollections(key, collections)
-    changed.push(game)
-  }
+async function editCollections(edit: CollectionEdit): Promise<Game[]> {
+  const changed = await window.lodestar.games.editCollections(edit)
+  for (const game of changed) commitCollections(game.key, game.prefs.collections ?? [])
   return changed
 }
 
 export function addToCollection(keys: string[], name: string): Promise<boolean> {
   return serializeCollection(async () => {
-    const games = await editCollections(keys, (list) => list.some((c) => same(c, name)) ? list : [...list, name])
+    const games = await editCollections({ operation: 'add', gameKeys: keys, name })
     const s = useStore.getState()
     if (s.games.some((g) => inCollection(g, name))) s.setEmptyCollections(s.emptyCollections.filter((c) => !same(c, name)))
     if (games.length) s.toast({ kind: 'success', message: games.length === 1 ? `Added ${games[0].title} to ${name}` : `Added ${games.length} games to ${name}` })
@@ -414,7 +404,7 @@ export function addToCollection(keys: string[], name: string): Promise<boolean> 
 
 export function removeFromCollection(keys: string[], name: string): Promise<boolean> {
   return serializeCollection(async () => {
-    const games = await editCollections(keys, (list) => list.filter((c) => !same(c, name)))
+    const games = await editCollections({ operation: 'remove', gameKeys: keys, name })
     if (games.length === 1) useStore.getState().toast({ kind: 'success', message: `Removed ${games[0].title} from ${name}` })
   })
 }
@@ -434,7 +424,7 @@ export function renameCollection(from: string, to: string): Promise<boolean> {
   return serializeCollection(async () => {
     const n = to.trim()
     const keys = useStore.getState().games.filter((g) => inCollection(g, from)).map((g) => g.key)
-    await editCollections(keys, (list) => [...list.filter((c) => !same(c, from) && !same(c, n)), n])
+    await editCollections({ operation: 'rename', gameKeys: keys, name: from, replacement: n })
     const st = useStore.getState()
     if (st.emptyCollections.some((c) => same(c, from))) st.setEmptyCollections([...st.emptyCollections.filter((c) => !same(c, from)), ...(keys.length ? [] : [n])])
     if (st.libraryPage === `collection:${from}`) st.setLibraryPage(`collection:${n}`)
@@ -453,7 +443,7 @@ export function confirmDeleteCollection(name: string): void {
     onConfirm: async () => {
       await serializeCollection(async () => {
         const keys = useStore.getState().games.filter((g) => inCollection(g, name)).map((g) => g.key)
-        await editCollections(keys, (list) => list.filter((c) => !same(c, name)))
+        await editCollections({ operation: 'delete', gameKeys: keys, name })
         const st = useStore.getState()
         st.setEmptyCollections(st.emptyCollections.filter((c) => !same(c, name)))
         if (st.libraryPage === 'collection:' + name) st.setLibraryPage('collections')

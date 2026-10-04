@@ -11,6 +11,7 @@ import { FsBoundary, pathKey } from '../providers/epic/fsBoundary'
 import { library } from './library'
 import { settings } from './settings'
 import { JsonStore } from './store'
+import { operations } from './operations'
 
 const HISTORY = 60
 const ACTIVE: DownloadJob['state'][] = ['preparing', 'verifying', 'downloading', 'finalizing']
@@ -28,6 +29,7 @@ interface ActiveRun {
   controller: AbortController
   generation: number
   stopReason?: 'paused' | 'queued' | 'cancelled'
+  release: () => void
   promise: Promise<void>
 }
 
@@ -84,7 +86,9 @@ class Throttle {
 class Downloads extends EventEmitter {
   private readonly store = new JsonStore<{ jobs: QueueJob[] }>('downloads', { jobs: [] })
   private active: ActiveRun | null = null
+  private started = false
   private generation = 0
+  private readonly cancellationLeases = new Map<string, () => void>()
   private readonly stoppingPaths = new Set<string>()
   private lastCheckpoint = 0
   private readonly throttle = new Throttle()
@@ -93,6 +97,7 @@ class Downloads extends EventEmitter {
 
   constructor() {
     super()
+    operations.onAvailable(() => this.pump())
     for (const job of this.store.data.jobs) {
       // Anything that was mid-flight when we quit goes back in the queue.
       if (ACTIVE.includes(job.state)) job.state = 'queued'
@@ -114,6 +119,9 @@ class Downloads extends EventEmitter {
   }
 
   start(): void {
+    if (this.started) return
+    this.started = true
+    library.on('changed', () => this.pump())
     library.on('running', (_key: string, isRunning: boolean) => {
       if (isRunning && !settings().downloadsDuringGameplay && this.active) {
         // Steam behaviour: get out of the way while you play.
@@ -158,41 +166,46 @@ class Downloads extends EventEmitter {
   }
 
   enqueue(gameKey: string, kind: DownloadKind, installPath: string): DownloadJob {
-    const existing = this.find(gameKey)
-    if (existing) return existing
-    const game = library.get(gameKey)
-    if (!game) throw new Error('Unknown game')
-    // Replace any finished/failed entry for the same game so the list stays tidy.
-    this.store.data.jobs = this.jobs.filter((j) => j.gameKey !== gameKey)
-    const parent = game.dlcOf ? library.get(game.dlcOf) : undefined
-    const job: QueueJob = {
-      providerId: game.provider,
-      appName: game.appName,
-      parentKey: game.dlcOf,
-      createdFolder: false,
-      id: randomUUID(),
-      gameKey,
-      title: parent ? `${parent.title}: ${game.title}` : game.title,
-      image: game.images.wide ?? game.images.tall ?? parent?.images.wide,
-      kind,
-      state: 'queued',
-      installPath,
-      downloadedBytes: 0,
-      totalDownloadBytes: 0,
-      writtenBytes: 0,
-      totalWriteBytes: 0,
-      verifiedBytes: 0,
-      totalVerifyBytes: 0,
-      speedBps: 0,
-      diskBps: 0,
-      speedHistory: [],
-      diskHistory: [],
-      addedAt: Date.now()
-    }
-    this.jobs.push(job)
-    this.emitNow()
-    this.pump()
-    return job
+    const release = operations.acquire(gameKey, kind)
+    try {
+      const existing = this.find(gameKey)
+      if (existing) return existing
+      const game = library.get(gameKey)
+      if (!game) throw new Error('Unknown game')
+      const install = library.installInfo(game.dlcOf ?? gameKey)
+      if (install && (install.unavailable || !existsSync(install.path))) throw new Error('Drive not connected')
+      // Replace any finished/failed entry for the same game so the list stays tidy.
+      this.store.data.jobs = this.jobs.filter((j) => j.gameKey !== gameKey)
+      const parent = game.dlcOf ? library.get(game.dlcOf) : undefined
+      const job: QueueJob = {
+        providerId: game.provider,
+        appName: game.appName,
+        parentKey: game.dlcOf,
+        createdFolder: false,
+        id: randomUUID(),
+        gameKey,
+        title: parent ? `${parent.title}: ${game.title}` : game.title,
+        image: game.images.wide ?? game.images.tall ?? parent?.images.wide,
+        kind,
+        state: 'queued',
+        installPath,
+        downloadedBytes: 0,
+        totalDownloadBytes: 0,
+        writtenBytes: 0,
+        totalWriteBytes: 0,
+        verifiedBytes: 0,
+        totalVerifyBytes: 0,
+        speedBps: 0,
+        diskBps: 0,
+        speedHistory: [],
+        diskHistory: [],
+        addedAt: Date.now()
+      }
+      this.jobs.push(job)
+      this.emitNow()
+      this.pump()
+      return job
+    } finally { release() }
   }
 
   /** Stop the active job but leave it first in line. */
@@ -224,17 +237,22 @@ class Downloads extends EventEmitter {
   resume(id: string): void {
     const job = this.jobs.find((j) => j.id === id)
     if (!job || !['paused', 'error', 'queued'].includes(job.state)) return
-    const retry = job.state === 'error'
-    job.state = 'queued'
-    if (this.active?.job === job && this.active.controller.signal.aborted) this.active.stopReason = 'queued'
-    job.error = undefined
-    if (!retry) {
-      // "Start now" / resume bumps it to the front, like Steam. A retry just rejoins the queue.
-      this.store.data.jobs = [job, ...this.jobs.filter((j) => j !== job)]
-      if (this.active && this.active.job.id !== id) this.preempt(this.active.job)
-    }
-    this.emitNow()
-    this.pump()
+    // A resume during pause drainage keeps the existing reservation until its barrier completes.
+    const release = this.active?.job === job && this.active.controller.signal.aborted
+      ? () => undefined : operations.acquire(job.parentKey ?? job.gameKey, 'resume download')
+    try {
+      const retry = job.state === 'error'
+      job.state = 'queued'
+      if (this.active?.job === job && this.active.controller.signal.aborted) this.active.stopReason = 'queued'
+      job.error = undefined
+      if (!retry) {
+        // "Start now" / resume bumps it to the front, like Steam. A retry just rejoins the queue.
+        this.store.data.jobs = [job, ...this.jobs.filter((j) => j !== job)]
+        if (this.active && this.active.job.id !== id) this.preempt(this.active.job)
+      }
+      this.emitNow()
+      this.pump()
+    } finally { release() }
   }
 
   /** Reorder the queue (delta -1 = up, +1 = down). */
@@ -252,8 +270,10 @@ class Downloads extends EventEmitter {
     const job = this.jobs.find((j) => j.id === id)
     if (!job || job.state === 'done' || this.stoppingPaths.has(pathKey(job.installPath))) return
     const path = pathKey(job.installPath)
-    this.stoppingPaths.add(path)
     const active = this.active?.job === job ? this.active : null
+    const release = active?.release ?? operations.acquire(job.parentKey ?? job.gameKey, 'cancel download')
+    this.cancellationLeases.set(job.id, release)
+    this.stoppingPaths.add(path)
     if (active) {
       active.stopReason = 'cancelled'
       active.controller.abort()
@@ -282,6 +302,8 @@ class Downloads extends EventEmitter {
     } finally {
       this.store.data.jobs = this.jobs.filter((j) => j !== job)
       this.stoppingPaths.delete(path)
+      this.cancellationLeases.delete(job.id)
+      release()
       this.emitNow()
       this.pump()
     }
@@ -293,17 +315,28 @@ class Downloads extends EventEmitter {
   }
 
   private pump(): void {
-    if (this.active) return
+    if (!this.started || this.active) return
     const blocked = !settings().downloadsDuringGameplay && library.anyRunning()
-    for (const j of this.jobs) j.waitingReason = blocked && j.state === 'queued' ? 'Paused while you play' : undefined
+    const unavailable = (j: QueueJob): boolean => {
+      const info = library.installInfo(j.parentKey ?? j.gameKey)
+      return !!info && (info.unavailable === true || !existsSync(info.path))
+    }
+    let waitingChanged = false
+    for (const j of this.jobs) {
+      const reason = j.state !== 'queued' ? undefined : unavailable(j) ? 'Drive not connected' : blocked ? 'Paused while you play' : operations.blocked(j.parentKey ?? j.gameKey) ? 'Waiting for this game to close or finish its operation' : undefined
+      if (reason !== j.waitingReason) waitingChanged = true
+      j.waitingReason = reason
+    }
+    if (waitingChanged) this.emitSoon()
     if (blocked) {
       this.emitSoon()
       return
     }
-    const job = this.jobs.find((j) => j.state === 'queued' && !this.stoppingPaths.has(pathKey(j.installPath)))
+    const job = this.jobs.find((j) => j.state === 'queued' && !this.stoppingPaths.has(pathKey(j.installPath)) && !operations.blocked(j.parentKey ?? j.gameKey) && !unavailable(j))
     if (!job) return
     const active: ActiveRun = {
-      job, controller: new AbortController(), generation: ++this.generation, promise: Promise.resolve()
+      job, controller: new AbortController(), generation: ++this.generation, promise: Promise.resolve(),
+      release: operations.acquire(job.parentKey ?? job.gameKey, job.kind)
     }
     this.active = active
     active.promise = Promise.resolve().then(() => this.run(active))
@@ -313,6 +346,7 @@ class Downloads extends EventEmitter {
     const { job, controller } = active
     if (controller.signal.aborted) {
       if (this.active === active) this.active = null
+      if (!this.cancellationLeases.has(job.id)) active.release()
       this.pump()
       return
     }
@@ -369,6 +403,7 @@ class Downloads extends EventEmitter {
         kind: job.kind,
         installPath: job.installPath,
         existing: library.installInfo(job.gameKey),
+        onCommitted: (info) => library.setInstalled(job.gameKey, info),
         throttleWithSignal: (bytes, workerSignal) => this.throttle.take(bytes, AbortSignal.any([signal, workerSignal])),
         throttle: (bytes) => this.throttle.take(bytes, signal)
       })
@@ -416,7 +451,10 @@ class Downloads extends EventEmitter {
       job.state = 'done'
       job.currentFile = undefined
       job.finishedAt = Date.now()
-      notify(`${job.title} is ready to play`, `${kindLabel(job.kind)} complete`)
+      if (info.prereqsInstalled === false) {
+        job.error = 'Prerequisite installation failed or timed out. Run Verify & repair to retry.'
+        notify(`${job.title}: prerequisites required`, job.error)
+      } else notify(`${job.title} is ready to play`, `${kindLabel(job.kind)} complete`)
     } catch (err) {
       if (signal.aborted) console.info(`[downloads] stopped ${job.title} (${job.state})`)
       if (!signal.aborted) {
@@ -435,6 +473,7 @@ class Downloads extends EventEmitter {
         job.diskHistory = []
       }
       if (this.active === active) this.active = null
+      if (!this.cancellationLeases.has(job.id)) active.release()
       this.emitNow()
       this.pump()
     }
@@ -474,11 +513,11 @@ class Downloads extends EventEmitter {
   queueUpdates(): void {
     if (!settings().autoUpdate) return
     for (const g of library.listAll()) {
-      if (g.thirdPartyManagedApp || !g.updateAvailable || !g.install) continue
+      if (g.thirdPartyManagedApp || !g.updateAvailable || !g.install || g.install.unavailable) continue
       if (library.prefsFor(g.dlcOf ?? g.key).autoUpdate === false) continue
       // A failed update stays failed until the user retries; don't re-queue it every refresh.
       if (this.jobs.some((j) => j.gameKey === g.key && j.state === 'error')) continue
-      if (this.find(g.key) || library.isRunning(g.dlcOf ?? g.key)) continue
+      if (this.find(g.key) || operations.blocked(g.dlcOf ?? g.key)) continue
       this.enqueue(g.key, 'update', g.install.path)
     }
   }
@@ -490,6 +529,7 @@ class Downloads extends EventEmitter {
     if (game.dlcOf) {
       const parent = library.installInfo(game.dlcOf)
       if (!parent) throw new Error('Install the base game first')
+      if (parent.unavailable || !existsSync(parent.path)) throw new Error('Drive not connected')
       return parent.path
     }
     return join(baseDir || settings().installDir, provider(game.provider).folderName(game))

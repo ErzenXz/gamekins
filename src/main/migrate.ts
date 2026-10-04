@@ -6,7 +6,7 @@
 // the signal. A marker file records that the migration has been considered.
 
 import { app } from 'electron'
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, writeFileSync, readdirSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
 
 const OLD_NAMES = ['Vapor', 'vapor']
@@ -34,16 +34,32 @@ if (!existsSync(marker)) {
   const old = OLD_NAMES.map((n) => join(app.getPath('appData'), n)).find(
     (p) => p.toLowerCase() !== target.toLowerCase() && existsSync(join(p, 'library-cache.json'))
   )
+  const copy = (from: string, to: string): void => {
+    const source = lstatSync(from)
+    if (source.isSymbolicLink()) return
+    if (source.isDirectory()) {
+      if (existsSync(to) && !lstatSync(to).isDirectory()) return
+      mkdirSync(to, { recursive: true })
+      for (const name of readdirSync(from)) {
+        try { copy(join(from, name), join(to, name)) }
+        catch (err) { console.error('[migrate] partial copy failed', err) }
+      }
+    } else if (!existsSync(to) || lstatSync(to).mtimeMs < source.mtimeMs) {
+      if (existsSync(to) && lstatSync(to).isSymbolicLink()) return
+      cpSync(from, to)
+    }
+  }
   try {
     mkdirSync(target, { recursive: true })
-    if (old) {
-      for (const item of APP_DATA) {
-        const from = join(old, item)
-        if (existsSync(from)) cpSync(from, join(target, item), { recursive: true, force: true })
-      }
+    if (old) for (const item of APP_DATA) {
+      const from = join(old, item)
+      try { if (existsSync(from)) copy(from, join(target, item)) }
+      catch (err) { console.error('[migrate] partial copy failed', err) }
     }
-    writeFileSync(marker, old ? `from ${old}\n` : 'fresh\n')
   } catch (err) {
     console.error('[migrate] could not copy old data', err)
+  } finally {
+    try { writeFileSync(marker, old ? 'considered ' + old + '\n' : 'fresh\n') }
+    catch (err) { console.error('[migrate] could not write marker', err) }
   }
 }

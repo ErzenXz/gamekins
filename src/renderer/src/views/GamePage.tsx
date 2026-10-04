@@ -630,7 +630,13 @@ function Activity({
           </div>
         </div>
       )}
-      {kind === 'unavailable' && (
+      {game.install?.unavailable && (
+        <div className="gp-note"><HardDrive size={18} /><div><b>Drive not connected</b><span>Reconnect the drive containing this installation to play.</span></div></div>
+      )}
+      {game.install?.prereqsInstalled === false && (
+        <div className="gp-note"><CircleAlert size={18} /><div><b>Prerequisites required</b><span>Prerequisite installation failed or timed out. Use Verify &amp; repair to retry.</span></div></div>
+      )}
+      {kind === 'unavailable' && !game.install?.unavailable && (
         <div className="gp-note">
           <Monitor size={18} />
           <div>

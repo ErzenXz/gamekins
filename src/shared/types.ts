@@ -39,6 +39,8 @@ export interface InstalledInfo {
   /** Who put the game on disk. Imported installs are still fully managed by us. */
   source: 'lodestar' | 'epic-launcher' | 'local'
   installedAt: number
+  unavailable?: boolean
+  workingDirectory?: string
   prereqsInstalled?: boolean
   /** Epic launcher installation GUID (names its `.egstore/<id>.manifest`). */
   manifestId?: string
@@ -192,7 +194,17 @@ export interface LibraryProgress {
 }
 
 /** A program found on this PC, offered in "Add a non-Epic game". */
+export interface CollectionEdit {
+  operation: 'add' | 'remove' | 'rename' | 'delete'
+  gameKeys: string[]
+  name: string
+  replacement?: string
+}
+
 export interface LocalProgram {
+  shortcutPath?: string
+  arguments?: string
+  workingDirectory?: string
   name: string
   path: string
   /** data: URL of the program icon. */
