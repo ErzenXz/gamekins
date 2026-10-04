@@ -1,4 +1,4 @@
-// Persistent log at <userData>/logs/lodestar.log (rotated at 5 MB). console.* in the
+// Persistent log at <userData>/logs/gamekins.log (rotated at 5 MB). console.* in the
 // main process is mirrored into it, so bug reports can include what happened.
 
 import { app } from 'electron'
@@ -16,9 +16,9 @@ export function logFile(): string {
 export function initLog(): void {
   const dir = join(app.getPath('userData'), 'logs')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  file = join(dir, 'lodestar.log')
+  file = join(dir, 'gamekins.log')
   try {
-    if (existsSync(file) && statSync(file).size > MAX_BYTES) renameSync(file, join(dir, 'lodestar.old.log'))
+    if (existsSync(file) && statSync(file).size > MAX_BYTES) renameSync(file, join(dir, 'gamekins.old.log'))
   } catch {
     /* rotation is best-effort */
   }
@@ -29,7 +29,7 @@ export function initLog(): void {
       write(level, format(...args))
     }
   }
-  write('info', `--- Lodestar ${app.getVersion()} starting (${process.platform} ${process.arch}, Electron ${process.versions.electron})`)
+  write('info', `--- Gamekins ${app.getVersion()} starting (${process.platform} ${process.arch}, Electron ${process.versions.electron})`)
 }
 
 function write(level: string, msg: string): void {

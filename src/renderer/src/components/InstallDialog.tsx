@@ -8,7 +8,7 @@ import { Img } from './library/Img'
 import { Checkbox } from './library/controls'
 import { Modal } from './Modal'
 
-const SHORTCUT_KEY = 'lodestar.install.shortcut'
+const SHORTCUT_KEY = 'gamekins.install.shortcut'
 
 function readShortcut(): boolean {
   try {
@@ -56,7 +56,7 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
     let alive = true
     setPlan(null)
     setPlanError(null)
-    window.lodestar.games
+    window.gamekins.games
       .plan(game.key, baseDir)
       .then((p) => alive && setPlan(p))
       .catch((e) => alive && setPlanError(errorMessage(e)))
@@ -71,7 +71,7 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
     setBusy(true)
     setError(null)
     try {
-      await window.lodestar.games.install(game.key, thirdParty ? undefined : baseDir)
+      await window.gamekins.games.install(game.key, thirdParty ? undefined : baseDir)
     } catch (e) {
       setError(errorMessage(e))
       setBusy(false)
@@ -83,8 +83,8 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
     } else {
       s.toast({ kind: 'success', message: `${game.title} was added to your downloads` })
       if (shortcut) {
-        // The shortcut launches through Lodestar, so it works once the download finishes.
-        window.lodestar.games.createShortcut(game.key).catch((e) => s.toast({ kind: 'error', message: `Couldn't create a desktop shortcut: ${errorMessage(e)}` }))
+        // The shortcut launches through Gamekins, so it works once the download finishes.
+        window.gamekins.games.createShortcut(game.key).catch((e) => s.toast({ kind: 'error', message: `Couldn't create a desktop shortcut: ${errorMessage(e)}` }))
       }
     }
     s.setInstallKey(null)
@@ -164,10 +164,10 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
           <div>
             <b>Installs through the Epic Games Launcher</b>
             <p>
-              {game.title} is managed by {thirdParty}. Lodestar can't download it directly: it opens the Epic Games Launcher,
+              {game.title} is managed by {thirdParty}. Gamekins can't download it directly: it opens the Epic Games Launcher,
               which installs the game with {thirdParty}. Both need to be installed on this PC.
             </p>
-            <p className="dim">Once it is installed, Lodestar picks it up and you can play it from here.</p>
+            <p className="dim">Once it is installed, Gamekins picks it up and you can play it from here.</p>
           </div>
         </div>
         {error && (
@@ -224,7 +224,7 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
             className="lbtn small"
             disabled={busy}
             onClick={async () => {
-              const dir = await window.lodestar.app.pickDirectory(baseDir)
+              const dir = await window.gamekins.app.pickDirectory(baseDir)
               if (dir) setBaseDir(dir)
             }}
           >
@@ -289,7 +289,7 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
               close()
               locateInstall(game)
             }}
-            title="Already have the game on disk? Point Lodestar at it instead of downloading it again."
+            title="Already have the game on disk? Point Gamekins at it instead of downloading it again."
           >
             Locate existing install…
           </button>

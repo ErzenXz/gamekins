@@ -26,7 +26,7 @@ export const settingsSchema = {
 }
 export const installSchema = {
   path, version: string, executable: string, launchCommand: string, platform: oneOf('Windows', 'Mac'),
-  sizeBytes: number, source: oneOf('lodestar', 'epic-launcher', 'local'), installedAt: number,
+  sizeBytes: number, source: oneOf('gamekins', 'epic-launcher', 'local'), installedAt: number,
   prereqsInstalled: optional(boolean), manifestId: optional(text), ownsFolder: optional(boolean),
   unavailable: optional(boolean), workingDirectory: optional(path)
 }
@@ -52,11 +52,13 @@ const jobSchema = {
 /** Dynamic maps need record schemas; an empty default cannot express their shape. */
 /**
  * Upgrade entries written by older versions before validating them, so a renamed value
- * (the app was called "Vapor" before release) never gets a valid record thrown away.
+ * (the app was called "Vapor", then "Lodestar", before release) never gets a valid record thrown away.
  */
 export function upgradeStoreEntry(name: string, v: unknown): unknown {
   if (!object(v)) return v
-  if ((name === 'installed' || name === 'downloads') && v.source === 'vapor') return { ...v, source: 'lodestar' }
+  if ((name === 'installed' || name === 'downloads') && (v.source === 'vapor' || v.source === 'lodestar')) {
+    return { ...v, source: 'gamekins' }
+  }
   return v
 }
 

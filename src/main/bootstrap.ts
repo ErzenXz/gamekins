@@ -88,7 +88,7 @@ function createWindow(show = !startHidden): void {
     minHeight: 640,
     show: false,
     backgroundColor: '#171d25',
-    title: 'Lodestar',
+    title: 'Gamekins',
     titleBarStyle: 'hidden',
     ...(isMac
       ? { trafficLightPosition: { x: 14, y: 13 } }
@@ -107,7 +107,7 @@ function createWindow(show = !startHidden): void {
   win.once('ready-to-show', () => {
     if (show) win?.show()
   })
-  // Steam behaviour: closing the window keeps Lodestar running in the tray.
+  // Steam behaviour: closing the window keeps Gamekins running in the tray.
   win.on('close', (e) => {
     if (!quitting && (settings().closeToTray || isMac)) {
       e.preventDefault()
@@ -143,7 +143,7 @@ function guardWebviews(): void {
     })
 
     if (contents.getType() !== 'webview') return
-    contents.setUserAgent(contents.getUserAgent().replace(/ (Electron|lodestar)\/\S+/gi, ''))
+    contents.setUserAgent(contents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Our own store bar replaces Epic's two header rows (and their "Download the launcher" button).
     contents.on('dom-ready', () => {
       if (isStoreUrl(contents.getURL()) && new URL(contents.getURL()).hostname === 'store.epicgames.com') void contents.insertCSS(STORE_CSS)
@@ -240,8 +240,8 @@ let retryTimer: NodeJS.Timeout | null = null
 /** Refresh, and on failure keep retrying in the background (flaky Wi-Fi, VPNs, sleep/wake...). */
 let pendingUrl: string | null = null
 
-/** lodestar://launch/<key> from desktop shortcuts. */
-function handleLodestarUrl(url: string): void {
+/** gamekins://launch/<key> from desktop shortcuts. */
+function handleGamekinsUrl(url: string): void {
   const key = parseLaunchUrl(url)
   console.info(`[protocol] ${url} -> ${key ?? '(no game)'}`)
   if (!key) return showWindow()
@@ -443,19 +443,19 @@ function registerIpc(): void {
   app.on('second-instance', (_e, argv) => {
     console.info('[app] second instance', JSON.stringify(argv.slice(1)))
     const url = argv.find((a) => a.startsWith(`${PROTOCOL}://`))
-    if (url) handleLodestarUrl(url)
+    if (url) handleGamekinsUrl(url)
     else showWindow()
   })
   // macOS delivers links this way.
   app.on('open-url', (e, url) => {
     e.preventDefault()
-    if (app.isReady()) handleLodestarUrl(url)
+    if (app.isReady()) handleGamekinsUrl(url)
     else pendingUrl = url
   })
 
   app.whenReady().then(async () => {
     initLog()
-    app.setAppUserModelId('com.lodestar.launcher')
+    app.setAppUserModelId('com.gamekins.launcher')
     useFetch((input, init) => net.fetch(input as string, init))
     await Promise.all(providers.map((p) => p.init()))
     epicProvider.onSessionExpired = () => {
@@ -500,7 +500,7 @@ function registerIpc(): void {
     await library.reconcileSessions().catch((err) => console.warn('[sessions] reconciliation failed; keeping group reservations', err))
     downloads.start()
     const startUrl = pendingUrl ?? process.argv.find((a) => a.startsWith(`${PROTOCOL}://`))
-    if (startUrl) handleLodestarUrl(startUrl)
+    if (startUrl) handleGamekinsUrl(startUrl)
     void refreshLibrary()
     // Periodic refresh, but never while a game is running: stay out of the way while you play.
     setInterval(() => {

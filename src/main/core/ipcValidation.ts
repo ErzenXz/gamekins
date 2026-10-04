@@ -44,7 +44,7 @@ export function validateArguments(channel: string, args: unknown[]): void {
     if (!game) throw new Error('Unknown game')
     const managed = ['games:plan', 'games:importFolder', 'games:update', 'games:repair', 'games:moveInstall']
     if (managed.includes(channel) && (game.provider !== 'epic' || game.thirdPartyManagedApp)) throw new Error('This operation is not supported for this game')
-    if (channel === 'games:install' && game.provider !== 'epic') throw new Error('Local games cannot be installed by Lodestar')
+    if (channel === 'games:install' && game.provider !== 'epic') throw new Error('Local games cannot be installed by Gamekins')
     if (['games:launch', 'games:stop', 'games:moveInstall'].includes(channel) && game.dlcOf) throw new Error('Use the base game for this operation')
   }
   if (channel.startsWith('downloads:') && !['downloads:list', 'downloads:clearFinished'].includes(channel) && !downloads.jobs.some((job) => job.id === args[0])) throw new Error('Unknown download')

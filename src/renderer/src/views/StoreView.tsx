@@ -242,7 +242,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
           {secure && <Lock size={12} className="store-lock" />}
           <span>{displayUrl(nav.url)}</span>
         </div>
-        <button className="sb-btn" title="Open in your browser" onClick={() => void window.lodestar.app.openExternal(nav.url)}>
+        <button className="sb-btn" title="Open in your browser" onClick={() => void window.gamekins.app.openExternal(nav.url)}>
           <ExternalLink size={15} />
         </button>
       </div>
@@ -305,7 +305,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
               <button className="btn btn-blue" onClick={reload}>
                 Retry
               </button>
-              <button className="btn btn-ghost" onClick={() => void window.lodestar.app.openExternal(failed.url)}>
+              <button className="btn btn-ghost" onClick={() => void window.gamekins.app.openExternal(failed.url)}>
                 Open in browser
               </button>
             </div>
@@ -316,12 +316,12 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
             <ShoppingCart size={40} strokeWidth={1.4} />
             <div className="store-overlay-title">Epic Games Store</div>
             <p>
-              The store page loads here inside the Lodestar app.
+              The store page loads here inside the Gamekins app.
               <br />
               <span className="mono">{displayUrl(nav.url)}</span>
             </p>
             <div className="store-overlay-actions">
-              <button className="btn btn-ghost" onClick={() => void window.lodestar.app.openExternal(nav.url)}>
+              <button className="btn btn-ghost" onClick={() => void window.gamekins.app.openExternal(nav.url)}>
                 Open in browser
               </button>
             </div>

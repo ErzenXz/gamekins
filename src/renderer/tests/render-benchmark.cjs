@@ -24,7 +24,7 @@ const { renderToString } = require('react-dom/server')
 
 async function run() {
   require(root + '/lib/devMock.ts').installDevMock()
-  const games = await window.lodestar.library.get()
+  const games = await window.gamekins.library.get()
   if (!before) require(root + '/components/library/virtualWindow.ts').useVirtualViewport = () => ({ top: 0, bottom: 700, width: 900, capsuleWidth: 154 })
   const { GameGrid } = require(root + '/views/library/GameGrid.tsx')
   const render = () => renderToString(React.createElement(GameGrid, { games, width: 154, sort: 'alpha', jobs: new Map() }))

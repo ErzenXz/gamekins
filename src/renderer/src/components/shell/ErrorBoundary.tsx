@@ -16,7 +16,7 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error('[lodestar] UI error', error, info.componentStack)
+    console.error('[gamekins] UI error', error, info.componentStack)
   }
 
   render(): ReactNode {
@@ -26,11 +26,11 @@ export class ErrorBoundary extends Component<
     return (
       <div className={`crash ${app ? 'crash-app' : 'crash-view'}`} role="alert">
         <div className="crash-card">
-          <div className="crash-title">{app ? 'Lodestar ran into a problem' : 'This page ran into a problem'}</div>
+          <div className="crash-title">{app ? 'Gamekins ran into a problem' : 'This page ran into a problem'}</div>
           <p className="crash-text">
             {app
               ? 'Something went wrong while drawing the window. Your downloads and games are safe; reloading the interface usually fixes it.'
-              : 'Something went wrong while showing this page. The rest of Lodestar still works.'}
+              : 'Something went wrong while showing this page. The rest of Gamekins still works.'}
           </p>
           <pre className="crash-detail mono">{error.message || String(error)}</pre>
           <div className="crash-actions">

@@ -195,7 +195,7 @@ export class EpicProvider implements GameProvider {
     })
     this.loginWindow = win
     // Epic's login rejects obviously-embedded browsers; look like plain Chrome.
-    win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|lodestar)\/\S+/gi, ''))
+    win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Social sign-ins (Google, Apple, Facebook, consoles…) may use popups that report back
     // to the login page, so they must stay in-app and share the session.
     win.webContents.setWindowOpenHandler(({ url }) => {
@@ -535,7 +535,7 @@ export class EpicProvider implements GameProvider {
         installPrerequisites: () => settings().installPrerequisites,
         loadInstalledManifest: async (install) => {
           const own = await this.ownManifest(game.appName)
-          if (install.source === 'lodestar' && own) return own
+          if (install.source === 'gamekins' && own) return own
           const egs = await readEgstoreManifest(install.path, { manifestId: install.manifestId, appName: game.appName })
           return egs ?? own
         },
@@ -615,7 +615,7 @@ export class EpicProvider implements GameProvider {
   }
 
   private async exactInstalledManifest(appName: string, install: InstalledInfo): Promise<Buffer | null> {
-    if (install.source === 'lodestar') {
+    if (install.source === 'gamekins') {
       const data = await this.ownManifest(appName)
       if (data) {
         const m = parseManifest(data)

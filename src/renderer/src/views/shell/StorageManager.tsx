@@ -30,7 +30,7 @@ export function StorageManager(): React.JSX.Element {
     const request = ++generation.current
     setLoading(true)
     try {
-      const d = await window.lodestar.app.storage()
+      const d = await window.gamekins.app.storage()
       if (request !== generation.current) return
       setDrives(d)
       setError(null)
@@ -100,7 +100,7 @@ export function StorageManager(): React.JSX.Element {
             className="btn btn-ghost"
             title="Choose where new games are installed"
             onClick={async () => {
-              const dir = await window.lodestar.app.pickDirectory(drive.root === defaultRoot ? installDir : drive.root)
+              const dir = await window.gamekins.app.pickDirectory(drive.root === defaultRoot ? installDir : drive.root)
               if (dir) await act(() => useStore.getState().saveSettings({ installDir: dir }), `New games will install to ${dir}`)
             }}
           >
@@ -196,19 +196,19 @@ function StorageRow({ item, onChanged }: { item: StorageGame; onChanged: () => v
       confirmLabel: 'Uninstall',
       danger: true,
       onConfirm: async () => {
-        await act(() => window.lodestar.games.uninstall(item.key), `${item.title} was uninstalled`)
+        await act(() => window.gamekins.games.uninstall(item.key), `${item.title} was uninstalled`)
         onChanged()
       }
     })
   }
 
   const move = async (): Promise<void> => {
-    const dir = await window.lodestar.app.pickDirectory(installDir)
+    const dir = await window.gamekins.app.pickDirectory(installDir)
     if (!dir) return
     const s = useStore.getState()
     s.setMoving?.(item.key, true)
     try {
-      await act(() => window.lodestar.games.moveInstall(item.key, dir), `${item.title} was moved to ${dir}`)
+      await act(() => window.gamekins.games.moveInstall(item.key, dir), `${item.title} was moved to ${dir}`)
     } finally {
       useStore.getState().setMoving?.(item.key, false)
       onChanged()
@@ -228,7 +228,7 @@ function StorageRow({ item, onChanged }: { item: StorageGame; onChanged: () => v
       </span>
       <span className="sm-size tabular">{bytes(item.sizeBytes)}</span>
       <span className="sm-actions">
-        <button className="icon-btn" title="Browse local files" onClick={() => act(() => window.lodestar.games.openFolder(item.key))}>
+        <button className="icon-btn" title="Browse local files" onClick={() => act(() => window.gamekins.games.openFolder(item.key))}>
           <FolderOpen size={15} />
         </button>
         <button className="btn btn-ghost small" disabled={locked} title={why ?? 'Move this game to another folder or drive'} onClick={() => void move()}>

@@ -2,6 +2,7 @@ import '../styles/downloads.css'
 import { ChevronDown, ChevronUp, GripVertical, Pause, Play, RotateCw, Settings as Gear, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
 import type { DownloadJob } from '@shared/types'
+import { Mascot } from '../components/Mascot'
 import { SpeedGraph } from '../components/SpeedGraph'
 import { duration } from '../components/shell/format'
 import { bytes, img, speed } from '../lib/format'
@@ -10,7 +11,7 @@ import { act, useStore } from '../store'
 
 const RUNNING: DownloadJob['state'][] = ['preparing', 'verifying', 'downloading', 'finalizing']
 const KIND = { install: 'Game content', update: 'Update', repair: 'Verify & repair' } as const
-const v = (): typeof window.lodestar.downloads => window.lodestar.downloads
+const v = (): typeof window.gamekins.downloads => window.gamekins.downloads
 
 /** Open the game page for a job (DLC jobs open their base game). */
 function openJob(j: DownloadJob): void {
@@ -200,9 +201,7 @@ export function DownloadsView(): React.JSX.Element {
 
         {nothing && (
           <div className="dls-empty">
-            <svg width="48" height="48" viewBox="0 0 16 16" aria-hidden>
-              <path d="M8 1.5v9M4 7l4 4 4-4M2 14.5h12" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
+            <Mascot pose="sleep" size={112} />
             <div className="dls-empty-title">There are no downloads in the queue</div>
             <div className="dls-empty-sub">Install or update a game and it will show up here.</div>
             <button className="btn btn-ghost" onClick={() => navigate({ view: 'library' })}>
@@ -560,7 +559,7 @@ const QueueRow = memo(
             game?.running ? (
               <span className="dls-running">Running</span>
             ) : playable ? (
-              <button className="dls-btn play" title="Play" onClick={run(() => window.lodestar.games.launch(game.key))}>
+              <button className="dls-btn play" title="Play" onClick={run(() => window.gamekins.games.launch(game.key))}>
                 <Play size={18} fill="currentColor" />
               </button>
             ) : null

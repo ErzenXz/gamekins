@@ -9,13 +9,13 @@
 // Updates reuse data already on disk: any piece of a new file that also exists in
 // the old build is copied from the old file instead of downloaded (like the official
 // launcher's delta patching). Changed files are written next to the originals as
-// "<name>.lodestar-tmp" and swapped in at the very end, so the old files stay intact as
+// "<name>.gamekins-tmp" and swapped in at the very end, so the old files stay intact as
 // a source until everything is ready.
 
 import { spawn } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream, existsSync } from 'node:fs'
-import { appendFile, chmod, lstat, mkdir, open, readFile, readlink, rename, rm, rmdir, stat, symlink, unlink } from 'node:fs/promises'
+import { appendFile, chmod, lstat, mkdir, open, readdir, readFile, readlink, rename, rm, rmdir, stat, symlink, unlink } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { InstalledInfo, Platform } from '@shared/types'
 import type { InstallProgress, InstallRequest, InstallTask, InstallTotals, ProviderGame } from '../types'
@@ -33,7 +33,7 @@ import {
 } from './manifest'
 
 const MAX_CHUNK_CACHE_BYTES = 128 * 1024 * 1024
-const STAGE_SUFFIX = '.lodestar-tmp'
+const STAGE_SUFFIX = '.gamekins-tmp'
 
 /** Where an old build already has a piece of a chunk on disk. */
 interface ReuseSource {
@@ -108,7 +108,7 @@ export class EpicInstallTask implements InstallTask {
 
   private get resumeLog(): string {
     // One log per app: DLC installs into its base game's folder alongside it.
-    return join(this.req.installPath, '.lodestar', `resume-${this.game.appName}.log`)
+    return join(this.req.installPath, '.gamekins', `resume-${this.game.appName}.log`)
   }
 
   private get stagingInventory(): string {
@@ -263,7 +263,8 @@ export class EpicInstallTask implements InstallTask {
 
     try {
       await this.boundary.check(this.resumeLog)
-      await mkdir(join(this.req.installPath, '.lodestar'), { recursive: true })
+      await mkdir(join(this.req.installPath, '.gamekins'), { recursive: true })
+      await discardLegacyPartial(this.req.installPath, this.game.appName).catch((err) => console.warn('[installer] legacy cleanup failed', err))
       await this.boundary.check(this.resumeLog)
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
@@ -339,7 +340,7 @@ export class EpicInstallTask implements InstallTask {
     await rm(this.resumeLog, { force: true })
     await this.boundary.check(this.stagingInventory)
     await rm(this.stagingInventory, { force: true })
-    await rmdir(join(this.req.installPath, '.lodestar')).catch(() => undefined) // only if now empty
+    await rmdir(join(this.req.installPath, '.gamekins')).catch(() => undefined) // only if now empty
 
     const m = this.manifest
     const info: InstalledInfo = {
@@ -349,8 +350,8 @@ export class EpicInstallTask implements InstallTask {
       launchCommand: m.launchCommand,
       platform: this.deps.platform,
       sizeBytes: this.files.reduce((n, f) => n + f.size, 0),
-      // We now hold this build's manifest ourselves, so Lodestar owns the install from here on.
-      source: 'lodestar',
+      // We now hold this build's manifest ourselves, so Gamekins owns the install from here on.
+      source: 'gamekins',
       installedAt: this.req.existing?.installedAt ?? Date.now(),
       ownsFolder: this.req.existing?.ownsFolder ?? (this.req.createdFolder === true && !this.game.dlcOf),
       prereqsInstalled: this.req.existing?.prereqsInstalled
@@ -774,16 +775,69 @@ export async function discardPartial(installPath: string, appName?: string, jobI
     await boundary.check(path, true)
     await rm(path, { force: true })
   }
-  const log = join(installPath, '.lodestar', `resume-${appName}.log`)
+  const log = join(installPath, '.gamekins', `resume-${appName}.log`)
   await boundary.check(log)
   await rm(log, { force: true })
   await boundary.check(inventoryFile)
   await rm(inventoryFile, { force: true })
-  await rmdir(join(installPath, '.lodestar')).catch(() => undefined)
+  await rmdir(join(installPath, '.gamekins')).catch(() => undefined)
+  await discardLegacyPartial(installPath, appName).catch((err) => console.warn('[installer] legacy cleanup failed', err))
+}
+
+/** The app's earlier names, which named the job folder `.<name>` and staged files `<file>.<name>-tmp`. */
+const LEGACY_NAMES = ['vapor', 'lodestar']
+
+/**
+ * Remove an app's leftovers from jobs started under an earlier name. Their resume logs
+ * can't be reused (older format, or bound to a different staging suffix), so only the
+ * staged files those logs and inventories name are deleted; installed files are untouched.
+ */
+export async function discardLegacyPartial(installPath: string, appName: string): Promise<void> {
+  if (!/^[A-Za-z0-9_.-]+$/.test(appName) || ['.', '..'].includes(appName)) return
+  const boundary = await FsBoundary.create(installPath)
+  for (const legacy of LEGACY_NAMES) {
+    const dir = join(installPath, `.${legacy}`)
+    if (!existsSync(dir)) continue
+    const own = (f: string): boolean =>
+      f === `resume-${appName}.log` || f === `staging-${appName}.json` || (f.startsWith(`staging-${appName}-`) && f.endsWith('.json'))
+    const files = (await readdir(dir).catch(() => [] as string[])).filter(own)
+    const names = new Set<string>()
+    for (const f of files) {
+      const path = join(dir, f)
+      await boundary.check(path)
+      const text = await readFile(path, 'utf8').catch(() => '')
+      if (f.endsWith('.log')) {
+        // Old lines are "version\tfile", newer ones "hash\tfile\tmode\tjob": the file is always second.
+        for (const line of text.split('\n')) {
+          const name = line.split('\t')[1]
+          if (name) names.add(name)
+        }
+      } else {
+        try {
+          const list: unknown = JSON.parse(text)
+          if (Array.isArray(list)) for (const name of list) if (typeof name === 'string') names.add(name)
+        } catch {
+          /* unreadable inventory: nothing to remove from it */
+        }
+      }
+    }
+    for (const name of names) {
+      let path: string
+      try {
+        path = manifestTarget(installPath, name) + `.${legacy}-tmp`
+        await boundary.check(path, true)
+      } catch {
+        continue // a name that escapes the install folder is never touched
+      }
+      await rm(path, { force: true })
+    }
+    for (const f of files) await rm(join(dir, f), { force: true })
+    await rmdir(dir).catch(() => undefined) // only if now empty
+  }
 }
 
 function inventoryPath(installPath: string, appName: string, jobId?: string): string {
-  return join(installPath, '.lodestar', `staging-${appName}${jobId ? `-${jobId}` : ''}.json`)
+  return join(installPath, '.gamekins', `staging-${appName}${jobId ? `-${jobId}` : ''}.json`)
 }
 
 async function readInventory(path: string, boundary: FsBoundary): Promise<Set<string>> {

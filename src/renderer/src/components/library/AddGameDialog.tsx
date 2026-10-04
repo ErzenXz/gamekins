@@ -37,7 +37,7 @@ function AddGameBody(): React.JSX.Element {
     let alive = true
     setPrograms(null)
     setLoadError(null)
-    window.lodestar.app
+    window.gamekins.app
       .listPrograms()
       .then((list) => alive && setPrograms((prev) => merge(list, prev ?? [])))
       .catch((e) => alive && setLoadError(errorMessage(e)))
@@ -72,7 +72,7 @@ function AddGameBody(): React.JSX.Element {
     setError(null)
     try {
       const exts = platform === 'darwin' ? ['app'] : ['exe', 'lnk', 'bat', 'cmd', 'url']
-      const files = await window.lodestar.app.pickFiles({
+      const files = await window.gamekins.app.pickFiles({
         title: 'Choose programs to add',
         filters: [{ name: platform === 'darwin' ? 'Applications' : 'Programs', extensions: exts }],
         multi: true
@@ -97,7 +97,7 @@ function AddGameBody(): React.JSX.Element {
     setBusy(true)
     setError(null)
     try {
-      const keys = await window.lodestar.games.addLocal(paths)
+      const keys = await window.gamekins.games.addLocal(paths)
       const s = useStore.getState()
       s.toast({
         kind: 'success',
@@ -144,7 +144,7 @@ function AddGameBody(): React.JSX.Element {
       }
     >
       <div className="agd">
-        <p className="agd-text">Select programs to add to your Lodestar library. They show up in the game list with their icon.</p>
+        <p className="agd-text">Select programs to add to your Gamekins library. They show up in the game list with their icon.</p>
         <div className="agd-filter">
           <Search size={14} />
           <input

@@ -1,7 +1,7 @@
 import markUrl from '../assets/mark.png'
 
-/** The Lodestar guiding-star mark (branding/mark-1024.png, rendered to assets/mark.png). */
-export function LodestarMark({ size = 22 }: { size?: number }): React.JSX.Element {
+/** The Gamekins guiding-star mark (branding/mark-1024.png, rendered to assets/mark.png). */
+export function GamekinsMark({ size = 22 }: { size?: number }): React.JSX.Element {
   return (
     <img
       src={markUrl}
@@ -10,7 +10,7 @@ export function LodestarMark({ size = 22 }: { size?: number }): React.JSX.Elemen
       alt=""
       aria-hidden
       draggable={false}
-      className="lodestar-mark"
+      className="gamekins-mark"
       style={{ display: 'block', objectFit: 'contain' }}
     />
   )

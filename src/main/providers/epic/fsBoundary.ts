@@ -22,7 +22,7 @@ export function manifestTarget(root: string, name: string): string {
   if (process.platform === 'win32' && parts.some((p) => /[. ]$/.test(p) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(p))) {
     throw new Error(`Unsafe Windows manifest path: ${name}`)
   }
-  if (parts.some((p) => p.toLowerCase() === '.lodestar' || p.toLowerCase().endsWith('.lodestar-tmp'))) {
+  if (parts.some((p) => p.toLowerCase() === '.gamekins' || p.toLowerCase().endsWith('.gamekins-tmp'))) {
     throw new Error(`Reserved manifest path: ${name}`)
   }
   return full

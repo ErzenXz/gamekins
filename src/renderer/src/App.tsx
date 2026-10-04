@@ -21,8 +21,8 @@ const AddGameDialog = lazy(() =>
   import('./components/library/AddGameDialog').then((m) => ({ default: m.AddGameDialog }))
 )
 
-// Dev builds only: poke at state from DevTools (`__lodestarStore.getState()`).
-if (import.meta.env.DEV) Object.assign(window, { __lodestarStore: useStore, __lodestarBootstrap: bootstrap })
+// Dev builds only: poke at state from DevTools (`__gamekinsStore.getState()`).
+if (import.meta.env.DEV) Object.assign(window, { __gamekinsStore: useStore, __gamekinsBootstrap: bootstrap })
 
 export default function App(): React.JSX.Element {
   return (

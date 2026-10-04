@@ -156,7 +156,7 @@ test('repair and unknown-manifest updates preserve originals when finalization i
     assert.equal(totals.requiredDiskBytes, 4)
     await assert.rejects(task.run(controller.signal, (p) => { if (p.phase === 'finalizing') controller.abort() }))
     assert.equal(await fs.readFile(join(f.root, 'game.bin'), 'utf8'), 'original')
-    assert.deepEqual(await fs.readFile(join(f.root, 'game.bin.lodestar-tmp')), Buffer.alloc(4, 1))
+    assert.deepEqual(await fs.readFile(join(f.root, 'game.bin.gamekins-tmp')), Buffer.alloc(4, 1))
     await f.installer.discardPartial(f.root, 'TestApp')
   }
 })
@@ -165,8 +165,8 @@ test('resume is bound to manifest bytes and validates final/staged sizes', async
   const f = await fixture(t)
   const json = manifest([['game.bin', [1]]])
   const digest = sha(Buffer.from(JSON.stringify(json))).toString('hex')
-  await fs.mkdir(join(f.root, '.lodestar'))
-  await fs.writeFile(join(f.root, '.lodestar', 'resume-TestApp.log'), `${digest}\tgame.bin\tfinal\n`)
+  await fs.mkdir(join(f.root, '.gamekins'))
+  await fs.writeFile(join(f.root, '.gamekins', 'resume-TestApp.log'), `${digest}\tgame.bin\tfinal\n`)
   for (const bytes of [null, Buffer.alloc(1), Buffer.alloc(4, 1)]) {
     if (bytes) await fs.writeFile(join(f.root, 'game.bin'), bytes)
     const task = f.installTask(json)
@@ -177,7 +177,7 @@ test('resume is bound to manifest bytes and validates final/staged sizes', async
   const task = f.installTask(changed)
   await task.prepare(new AbortController().signal)
   assert.equal(task.toWrite.length, 1)
-  await fs.writeFile(join(f.root, '.lodestar', 'resume-TestApp.log'), `${digest}\tgame.bin\tstaged\n`)
+  await fs.writeFile(join(f.root, '.gamekins', 'resume-TestApp.log'), `${digest}\tgame.bin\tstaged\n`)
   const staged = f.installTask(json)
   await staged.prepare(new AbortController().signal)
   assert.equal(staged.toWrite.length, 1)
@@ -192,7 +192,7 @@ test('missing completed staging files are rewritten before atomic manifest save'
   let removed = false
   await task.run(new AbortController().signal, (p) => {
     if (p.phase === 'finalizing' && !removed) {
-      require('node:fs').unlinkSync(join(f.root, 'game.bin.lodestar-tmp'))
+      require('node:fs').unlinkSync(join(f.root, 'game.bin.gamekins-tmp'))
       removed = true
     }
   })
@@ -205,9 +205,9 @@ test('a completed final file that becomes truncated is rebuilt through staging',
   const f = await fixture(t)
   const json = manifest([['game.bin', [1]]])
   await fs.writeFile(join(f.root, 'game.bin'), Buffer.alloc(4, 1))
-  await fs.mkdir(join(f.root, '.lodestar'))
+  await fs.mkdir(join(f.root, '.gamekins'))
   const digest = sha(Buffer.from(JSON.stringify(json))).toString('hex')
-  await fs.writeFile(join(f.root, '.lodestar', 'resume-TestApp.log'), `${digest}\tgame.bin\tfinal\n`)
+  await fs.writeFile(join(f.root, '.gamekins', 'resume-TestApp.log'), `${digest}\tgame.bin\tfinal\n`)
   const task = f.installTask(json)
   const controller = new AbortController()
   await task.prepare(controller.signal)
@@ -218,21 +218,48 @@ test('a completed final file that becomes truncated is rebuilt through staging',
     else controller.abort()
   }))
   assert.equal(await fs.readFile(join(f.root, 'game.bin'), 'utf8'), 'x')
-  assert.deepEqual(await fs.readFile(join(f.root, 'game.bin.lodestar-tmp')), Buffer.alloc(4, 1))
+  assert.deepEqual(await fs.readFile(join(f.root, 'game.bin.gamekins-tmp')), Buffer.alloc(4, 1))
 })
 
 test('scoped discard leaves other apps and unrelated suffix files untouched', async (t) => {
   const f = await fixture(t)
-  await fs.mkdir(join(f.root, '.lodestar'))
-  await fs.writeFile(join(f.root, '.lodestar', 'staging-TestApp.json'), JSON.stringify(['game.bin']))
-  await fs.writeFile(join(f.root, '.lodestar', 'resume-TestApp.log'), 'test')
-  await fs.writeFile(join(f.root, '.lodestar', 'resume-Dlc.log'), 'keep')
-  await fs.writeFile(join(f.root, 'game.bin.lodestar-tmp'), 'remove')
-  await fs.writeFile(join(f.root, 'unrelated.lodestar-tmp'), 'keep')
+  await fs.mkdir(join(f.root, '.gamekins'))
+  await fs.writeFile(join(f.root, '.gamekins', 'staging-TestApp.json'), JSON.stringify(['game.bin']))
+  await fs.writeFile(join(f.root, '.gamekins', 'resume-TestApp.log'), 'test')
+  await fs.writeFile(join(f.root, '.gamekins', 'resume-Dlc.log'), 'keep')
+  await fs.writeFile(join(f.root, 'game.bin.gamekins-tmp'), 'remove')
+  await fs.writeFile(join(f.root, 'unrelated.gamekins-tmp'), 'keep')
   await f.installer.discardPartial(f.root, 'TestApp')
-  assert.equal(await fs.readFile(join(f.root, 'unrelated.lodestar-tmp'), 'utf8'), 'keep')
-  assert.equal(await fs.readFile(join(f.root, '.lodestar', 'resume-Dlc.log'), 'utf8'), 'keep')
-  await assert.rejects(fs.stat(join(f.root, 'game.bin.lodestar-tmp')), { code: 'ENOENT' })
+  assert.equal(await fs.readFile(join(f.root, 'unrelated.gamekins-tmp'), 'utf8'), 'keep')
+  assert.equal(await fs.readFile(join(f.root, '.gamekins', 'resume-Dlc.log'), 'utf8'), 'keep')
+  await assert.rejects(fs.stat(join(f.root, 'game.bin.gamekins-tmp')), { code: 'ENOENT' })
+})
+
+test('leftovers from jobs started under an earlier app name are removed, and nothing else', async (t) => {
+  const f = await fixture(t)
+  await fs.mkdir(join(f.root, '.vapor'))
+  await fs.mkdir(join(f.root, '.lodestar'))
+  await fs.mkdir(join(f.root, 'Bin'))
+  // Pre-hash format ("version\tfile") and the hash-bound format, plus an inventory.
+  await fs.writeFile(join(f.root, '.vapor', 'resume-TestApp.log'), 'v1\tBin/game.exe\nv1\t../escape.bin\n')
+  await fs.writeFile(join(f.root, '.lodestar', 'resume-TestApp.log'), 'abc\tgame.bin\tstaged\tjob\n')
+  await fs.writeFile(join(f.root, '.lodestar', 'staging-TestApp-job.json'), JSON.stringify(['data.pak']))
+  await fs.writeFile(join(f.root, '.vapor', 'resume-Other.log'), 'v1\tother.bin\n')
+  for (const name of ['Bin/game.exe.vapor-tmp', 'game.bin.lodestar-tmp', 'data.pak.lodestar-tmp', 'other.bin.vapor-tmp', 'Bin/game.exe']) {
+    await fs.writeFile(join(f.root, name), 'x')
+  }
+  await fs.writeFile(join(dirname(f.root), 'escape.bin.vapor-tmp'), 'outside')
+  t.after(() => fs.rm(join(dirname(f.root), 'escape.bin.vapor-tmp'), { force: true }))
+
+  await f.installer.discardLegacyPartial(f.root, 'TestApp')
+
+  for (const gone of ['Bin/game.exe.vapor-tmp', 'game.bin.lodestar-tmp', 'data.pak.lodestar-tmp', '.lodestar']) {
+    await assert.rejects(fs.stat(join(f.root, gone)), { code: 'ENOENT' })
+  }
+  assert.equal(await fs.readFile(join(f.root, 'Bin/game.exe'), 'utf8'), 'x')
+  assert.equal(await fs.readFile(join(f.root, 'other.bin.vapor-tmp'), 'utf8'), 'x')
+  assert.equal(await fs.readFile(join(f.root, '.vapor', 'resume-Other.log'), 'utf8'), 'v1\tother.bin\n')
+  assert.equal(await fs.readFile(join(dirname(f.root), 'escape.bin.vapor-tmp'), 'utf8'), 'outside')
 })
 
 test('body is throttled in 64 KiB slices before the next read', async (t) => {
@@ -299,7 +326,7 @@ test('writer failure aborts and drains outstanding chunk workers', async (t) => 
 test('paths reject duplicates, absolute names, escaping links and junction parents', async (t) => {
   const f = await fixture(t)
   const signal = new AbortController().signal
-  for (const name of ['../escape', 'C:\\escape', '/escape', '.lodestar/owner', 'game.bin.lodestar-tmp']) {
+  for (const name of ['../escape', 'C:\\escape', '/escape', '.gamekins/owner', 'game.bin.gamekins-tmp']) {
     await assert.rejects(f.installTask(manifest([[name, [1]]])).prepare(signal), /path/i)
   }
   await assert.rejects(f.installTask(manifest([['game.bin', [1]], ['.\\game.bin', [1]]])).prepare(signal), /Duplicate/)

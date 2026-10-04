@@ -1947,6 +1947,12 @@ button.shelf-title:hover {
   background: rgba(26, 159, 255, 0.1);
   box-shadow: 0 0 0 10px rgba(26, 159, 255, 0.04);
 }
+.lib-empty-mascot {
+  width: 132px;
+  height: 132px;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 8px 24px rgba(26, 159, 255, 0.3));
+}
 .lib-empty h2 {
   margin: 0;
   font-size: 22px;
@@ -3084,13 +3090,13 @@ button.shelf-title:hover {
   gap: clamp(10px, 2cqh, 18px);
   min-width: 0;
 }
-.signin-mark {
-  display: inline-grid;
-  filter: drop-shadow(0 0 22px rgba(26, 159, 255, 0.55));
-}
-.signin-mark img {
-  width: clamp(40px, 8cqh, 64px);
-  height: clamp(40px, 8cqh, 64px);
+/* Scales with the window's height so the welcome screen never needs to scroll. */
+.signin-mascot {
+  display: block;
+  width: clamp(56px, 18cqh, 160px);
+  height: clamp(56px, 18cqh, 160px);
+  margin: 0 0 0 -6px;
+  filter: drop-shadow(0 8px 26px rgba(26, 159, 255, 0.4));
 }
 .signin-card h1 {
   margin: clamp(10px, 2cqh, 18px) 0 clamp(8px, 1.4cqh, 12px);

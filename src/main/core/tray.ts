@@ -16,7 +16,7 @@ export function createTray(actions: TrayActions): void {
   if (tray) return
   const icon = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png')).resize({ width: 16, height: 16 })
   tray = new Tray(icon)
-  tray.setToolTip('Lodestar')
+  tray.setToolTip('Gamekins')
   tray.on('click', () => actions.show())
   if (process.platform === 'darwin') tray.on('right-click', () => tray?.popUpContextMenu())
 
@@ -26,7 +26,7 @@ export function createTray(actions: TrayActions): void {
     if (!tray) return
     const recent = library.recent(5)
     const active = downloads.jobs.find((j) => ['downloading', 'verifying', 'preparing'].includes(j.state))
-    const nextTooltip = active ? `Lodestar — ${active.title}` : 'Lodestar'
+    const nextTooltip = active ? `Gamekins — ${active.title}` : 'Gamekins'
     if (nextTooltip !== tooltip) { tooltip = nextTooltip; tray.setToolTip(tooltip) }
     const nextSignature = JSON.stringify(recent.map((g) => [g.key, g.title, g.running]))
     if (nextSignature === signature) return
@@ -49,7 +49,7 @@ export function createTray(actions: TrayActions): void {
         { label: 'Downloads', click: () => actions.show('downloads') },
         { label: 'Settings', click: () => actions.show('settings') },
         { type: 'separator' },
-        { label: 'Exit Lodestar', click: () => actions.quit() }
+        { label: 'Exit Gamekins', click: () => actions.quit() }
       ])
     )
   }

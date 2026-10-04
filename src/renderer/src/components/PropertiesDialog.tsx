@@ -136,7 +136,7 @@ function PropertiesBody({ game }: { game: Game }): React.JSX.Element {
 }
 
 const save = (game: Game, patch: Partial<GamePrefs>): Promise<void> =>
-  act(() => window.lodestar.games.setPrefs(game.key, patch))
+  act(() => window.gamekins.games.setPrefs(game.key, patch))
 
 function General({ game }: { game: Game }): React.JSX.Element {
   const [args, setArgs] = useState(game.prefs.launchArgs ?? '')
@@ -310,7 +310,7 @@ function Updates({ game }: { game: Game }): React.JSX.Element {
             className="lbtn primary"
             disabled={!canModify(game, job)}
             title={game.running ? 'Close the game first' : undefined}
-            onClick={() => act(() => window.lodestar.games.update(game.key), 'Update queued')}
+            onClick={() => act(() => window.gamekins.games.update(game.key), 'Update queued')}
           >
             <CircleArrowDown size={14} /> Update now
           </button>
@@ -329,14 +329,14 @@ function Files({ game }: { game: Game }): React.JSX.Element {
 
   const move = async (): Promise<void> => {
     const s = useStore.getState()
-    const dir = await window.lodestar.app.pickDirectory(s.settings?.installDir)
+    const dir = await window.gamekins.app.pickDirectory(s.settings?.installDir)
     if (!dir) return
     const norm = (p: string): string => p.replace(/[\\/]+$/, '').toLowerCase()
     const parent = inst ? inst.path.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '') : ''
     if (inst && norm(parent) === norm(dir)) return s.toast({ kind: 'info', message: `${game.title} is already in ${dir}` })
     s.setMoving(game.key, true)
     try {
-      await window.lodestar.games.moveInstall(game.key, dir)
+      await window.gamekins.games.moveInstall(game.key, dir)
       useStore.getState().toast({ kind: 'success', message: `${game.title} was moved to ${dir}` })
     } catch (err) {
       useStore.getState().toast({ kind: 'error', message: errorMessage(err) })
@@ -379,7 +379,7 @@ function Files({ game }: { game: Game }): React.JSX.Element {
           Size of installation: <b>{inst.sizeBytes > 0 ? bytes(inst.sizeBytes) : 'Unknown'}</b>
           {drive ? ` on ${drive}` : ''}
         </span>
-        <button className="lbtn" disabled={moving} onClick={() => act(() => window.lodestar.games.openFolder(game.key))}>
+        <button className="lbtn" disabled={moving} onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
           <FolderOpen size={14} /> Browse…
         </button>
       </div>
@@ -387,7 +387,7 @@ function Files({ game }: { game: Game }): React.JSX.Element {
         {inst.path}
       </div>
       <p className="props-hint">
-        {inst.source === 'epic-launcher' ? 'Imported from the Epic Games Launcher' : 'Installed by Lodestar'}
+        {inst.source === 'epic-launcher' ? 'Imported from the Epic Games Launcher' : 'Installed by Gamekins'}
         {inst.installedAt ? ` · ${shortDate(inst.installedAt)}` : ''}
         {inst.version ? ` · version ${inst.version}` : ''}
       </p>
@@ -420,13 +420,13 @@ function Files({ game }: { game: Game }): React.JSX.Element {
           <button
             className="lbtn"
             disabled={!canVerify(game, job)}
-            onClick={() => act(() => window.lodestar.games.repair(game.key), 'Verification queued')}
+            onClick={() => act(() => window.gamekins.games.repair(game.key), 'Verification queued')}
           >
             <ShieldCheck size={14} /> Verify
           </button>
         </OptionRow>
       )}
-      <OptionRow title="Add desktop shortcut" hint="Puts a shortcut on your desktop that starts the game through Lodestar.">
+      <OptionRow title="Add desktop shortcut" hint="Puts a shortcut on your desktop that starts the game through Gamekins.">
         <button className="lbtn" onClick={() => void createShortcut(game)}>
           <Link2 size={14} /> Create
         </button>
@@ -462,16 +462,16 @@ function Shortcut({ game }: { game: Game }): React.JSX.Element {
         </p>
       </div>
       <OptionRow title="Browse local files" hint="Opens the folder that contains the program.">
-        <button className="lbtn" disabled={!inst} onClick={() => act(() => window.lodestar.games.openFolder(game.key))}>
+        <button className="lbtn" disabled={!inst} onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
           <FolderOpen size={14} /> Browse…
         </button>
       </OptionRow>
-      <OptionRow title="Add desktop shortcut" hint="Puts a shortcut on your desktop that starts it through Lodestar.">
+      <OptionRow title="Add desktop shortcut" hint="Puts a shortcut on your desktop that starts it through Gamekins.">
         <button className="lbtn" onClick={() => void createShortcut(game)}>
           <Link2 size={14} /> Create
         </button>
       </OptionRow>
-      <OptionRow title="Remove from library" hint="Takes it out of Lodestar. The program itself stays on your PC.">
+      <OptionRow title="Remove from library" hint="Takes it out of Gamekins. The program itself stays on your PC.">
         <button className="lbtn danger" disabled={!!game.running} onClick={() => confirmUninstall(game)}>
           <Trash2 size={14} /> Remove…
         </button>

@@ -1,5 +1,5 @@
 // Odds and ends behind Steam-style features: custom artwork, desktop shortcuts,
-// the storage manager and the lodestar:// link protocol.
+// the storage manager and the gamekins:// link protocol.
 
 import { app } from 'electron'
 import { existsSync } from 'node:fs'
@@ -8,19 +8,19 @@ import { join, parse, resolve, dirname } from 'node:path'
 import type { StorageDrive } from '@shared/types'
 import { library } from './library'
 
-export const PROTOCOL = 'lodestar'
+export const PROTOCOL = 'gamekins'
 
 export function launchUrl(key: string): string {
   return `${PROTOCOL}://launch/${encodeURIComponent(key)}`
 }
 
-/** "lodestar://launch/epic%3AFortnite" -> "epic:Fortnite" */
+/** "gamekins://launch/epic%3AFortnite" -> "epic:Fortnite" */
 export function parseLaunchUrl(url: string): string | null {
-  const m = /^lodestar:\/\/launch\/([^/?#]+)/i.exec(url)
+  const m = /^gamekins:\/\/launch\/([^/?#]+)/i.exec(url)
   try { return m ? decodeURIComponent(m[1]) : null } catch { return null }
 }
 
-/** Make lodestar:// links open this app (dev runs need the script path too). */
+/** Make gamekins:// links open this app (dev runs need the script path too). */
 export function registerProtocol(): void {
   if (process.defaultApp && process.argv[1]) {
     app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [resolve(process.argv[1])])
@@ -29,7 +29,7 @@ export function registerProtocol(): void {
   }
 }
 
-/** Desktop shortcut that launches the game through Lodestar (works even when Lodestar is closed). */
+/** Desktop shortcut that launches the game through Gamekins (works even when Gamekins is closed). */
 export async function createDesktopShortcut(key: string): Promise<string> {
   const game = library.get(key)
   if (!game) throw new Error('Unknown game')

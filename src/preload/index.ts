@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { EVENTS, type LodestarApi } from '@shared/api'
+import { EVENTS, type GamekinsApi } from '@shared/api'
 
 const invoke =
   (channel: string) =>
@@ -14,7 +14,7 @@ function subscribe<T>(channel: string) {
   }
 }
 
-const api: LodestarApi = {
+const api: GamekinsApi = {
   app: {
     info: invoke('app:info'),
     openExternal: invoke('app:openExternal'),
@@ -72,6 +72,6 @@ const api: LodestarApi = {
     toast: subscribe(EVENTS.toast),
     navigate: subscribe(EVENTS.navigate)
   }
-} as LodestarApi
+} as GamekinsApi
 
-contextBridge.exposeInMainWorld('lodestar', api)
+contextBridge.exposeInMainWorld('gamekins', api)

@@ -6,7 +6,7 @@ import { useStore } from '../store'
 type Shown = Toast & { id: number; leaving?: boolean; at: number }
 
 const ICON = { error: CircleAlert, success: CircleCheck, info: Info }
-const TITLE = { error: 'Something went wrong', success: 'Lodestar', info: 'Lodestar' }
+const TITLE = { error: 'Something went wrong', success: 'Gamekins', info: 'Gamekins' }
 
 /**
  * Steam desktop toasts (bottom-right, stacked upward). The store removes toasts outright; we

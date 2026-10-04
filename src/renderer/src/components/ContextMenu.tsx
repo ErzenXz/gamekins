@@ -152,7 +152,7 @@ function MenuHost(): React.JSX.Element | null {
     busy: { launching: boolean; moving: boolean },
     names: string[]
   ): Entry[] {
-    const v = window.lodestar
+    const v = window.gamekins
     const s = useStore.getState()
     const primary = primaryAction(game, job, platform, busy)
     const local = isLocal(game)

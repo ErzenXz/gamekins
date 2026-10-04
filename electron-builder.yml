@@ -1,6 +1,6 @@
-appId: com.lodestar.launcher
-productName: Lodestar
-copyright: Copyright © 2026 Lodestar
+appId: com.gamekins.launcher
+productName: Gamekins
+copyright: Copyright © 2026 Gamekins
 directories:
   buildResources: build
   output: dist
@@ -10,10 +10,10 @@ files:
   - package.json
 asarUnpack:
   - resources/**
-# Desktop shortcuts launch games via lodestar://launch/<game>
+# Desktop shortcuts launch games via gamekins://launch/<game>
 protocols:
-  - name: Lodestar
-    schemes: [lodestar]
+  - name: Gamekins
+    schemes: [gamekins]
 
 # ── Windows ──────────────────────────────────────────────
 win:
@@ -31,8 +31,8 @@ appx:
   identityName: REPLACE.WithPartnerCenterIdentityName
   publisher: CN=REPLACE-WITH-PARTNER-CENTER-PUBLISHER-ID
   publisherDisplayName: REPLACE with your publisher display name
-  displayName: Lodestar
-  applicationId: Lodestar
+  displayName: Gamekins
+  applicationId: Gamekins
   backgroundColor: '#171a21'
   languages: [en-US]
   artifactName: ${productName}-${version}.${ext}

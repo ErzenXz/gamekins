@@ -2,7 +2,7 @@
 // previewed with `npm run dev:web` in any browser. Never loaded inside Electron.
 // Simulates a live download so progress UI can be checked without a real account.
 
-import type { LodestarApi } from '@shared/api'
+import type { GamekinsApi } from '@shared/api'
 import type { Account, DownloadJob, FreeGame, Game, GamePrefs, Settings } from '@shared/types'
 import sample from './devMockData.json'
 
@@ -47,7 +47,7 @@ export function installDevMock(): void {
             launchCommand: '',
             platform: 'Windows',
             sizeBytes: (8 + i * 7) * GB,
-            source: i === 4 ? 'epic-launcher' : 'lodestar',
+            source: i === 4 ? 'epic-launcher' : 'gamekins',
             installedAt: now
           }
         : undefined,
@@ -58,7 +58,7 @@ export function installDevMock(): void {
     dlc:
       i === 0
         ? [
-            { key: 'epic:dlc0a', appName: 'dlc0a', title: 'Season Pass', image: s.wide, installable: true, updateAvailable: false, install: { path: 'C:\\Games\\x', version: '1.0.2', executable: '', launchCommand: '', platform: 'Windows', sizeBytes: 2.1 * GB, source: 'lodestar', installedAt: now } },
+            { key: 'epic:dlc0a', appName: 'dlc0a', title: 'Season Pass', image: s.wide, installable: true, updateAvailable: false, install: { path: 'C:\\Games\\x', version: '1.0.2', executable: '', launchCommand: '', platform: 'Windows', sizeBytes: 2.1 * GB, source: 'gamekins', installedAt: now } },
             { key: 'epic:dlc0b', appName: 'dlc0b', title: 'Soundtrack', installable: true, updateAvailable: false },
             { key: 'epic:dlc0c', appName: 'dlc0c', title: 'Bonus Costume Pack', installable: false, updateAvailable: false }
           ]
@@ -187,6 +187,7 @@ export function installDevMock(): void {
       return () => set.delete(cb)
     }
   const emitGames = (): void => listeners.library.forEach((l) => l(games))
+  if (flag === 'empty') jobs = []
   const emitJobs = (): void => listeners.downloads.forEach((l) => l(jobs))
   const patchGame = (key: string, fn: (g: Game) => Game): void => {
     games = games.map((g) => (g.key === key ? fn(g) : g))
@@ -227,14 +228,14 @@ export function installDevMock(): void {
       const done = written >= j.totalWriteBytes
       if (done) {
         const g = games.find((x) => x.key === j.gameKey)
-        const inst = { path: j.installPath, version: '1.0.2', executable: 'Game.exe', launchCommand: '', platform: 'Windows' as const, sizeBytes: j.totalWriteBytes, source: 'lodestar' as const, installedAt: Date.now() }
+        const inst = { path: j.installPath, version: '1.0.2', executable: 'Game.exe', launchCommand: '', platform: 'Windows' as const, sizeBytes: j.totalWriteBytes, source: 'gamekins' as const, installedAt: Date.now() }
         if (!g) {
           const parent = games.find((x) => x.dlc.some((d) => d.key === j.gameKey))
           if (parent) patchGame(parent.key, (x) => ({ ...x, dlc: x.dlc.map((d) => (d.key === j.gameKey ? { ...d, install: inst } : d)) }))
         } else patchGame(g.key, (x) => ({
           ...x,
           updateAvailable: false,
-          install: { path: j.installPath, version: '1.0.2', executable: 'Game.exe', launchCommand: '', platform: 'Windows', sizeBytes: j.totalWriteBytes, source: 'lodestar', installedAt: Date.now() }
+          install: { path: j.installPath, version: '1.0.2', executable: 'Game.exe', launchCommand: '', platform: 'Windows', sizeBytes: j.totalWriteBytes, source: 'gamekins', installedAt: Date.now() }
         }))
       }
       return {
@@ -253,7 +254,7 @@ export function installDevMock(): void {
 
   const noop = async (): Promise<void> => undefined
 
-  const api: LodestarApi = {
+  const api: GamekinsApi = {
     app: {
       info: async () => ({
         version: '0.2.0-dev',
@@ -485,5 +486,5 @@ export function installDevMock(): void {
       navigate: () => () => undefined
     }
   }
-  window.lodestar = api
+  window.gamekins = api
 }

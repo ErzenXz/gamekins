@@ -77,7 +77,7 @@ test('row/item windows are bounded throughout a 600-game scroll', () => {
 test('bootstrap commits independent domains promptly and never overwrites newer events or failure state', async () => {
   const listeners = {}
   const parts = Object.fromEntries(['info', 'games', 'jobs', 'accounts', 'settings'].map((key) => [key, deferred()]))
-  window.lodestar = {
+  window.gamekins = {
     on: Object.fromEntries(['library', 'libraryProgress', 'downloads', 'accounts', 'toast', 'navigate'].map((key) => [key, (fn) => { listeners[key] = fn }])),
     app: { info: () => parts.info.promise },
     library: { get: () => parts.games.promise, freeGames: async () => [] },
@@ -110,7 +110,7 @@ test('collection calls serialize against the latest state before coalesced event
   applyLibrary([game('a')])
   const first = deferred()
   const calls = []
-  window.lodestar.games = collectionApi([game('a')], async (edit) => { calls.push(edit); if (calls.length === 1) await first.promise })
+  window.gamekins.games = collectionApi([game('a')], async (edit) => { calls.push(edit); if (calls.length === 1) await first.promise })
   const a = addToCollection(['a'], 'Story')
   const b = addToCollection(['a'], 'Co-op')
   await tick()
@@ -130,7 +130,7 @@ test('collection calls serialize against the latest state before coalesced event
 test('failed bulk edits stop follow-up navigation/empty-state changes and leave the queue usable', async () => {
   applyLibrary([game('a', { prefs: { collections: ['Old'] } }), game('b', { prefs: { collections: ['Old'] } })])
   useStore.setState({ emptyCollections: ['Old'], libraryPage: 'collection:Old' })
-  window.lodestar.games = collectionApi(useStore.getState().games, async () => { throw new Error('write failed') })
+  window.gamekins.games = collectionApi(useStore.getState().games, async () => { throw new Error('write failed') })
   assert.equal(await renameCollection('Old', 'New'), false)
   assert.equal(useStore.getState().libraryPage, 'collection:Old')
   assert.deepEqual(useStore.getState().emptyCollections, ['Old'])
@@ -140,7 +140,7 @@ test('failed bulk edits stop follow-up navigation/empty-state changes and leave 
   await useStore.getState().confirm.onConfirm()
   assert.equal(useStore.getState().libraryPage, 'collection:Old')
   assert.deepEqual(useStore.getState().emptyCollections, ['Old'])
-  window.lodestar.games = collectionApi(useStore.getState().games)
+  window.gamekins.games = collectionApi(useStore.getState().games)
   assert.equal(await renameCollection('Old', 'New'), true)
   assert.equal(useStore.getState().libraryPage, 'collection:New')
 })
@@ -261,7 +261,7 @@ test('Properties consumes a requested tab once and keys the body and General per
 
 test('Storage ignores older responses and responses after unmount', async () => {
   const requests = []
-  window.lodestar.app.storage = () => { const request = deferred(); requests.push(request); return request.promise }
+  window.gamekins.app.storage = () => { const request = deferred(); requests.push(request); return request.promise }
   const harness = hookHarness('/views/shell/StorageManager.tsx')
   harness.render(harness.exports.StorageManager)
   const [cleanup] = harness.flush()

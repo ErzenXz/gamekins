@@ -2,7 +2,7 @@ import { CircleAlert, Clock, Download, FolderSearch, LayoutGrid, LoaderCircle, L
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { ProviderInfo } from '@shared/types'
 import { Sidebar } from '../components/Sidebar'
-import { LodestarMark } from '../components/LodestarMark'
+import { Mascot } from '../components/Mascot'
 import { libraryIndex } from '../lib/entityIndex'
 import { img } from '../lib/format'
 import { act, useStore } from '../store'
@@ -12,7 +12,7 @@ const GamePageHost = lazy(() => import('./library/GamePageHost'))
 const CollectionsPage = lazy(() => import('./library/CollectionsPage').then((m) => ({ default: m.CollectionsPage })))
 const CollectionDetail = lazy(() => import('./library/CollectionsPage').then((m) => ({ default: m.CollectionDetail })))
 
-const WIDTH_KEY = 'lodestar.sidebar.width'
+const WIDTH_KEY = 'gamekins.sidebar.width'
 const NO_PROVIDERS: ProviderInfo[] = []
 const MIN_W = 256
 
@@ -128,7 +128,7 @@ function LibraryNotice(): React.JSX.Element | null {
           disabled={busy}
           onClick={async () => {
             setBusy(true)
-            await act(() => window.lodestar.accounts.login('epic'), 'Signed in to Epic Games')
+            await act(() => window.gamekins.accounts.login('epic'), 'Signed in to Epic Games')
             setBusy(false)
           }}
         >
@@ -156,9 +156,7 @@ function LibraryNotice(): React.JSX.Element | null {
 function MissingGame(): React.JSX.Element {
   return (
     <div className="lib-empty">
-      <div className="lib-empty-icon">
-        <LayoutGrid size={34} />
-      </div>
+      <Mascot pose="sleep" className="lib-empty-mascot" />
       <h2>This game isn't in your library anymore</h2>
       <p>It may have been removed, or it belongs to an account that is signed out.</p>
       <div className="lib-empty-actions">
@@ -181,7 +179,7 @@ function EmptyLibrary(): React.JSX.Element {
         </div>
         <h2>Couldn&apos;t load your library</h2>
         <p>{error}</p>
-        <p className="muted small">Lodestar keeps retrying in the background.</p>
+        <p className="muted small">Gamekins keeps retrying in the background.</p>
         <div className="lib-empty-actions">
           <button className="lbtn primary" onClick={() => void refresh()}>
             Try again now
@@ -192,9 +190,7 @@ function EmptyLibrary(): React.JSX.Element {
   }
   return (
     <div className="lib-empty">
-      <div className="lib-empty-icon">
-        <LayoutGrid size={34} />
-      </div>
+      <Mascot pose="cheer" className="lib-empty-mascot" />
       <h2>Your library is empty</h2>
       <p>Games you own on Epic show up here, including the free ones you claimed. Grab something from the store!</p>
       <div className="lib-empty-actions">
@@ -241,9 +237,7 @@ export function SignIn(): React.JSX.Element {
 
       <div className="signin-card">
         <div className="signin-main">
-        <div className="signin-mark">
-          <LodestarMark size={64} />
-        </div>
+        <Mascot pose="wave" size={160} className="signin-mascot" />
         <h1>
           Your games,
           <br />
@@ -259,7 +253,7 @@ export function SignIn(): React.JSX.Element {
           disabled={busy}
           onClick={async () => {
             setBusy(true)
-            await act(() => window.lodestar.accounts.login('epic'), 'Signed in to Epic Games')
+            await act(() => window.gamekins.accounts.login('epic'), 'Signed in to Epic Games')
             setBusy(false)
           }}
         >
@@ -268,7 +262,7 @@ export function SignIn(): React.JSX.Element {
         </button>
 
         <p className="signin-fine">
-          <LockKeyhole size={12} /> Sign-in happens on Epic&apos;s own page. Lodestar never sees your password; it only
+          <LockKeyhole size={12} /> Sign-in happens on Epic&apos;s own page. Gamekins never sees your password; it only
           receives a login token, stored encrypted on this device.
         </p>
         </div>

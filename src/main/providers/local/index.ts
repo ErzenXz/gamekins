@@ -1,5 +1,5 @@
 // "Non-Epic games": any program on this PC, added to the library like Steam's
-// "Add a Non-Steam Game". No downloads; Lodestar just launches and tracks it.
+// "Add a Non-Steam Game". No downloads; Gamekins just launches and tracks it.
 
 import { app, shell } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
@@ -135,11 +135,11 @@ export class LocalProvider implements GameProvider {
   }
 
   createInstallTask(): InstallTask {
-    throw new Error('Non-Epic games are installed outside Lodestar')
+    throw new Error('Non-Epic games are installed outside Gamekins')
   }
 
   async estimate(): Promise<{ downloadBytes: number; installBytes: number; version: string }> {
-    throw new Error('Non-Epic games are installed outside Lodestar')
+    throw new Error('Non-Epic games are installed outside Gamekins')
   }
 
   async launch(game: ProviderGame, install: InstalledInfo, opts: LaunchOptions): Promise<ChildProcess | null> {

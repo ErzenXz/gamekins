@@ -202,7 +202,7 @@
 .tb-menu-btn.open {
   color: #fff;
 }
-.tb-menu-btn .lodestar-mark {
+.tb-menu-btn .gamekins-mark {
   width: 18px;
   height: 18px;
   margin-top: 1px;
@@ -861,7 +861,7 @@
   padding: 8px 0 4px;
   text-align: center;
 }
-.about .lodestar-mark {
+.about .gamekins-mark {
   filter: drop-shadow(0 6px 18px rgba(26, 159, 255, 0.45));
 }
 .about-name {

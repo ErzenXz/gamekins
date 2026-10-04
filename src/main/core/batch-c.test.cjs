@@ -315,7 +315,7 @@ test('unavailable installs survive refresh and recover on reconnection', async (
 
 test('migration preserves newer destination data and marks partial copies considered', async (t) => {
   const f = await fixture(t)
-  const old = join(f.root, 'Vapor'), target = join(f.root, 'Lodestar')
+  const old = join(f.root, 'Vapor'), target = join(f.root, 'Gamekins')
   fs.mkdirSync(old); fs.mkdirSync(target)
   fs.writeFileSync(join(old, 'library-cache.json'), 'old')
   fs.writeFileSync(join(target, 'library-cache.json'), 'new')
@@ -474,12 +474,12 @@ test('artwork is file-backed with pixel bounds and a protocol limited to opaque 
   const art = f.load('artwork')
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=', 'base64')
   const url = await art.cacheArtwork(png)
-  assert.match(url, /^lodestar-art:\/\/image\/[a-f0-9]{64}\.png$/)
+  assert.match(url, /^gamekins-art:\/\/image\/[a-f0-9]{64}\.png$/)
   assert.equal(fs.readdirSync(join(f.root, 'artwork-files')).length, 1)
   png.writeUInt32BE(100000, 16)
   await assert.rejects(art.cacheArtwork(png), /dimensions/)
   art.registerArtworkProtocol()
   assert.equal((await handler({ method: 'GET', url })).status, 200)
-  assert.equal((await handler({ method: 'GET', url: 'lodestar-art://image/../../session.bin' })).status, 404)
+  assert.equal((await handler({ method: 'GET', url: 'gamekins-art://image/../../session.bin' })).status, 404)
   assert.equal((await handler({ method: 'GET', url: url + '?path=session.bin' })).status, 404)
 })

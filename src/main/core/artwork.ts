@@ -7,7 +7,7 @@ import { dataDir } from './store'
 import { FsBoundary } from '../providers/epic/fsBoundary'
 
 const MAX_BYTES = 12 * 1024 * 1024
-protocol.registerSchemesAsPrivileged([{ scheme: 'lodestar-art', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
+protocol.registerSchemesAsPrivileged([{ scheme: 'gamekins-art', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
 
 /** Read dimensions from headers. Bitmap decoding happens in Chromium's image decoder. */
 function dimensions(data: Buffer): { width: number; height: number; extension: string } {
@@ -53,7 +53,7 @@ export async function cacheArtwork(data: Buffer): Promise<string> {
   await (await FsBoundary.create(root)).check(file)
   try { await writeFile(file, data, { flag: 'wx' }) }
   catch (err) { if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err }
-  return `lodestar-art://image/${name}`
+  return `gamekins-art://image/${name}`
 }
 
 export async function artworkFromFile(file: string): Promise<string> {
@@ -73,7 +73,7 @@ export async function artworkFromFile(file: string): Promise<string> {
 }
 
 export function registerArtworkProtocol(): void {
-  protocol.handle('lodestar-art', async (request) => {
+  protocol.handle('gamekins-art', async (request) => {
     const url = new URL(request.url)
     if (request.method !== 'GET' || url.hostname !== 'image' || url.search || !/^\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(url.pathname)) return new Response('Not found', { status: 404 })
     const root = dataDir('artwork-files')

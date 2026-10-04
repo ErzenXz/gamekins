@@ -5,7 +5,7 @@ import type { ProviderId, ProviderInfo, Settings } from '@shared/types'
 import { confirmSignOut } from '../components/shell/account'
 import { Select } from '../components/shell/Select'
 import { modKey } from '../components/shell/format'
-import { LodestarMark } from '../components/LodestarMark'
+import { GamekinsMark } from '../components/GamekinsMark'
 import { act, bootstrap, useStore } from '../store'
 import { StorageManager } from './shell/StorageManager'
 
@@ -16,7 +16,7 @@ const SECTIONS = [
   { id: 'downloads', label: 'Downloads' },
   { id: 'storage', label: 'Storage' },
   { id: 'startup', label: 'Startup' },
-  { id: 'about', label: 'About Lodestar' }
+  { id: 'about', label: 'About Gamekins' }
 ] as const
 
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -46,7 +46,7 @@ export function SettingsView(): React.JSX.Element {
   return (
     <div className="st">
       <nav className="st-nav scroll" aria-label="Settings sections">
-        <div className="st-nav-title">Lodestar Settings</div>
+        <div className="st-nav-title">Gamekins Settings</div>
         {SECTIONS.map((s) => (
           <button
             key={s.id}
@@ -197,7 +197,7 @@ function AccountSection(): React.JSX.Element {
               }
               hint={
                 !p.available
-                  ? 'Coming soon: Lodestar can’t connect to this store yet.'
+                  ? 'Coming soon: Gamekins can’t connect to this store yet.'
                   : account
                     ? `Signed in as ${account.displayName}`
                     : p.id === 'epic' && sessionExpired
@@ -239,7 +239,7 @@ function AccountSection(): React.JSX.Element {
 
 function LinkButton({ url, label = 'Open' }: { url: string; label?: string }): React.JSX.Element {
   return (
-    <button className="btn btn-ghost" onClick={() => void window.lodestar.app.openExternal(url)}>
+    <button className="btn btn-ghost" onClick={() => void window.gamekins.app.openExternal(url)}>
       <ExternalLink size={14} /> {label}
     </button>
   )
@@ -323,7 +323,7 @@ function DownloadsSection({ settings, platform }: { settings: Settings; platform
           <button
             className="btn btn-ghost"
             onClick={async () => {
-              const dir = await window.lodestar.app.pickDirectory(settings.installDir)
+              const dir = await window.gamekins.app.pickDirectory(settings.installDir)
               if (dir) await save({ installDir: dir })
             }}
           >
@@ -411,9 +411,9 @@ function LibrarySection({ settings }: { settings: Settings }): React.JSX.Element
         label="Launch through the Epic Games Launcher"
         hint="A fallback for games that won’t start directly. You can also set this per game in Properties."
       />
-      <Toggle settings={settings} k="minimizeOnLaunch" label="Minimize Lodestar when a game starts" hint="Get the launcher out of the way while you play." />
+      <Toggle settings={settings} k="minimizeOnLaunch" label="Minimize Gamekins when a game starts" hint="Get the launcher out of the way while you play." />
       <Heading>Non-Epic games</Heading>
-      <Row label="Add a non-Epic game" hint="Put any program on this PC in your library and launch it from Lodestar.">
+      <Row label="Add a non-Epic game" hint="Put any program on this PC in your library and launch it from Gamekins.">
         <button className="btn btn-ghost" onClick={() => useStore.getState().setAddGameOpen(true)}>
           Add a game…
         </button>
@@ -429,20 +429,20 @@ function StartupSection({ settings, platform }: { settings: Settings; platform: 
       <Toggle
         settings={settings}
         k="launchAtLogin"
-        label={`Run Lodestar when ${mac ? 'you log in' : 'Windows starts'}`}
+        label={`Run Gamekins when ${mac ? 'you log in' : 'Windows starts'}`}
         hint="Start in the background so updates are ready before you are."
       />
       {mac ? (
         <Row
           label="Closing the window"
-          hint="On macOS, closing the window keeps Lodestar running in the menu bar so downloads continue. Use Lodestar › Quit Lodestar (⌘Q) to quit."
+          hint="On macOS, closing the window keeps Gamekins running in the menu bar so downloads continue. Use Gamekins › Quit Gamekins (⌘Q) to quit."
         />
       ) : (
         <Toggle
           settings={settings}
           k="closeToTray"
           label="Close to the system tray"
-          hint="Closing the window keeps Lodestar running in the tray so downloads continue. Use Lodestar › Exit to quit."
+          hint="Closing the window keeps Gamekins running in the tray so downloads continue. Use Gamekins › Exit to quit."
         />
       )}
     </>
@@ -454,9 +454,9 @@ function AboutSection({ version, platform }: { version: string; platform: string
   return (
     <>
       <div className="st-about">
-        <LodestarMark size={64} />
+        <GamekinsMark size={64} />
         <div>
-          <div className="st-about-name">LODESTAR</div>
+          <div className="st-about-name">GAMEKINS</div>
           <div className="st-about-version">
             Version {version} · {os}
           </div>
@@ -474,7 +474,7 @@ function AboutSection({ version, platform }: { version: string; platform: string
         <LinkButton url="https://store.epicgames.com/" />
       </Row>
       <p className="st-legal">
-        Lodestar is an independent project and is not affiliated with, endorsed by or sponsored by Epic Games, Inc. or Valve
+        Gamekins is an independent project and is not affiliated with, endorsed by or sponsored by Epic Games, Inc. or Valve
         Corporation. All trademarks are property of their respective owners.
       </p>
     </>

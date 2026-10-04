@@ -1,4 +1,4 @@
-// One-time move of user data from the app's pre-release name ("Vapor") to its new home.
+// One-time move of user data from the app's earlier names ("Lodestar", before that "Vapor") to its new home.
 // Must be imported before anything else in the main process: the JSON stores open their
 // files as soon as their modules load.
 //
@@ -9,7 +9,8 @@ import { app } from 'electron'
 import { cpSync, existsSync, mkdirSync, writeFileSync, readdirSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
 
-const OLD_NAMES = ['Vapor', 'vapor']
+// Newest first: whichever earlier install has data wins.
+const OLD_NAMES = ['Lodestar', 'Vapor', 'vapor']
 /** Our own data (not Chromium's caches): settings, library, play time, login, store cookies. */
 const APP_DATA = [
   'settings.json',
@@ -20,8 +21,12 @@ const APP_DATA = [
   'artwork.json',
   'downloads.json',
   'local-games.json',
+  'active-sessions.json',
   'epic',
   'manifests',
+  'metadata',
+  'relocations',
+  'artwork-files',
   'Partitions',
   // Holds the key that encrypts the saved login and cookies; without it they can't be read.
   'Local State'

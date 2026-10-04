@@ -65,11 +65,11 @@ function DlcRow({ d, game, baseBusy, busyWhy, fallbackArt }: { d: Game['dlc'][nu
       {job ? (
         <>
           {job.state === 'paused' || job.state === 'error' ? (
-            <button className="lbtn small" onClick={() => act(() => window.lodestar.downloads.resume(job.id))}>
+            <button className="lbtn small" onClick={() => act(() => window.gamekins.downloads.resume(job.id))}>
               <Play size={12} /> {job.state === 'error' ? 'Retry' : 'Resume'}
             </button>
           ) : (
-            <button className="lbtn small" onClick={() => act(() => window.lodestar.downloads.pause(job.id))}>
+            <button className="lbtn small" onClick={() => act(() => window.gamekins.downloads.pause(job.id))}>
               <Pause size={12} /> Pause
             </button>
           )}
@@ -88,7 +88,7 @@ function DlcRow({ d, game, baseBusy, busyWhy, fallbackArt }: { d: Game['dlc'][nu
               className="lbtn primary small"
               disabled={baseBusy}
               title={baseBusy ? busyWhy : `Update ${d.title}`}
-              onClick={() => act(() => window.lodestar.games.update(d.key))}
+              onClick={() => act(() => window.gamekins.games.update(d.key))}
             >
               Update
             </button>

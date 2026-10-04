@@ -6,14 +6,14 @@ import { confirmSignOut } from './shell/account'
 import { Dropdown, type MenuItem } from './shell/Dropdown'
 import { isMac, modKey } from './shell/format'
 import { STORE_LINKS } from './shell/storeLinks'
-import { LodestarMark } from './LodestarMark'
+import { GamekinsMark } from './GamekinsMark'
 
 const RUNNING = ['preparing', 'verifying', 'downloading', 'finalizing']
 const REDEEM_URL = 'https://www.epicgames.com/redeem'
 const FREE_URL = 'https://store.epicgames.com/en-US/free-games'
 const EPIC_ACCOUNT = 'https://www.epicgames.com/account/personal'
 
-type MenuId = 'lodestar' | 'view' | 'games' | 'help' | 'account'
+type MenuId = 'gamekins' | 'view' | 'games' | 'help' | 'account'
 type NavId = 'store' | 'library' | 'downloads' | 'user'
 
 const go = (r: Route): void => useStore.getState().navigate(r)
@@ -49,23 +49,23 @@ export function TitleBar(): React.JSX.Element {
   }
   const exit = (): void => {
     const active = s().jobs.find((j) => RUNNING.includes(j.state))
-    if (!active) return void window.lodestar.app.quit()
+    if (!active) return void window.gamekins.app.quit()
     s().setConfirm({
-      title: isMac() ? 'Quit Lodestar?' : 'Exit Lodestar?',
-      message: `${active.title} is still downloading. It will stop now and pick up where it left off the next time you open Lodestar.`,
+      title: isMac() ? 'Quit Gamekins?' : 'Exit Gamekins?',
+      message: `${active.title} is still downloading. It will stop now and pick up where it left off the next time you open Gamekins.`,
       confirmLabel: isMac() ? 'Quit' : 'Exit',
-      onConfirm: () => window.lodestar.app.quit()
+      onConfirm: () => window.gamekins.app.quit()
     })
   }
 
   const menus: Record<MenuId, MenuItem[]> = {
-    lodestar: [
+    gamekins: [
       { label: 'Settings', shortcut: `${mod}+,`, onSelect: () => go({ view: 'settings' }) },
       account
         ? { label: 'Sign out of account…', onSelect: signOut }
         : { label: signingIn ? 'Signing in…' : 'Sign in to Epic Games…', disabled: signingIn, onSelect: signIn },
       { separator: true },
-      { label: isMac() ? 'Quit Lodestar' : 'Exit', shortcut: isMac() ? '⌘+Q' : undefined, onSelect: exit }
+      { label: isMac() ? 'Quit Gamekins' : 'Exit', shortcut: isMac() ? '⌘+Q' : undefined, onSelect: exit }
     ],
     view: [
       { label: 'Store', shortcut: `${mod}+1`, checked: view === 'store', onSelect: () => go({ view: 'store' }) },
@@ -86,16 +86,16 @@ export function TitleBar(): React.JSX.Element {
       { label: 'Free games this week', onSelect: () => go({ view: 'store', url: FREE_URL }) }
     ],
     help: [
-      { label: 'Epic Games support', onSelect: () => void window.lodestar.app.openExternal('https://www.epicgames.com/help') },
-      { label: 'Epic Games status', onSelect: () => void window.lodestar.app.openExternal('https://status.epicgames.com') },
+      { label: 'Epic Games support', onSelect: () => void window.gamekins.app.openExternal('https://www.epicgames.com/help') },
+      { label: 'Epic Games status', onSelect: () => void window.gamekins.app.openExternal('https://status.epicgames.com') },
       { separator: true },
-      { label: 'About Lodestar', onSelect: () => setAbout(true) }
+      { label: 'About Gamekins', onSelect: () => setAbout(true) }
     ],
     account: account
       ? [
           { heading: account.displayName, accent: true },
           { label: 'View account details', onSelect: () => go({ view: 'settings', section: 'account' }) },
-          { label: 'Epic account page', onSelect: () => void window.lodestar.app.openExternal(EPIC_ACCOUNT) },
+          { label: 'Epic account page', onSelect: () => void window.gamekins.app.openExternal(EPIC_ACCOUNT) },
           { label: 'Settings', onSelect: () => go({ view: 'settings' }) },
           { separator: true },
           { label: 'Sign out of account…', onSelect: signOut }
@@ -212,9 +212,9 @@ export function TitleBar(): React.JSX.Element {
         <div className="tb-top">
           <div className="tb-menus">
             {menuButton(
-              'lodestar',
+              'gamekins',
               <>
-                <LodestarMark size={16} /> Lodestar
+                <GamekinsMark size={16} /> Gamekins
               </>
             )}
             {menuButton('view', 'View')}
@@ -297,7 +297,7 @@ export function TitleBar(): React.JSX.Element {
                 account
                   ? [
                       { label: 'Account details', onSelect: () => go({ view: 'settings', section: 'account' }) },
-                      { label: 'Epic account page', onSelect: () => void window.lodestar.app.openExternal(EPIC_ACCOUNT) },
+                      { label: 'Epic account page', onSelect: () => void window.gamekins.app.openExternal(EPIC_ACCOUNT) },
                       { label: 'Wishlist', onSelect: () => go({ view: 'store', url: STORE_LINKS.find((l) => l.label === 'Wishlist')!.url }) }
                     ]
                   : [
@@ -377,7 +377,7 @@ function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const os = info?.platform === 'darwin' ? 'macOS' : info?.platform === 'win32' ? 'Windows' : info?.platform
   return (
     <Modal
-      title="About Lodestar"
+      title="About Gamekins"
       onClose={onClose}
       width={440}
       footer={
@@ -387,8 +387,8 @@ function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
       }
     >
       <div className="about">
-        <LodestarMark size={64} />
-        <div className="about-name">LODESTAR</div>
+        <GamekinsMark size={64} />
+        <div className="about-name">GAMEKINS</div>
         <div className="about-version">
           Version {info?.version ?? '—'} · {os}
         </div>

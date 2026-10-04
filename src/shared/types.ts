@@ -37,7 +37,7 @@ export interface InstalledInfo {
   platform: Platform
   sizeBytes: number
   /** Who put the game on disk. Imported installs are still fully managed by us. */
-  source: 'lodestar' | 'epic-launcher' | 'local'
+  source: 'gamekins' | 'epic-launcher' | 'local'
   installedAt: number
   unavailable?: boolean
   workingDirectory?: string

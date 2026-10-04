@@ -39,7 +39,7 @@ const ROW_H = 24
 const HEAD_H = 30
 const OVERSCAN = 12
 
-const COLLAPSE_KEY = 'lodestar.sidebar.collapsed'
+const COLLAPSE_KEY = 'gamekins.sidebar.collapsed'
 function readCollapsed(): Record<string, boolean> {
   try {
     return JSON.parse(localStorage.getItem(COLLAPSE_KEY) ?? '{}')

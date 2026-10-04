@@ -53,7 +53,7 @@ import {
 } from '../lib/gameActions'
 import { act, useStore } from '../store'
 
-const INFO_KEY = 'lodestar.gamepage.info'
+const INFO_KEY = 'gamekins.gamepage.info'
 
 export function GamePage({ game }: { game: Game }): React.JSX.Element {
   const job = useTileJob(game.key)
@@ -182,7 +182,7 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
         <nav className="gp-links">
           {local ? (
             <>
-              <button disabled={!game.install} onClick={() => act(() => window.lodestar.games.openFolder(game.key))}>
+              <button disabled={!game.install} onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
                 Browse local files
               </button>
               <button onClick={() => s.openProperties(game.key, 'customization')}>Change artwork</button>
@@ -198,7 +198,7 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
               >
                 DLC
               </button>
-              <button onClick={() => act(() => window.lodestar.app.openExternal(SUPPORT_URL))}>Support</button>
+              <button onClick={() => act(() => window.gamekins.app.openExternal(SUPPORT_URL))}>Support</button>
               <button onClick={() => s.openProperties(game.key)}>Properties</button>
             </>
           )}
@@ -598,7 +598,7 @@ function Activity({
           <button className="lbtn" onClick={() => void launchGame(game)}>
             Play without updating
           </button>
-          <button className="lbtn primary" onClick={() => act(() => window.lodestar.games.update(game.key))}>
+          <button className="lbtn primary" onClick={() => act(() => window.gamekins.games.update(game.key))}>
             Update now
           </button>
         </div>
@@ -613,7 +613,7 @@ function Activity({
           <button className="lbtn" onClick={() => useStore.getState().navigate({ view: 'downloads' })}>
             Downloads
           </button>
-          <button className="lbtn primary" onClick={() => act(() => window.lodestar.downloads.resume(job.id))}>
+          <button className="lbtn primary" onClick={() => act(() => window.gamekins.downloads.resume(job.id))}>
             Retry
           </button>
         </div>
@@ -624,7 +624,7 @@ function Activity({
           <div>
             <b>Managed by {game.thirdPartyManagedApp}</b>
             <span>
-              Lodestar hands this game to the Epic Games Launcher, which installs and starts it through{' '}
+              Gamekins hands this game to the Epic Games Launcher, which installs and starts it through{' '}
               {game.thirdPartyManagedApp}.
             </span>
           </div>
@@ -711,7 +711,7 @@ function InfoCard({ game }: { game: Game }): React.JSX.Element {
               label="Location"
               value={
                 inst ? (
-                  <button className="gp-path" title="Show in folder" onClick={() => act(() => window.lodestar.games.openFolder(game.key))}>
+                  <button className="gp-path" title="Show in folder" onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
                     {inst.path}
                   </button>
                 ) : undefined
@@ -752,7 +752,7 @@ function InfoCard({ game }: { game: Game }): React.JSX.Element {
               label="Location"
               value={
                 inst ? (
-                  <button className="gp-path" title="Open folder" onClick={() => act(() => window.lodestar.games.openFolder(game.key))}>
+                  <button className="gp-path" title="Open folder" onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
                     {inst.path}
                   </button>
                 ) : undefined
@@ -760,7 +760,7 @@ function InfoCard({ game }: { game: Game }): React.JSX.Element {
             />
             <Row
               label="Installed by"
-              value={inst ? (inst.source === 'epic-launcher' ? 'Epic Games Launcher (imported)' : 'Lodestar') : undefined}
+              value={inst ? (inst.source === 'epic-launcher' ? 'Epic Games Launcher (imported)' : 'Gamekins') : undefined}
             />
             <Row label="Offline play" value={game.canRunOffline ? 'Supported' : 'Needs sign-in'} />
             {!inst && <Row label="Status" value="Not installed" />}
@@ -781,7 +781,7 @@ function ManageCard({ game, job, platform }: { game: Game; job?: DownloadJob; pl
       <h3 className="gp-sec-title">Manage</h3>
       <div className="gp-panel gp-links-list">
         {inst && (
-          <button disabled={moving} onClick={() => act(() => window.lodestar.games.openFolder(game.key))}>
+          <button disabled={moving} onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
             <FolderOpen size={15} /> Browse local files
           </button>
         )}
@@ -789,7 +789,7 @@ function ManageCard({ game, job, platform }: { game: Game; job?: DownloadJob; pl
           <button
             disabled={!canVerify(game, job)}
             title={job ? 'Wait for the current download to finish' : game.running ? 'Close the game first' : undefined}
-            onClick={() => act(() => window.lodestar.games.repair(game.key), 'Verification queued')}
+            onClick={() => act(() => window.gamekins.games.repair(game.key), 'Verification queued')}
           >
             <ShieldCheck size={15} /> Verify integrity of game files
           </button>

@@ -1,5 +1,5 @@
 // Reads (and on uninstall, cleans up) the official Epic Games Launcher's install
-// records so games it installed show up in Lodestar without re-downloading.
+// records so games it installed show up in Gamekins without re-downloading.
 
 import { existsSync } from 'node:fs'
 import { readdir, readFile, stat, unlink, writeFile, rename } from 'node:fs/promises'

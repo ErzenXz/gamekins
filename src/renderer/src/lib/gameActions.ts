@@ -80,16 +80,16 @@ export function availableHere(game: Game, platform: string): boolean {
   return game.platforms.includes(platform === 'darwin' ? 'Mac' : 'Windows')
 }
 
-/** Lodestar can download/repair this game's files itself (not local, not EA/Ubisoft-managed). */
-export const managedByLodestar = (g: Game): boolean => !isLocal(g) && !g.thirdPartyManagedApp
+/** Gamekins can download/repair this game's files itself (not local, not EA/Ubisoft-managed). */
+export const managedByGamekins = (g: Game): boolean => !isLocal(g) && !g.thirdPartyManagedApp
 
 export function canInstall(game: Game, job: DownloadJob | undefined, platform: string): boolean {
   return !game.install && !job && !isLocal(game) && availableHere(game, platform)
 }
 
-/** "Locate existing install…" makes sense for not-installed games Lodestar can manage on this OS. */
+/** "Locate existing install…" makes sense for not-installed games Gamekins can manage on this OS. */
 export function canLocate(game: Game, job: DownloadJob | undefined, platform: string): boolean {
-  return canInstall(game, job, platform) && managedByLodestar(game)
+  return canInstall(game, job, platform) && managedByGamekins(game)
 }
 
 /** Verify / update / move are only safe while nothing else touches the files. */
@@ -99,7 +99,7 @@ export function canModify(game: Game, job: DownloadJob | undefined): boolean {
 }
 
 export function canVerify(game: Game, job: DownloadJob | undefined): boolean {
-  return canModify(game, job) && managedByLodestar(game)
+  return canModify(game, job) && managedByGamekins(game)
 }
 
 export function primaryAction(
@@ -131,7 +131,7 @@ export function primaryAction(
 export const isQuickKind = (k: PrimaryKind): boolean => k === 'play' || k === 'install' || k === 'update'
 
 export function runPrimary(game: Game, job: DownloadJob | undefined, kind: PrimaryKind): Promise<void> {
-  const v = window.lodestar
+  const v = window.gamekins
   switch (kind) {
     case 'play':
       return launchGame(game)
@@ -174,7 +174,7 @@ export async function launchGame(game: Game): Promise<void> {
     useStore.getState().setLaunching(game.key, false)
   }
   try {
-    await window.lodestar.games.launch(game.key)
+    await window.gamekins.games.launch(game.key)
   } catch (err) {
     done()
     useStore.getState().toast({ kind: 'error', message: errorMessage(err) })
@@ -193,10 +193,10 @@ export async function launchGame(game: Game): Promise<void> {
 export function confirmStop(game: Game): void {
   useStore.getState().setConfirm({
     title: `Stop ${game.title}?`,
-    message: 'Lodestar will close the game. Any progress that the game has not saved will be lost.',
+    message: 'Gamekins will close the game. Any progress that the game has not saved will be lost.',
     confirmLabel: 'Stop game',
     danger: true,
-    onConfirm: () => act(() => window.lodestar.games.stop(game.key))
+    onConfirm: () => act(() => window.gamekins.games.stop(game.key))
   })
 }
 
@@ -207,7 +207,7 @@ export function confirmUninstall(game: Game): void {
     message: `This deletes all of the game's files from\n${game.install?.path}\n\nSaves stored in the cloud or in your user folder are not affected.`,
     confirmLabel: 'Uninstall',
     danger: true,
-    onConfirm: () => act(() => window.lodestar.games.uninstall(game.key), `${game.title} was uninstalled`)
+    onConfirm: () => act(() => window.gamekins.games.uninstall(game.key), `${game.title} was uninstalled`)
   })
 }
 
@@ -216,13 +216,13 @@ export function confirmRemoveLocal(game: Game): void {
   const s = useStore.getState()
   s.setConfirm({
     title: `Remove ${game.title}?`,
-    message: `${game.title} will be removed from your Lodestar library.\n\nThe program itself stays on your PC:\n${game.install?.path ?? ''}`,
+    message: `${game.title} will be removed from your Gamekins library.\n\nThe program itself stays on your PC:\n${game.install?.path ?? ''}`,
     confirmLabel: 'Remove',
     danger: true,
     onConfirm: async () => {
       const st = useStore.getState()
       if (st.route.view === 'library' && st.route.gameKey === game.key) st.navigate({ view: 'library' })
-      await act(() => window.lodestar.games.uninstall(game.key), `${game.title} was removed from your library`)
+      await act(() => window.gamekins.games.uninstall(game.key), `${game.title} was removed from your library`)
     }
   })
 }
@@ -237,7 +237,7 @@ export function confirmCancelJob(job: DownloadJob, title = job.title): void {
       : 'The download stops. Files already updated stay on disk.',
     confirmLabel: 'Cancel download',
     danger: true,
-    onConfirm: () => act(() => window.lodestar.downloads.cancel(job.id))
+    onConfirm: () => act(() => window.gamekins.downloads.cancel(job.id))
   })
 }
 
@@ -252,7 +252,7 @@ export const SUPPORT_URL = 'https://www.epicgames.com/help'
 export function toggleFavorite(game: Game): Promise<void> {
   const favorite = !game.prefs.favorite
   return act(
-    () => window.lodestar.games.setPrefs(game.key, { favorite }),
+    () => window.gamekins.games.setPrefs(game.key, { favorite }),
     favorite ? `Added ${game.title} to Favorites` : undefined
   )
 }
@@ -260,7 +260,7 @@ export function toggleFavorite(game: Game): Promise<void> {
 export function toggleHidden(game: Game): Promise<void> {
   const hidden = !game.prefs.hidden
   return act(
-    () => window.lodestar.games.setPrefs(game.key, { hidden }),
+    () => window.gamekins.games.setPrefs(game.key, { hidden }),
     hidden ? `${game.title} is now hidden` : `${game.title} is visible again`
   )
 }
@@ -276,21 +276,21 @@ export function locateInstall(game: Game): void {
     title: `Locate ${game.title}`,
     message:
       `Select the folder that holds ${game.title} itself, not the folder that contains all your games.\n\n` +
-      'Lodestar checks the files in that folder and downloads anything that is missing or damaged into it.',
+      'Gamekins checks the files in that folder and downloads anything that is missing or damaged into it.',
     confirmLabel: 'Choose folder…',
     onConfirm: async () => {
       // Open the picker on where this game would normally live (installDir\<game folder>).
       let suggested = base
       try {
         const plan = await Promise.race([
-          window.lodestar.games.plan(game.key, base),
+          window.gamekins.games.plan(game.key, base),
           new Promise<null>((r) => setTimeout(() => r(null), 4000))
         ])
         if (plan) suggested = plan.installPath
       } catch {
         /* fall back to the install folder */
       }
-      const dir = await window.lodestar.app.pickDirectory(suggested)
+      const dir = await window.gamekins.app.pickDirectory(suggested)
       if (!dir) return
       const n = norm(dir)
       if ((base && n === norm(base)) || /^[a-z]:$/.test(n) || n === '') {
@@ -300,13 +300,13 @@ export function locateInstall(game: Game): void {
         })
         return
       }
-      await act(() => window.lodestar.games.importFolder(game.key, dir), `Checking ${game.title} in ${dir}…`)
+      await act(() => window.gamekins.games.importFolder(game.key, dir), `Checking ${game.title} in ${dir}…`)
     }
   })
 }
 
 export function installDlc(dlc: DlcInfo): Promise<void> {
-  return act(() => window.lodestar.games.install(dlc.key), `${dlc.title} was added to your downloads`)
+  return act(() => window.gamekins.games.install(dlc.key), `${dlc.title} was added to your downloads`)
 }
 
 export function confirmUninstallDlc(dlc: DlcInfo, game: Game): void {
@@ -315,7 +315,7 @@ export function confirmUninstallDlc(dlc: DlcInfo, game: Game): void {
     message: `This removes the DLC's files from ${game.title}. You still own it and can install it again at any time.`,
     confirmLabel: 'Uninstall',
     danger: true,
-    onConfirm: () => act(() => window.lodestar.games.uninstall(dlc.key), `${dlc.title} was uninstalled`)
+    onConfirm: () => act(() => window.gamekins.games.uninstall(dlc.key), `${dlc.title} was uninstalled`)
   })
 }
 
@@ -325,7 +325,7 @@ export function osName(platform: string): string {
 }
 
 export function createShortcut(game: Game): Promise<void> {
-  return act(() => window.lodestar.games.createShortcut(game.key), `Added a desktop shortcut for ${game.title}`)
+  return act(() => window.gamekins.games.createShortcut(game.key), `Added a desktop shortcut for ${game.title}`)
 }
 
 export const ARTWORK_LABELS: Record<ArtworkKind, string> = { tall: 'Cover', wide: 'Hero', logo: 'Logo' }
@@ -334,7 +334,7 @@ export const ARTWORK_LABELS: Record<ArtworkKind, string> = { tall: 'Cover', wide
 export async function pickArtwork(game: Game, kind: ArtworkKind): Promise<void> {
   let files: string[]
   try {
-    files = await window.lodestar.app.pickFiles({
+    files = await window.gamekins.app.pickFiles({
       title: `Choose a ${ARTWORK_LABELS[kind].toLowerCase()} image for ${game.title}`,
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
     })
@@ -343,11 +343,11 @@ export async function pickArtwork(game: Game, kind: ArtworkKind): Promise<void> 
     return
   }
   if (!files[0]) return
-  await act(() => window.lodestar.games.setArtwork(game.key, kind, files[0]), `${ARTWORK_LABELS[kind]} updated`)
+  await act(() => window.gamekins.games.setArtwork(game.key, kind, files[0]), `${ARTWORK_LABELS[kind]} updated`)
 }
 
 export function resetArtwork(game: Game, kind: ArtworkKind): Promise<void> {
-  return act(() => window.lodestar.games.setArtwork(game.key, kind, null), `${ARTWORK_LABELS[kind]} reset`)
+  return act(() => window.gamekins.games.setArtwork(game.key, kind, null), `${ARTWORK_LABELS[kind]} reset`)
 }
 
 // ───────── Collections (stored per game in prefs.collections) ─────────
@@ -388,7 +388,7 @@ function serializeCollection(edit: () => Promise<void>): Promise<boolean> {
 }
 
 async function editCollections(edit: CollectionEdit): Promise<Game[]> {
-  const changed = await window.lodestar.games.editCollections(edit)
+  const changed = await window.gamekins.games.editCollections(edit)
   for (const game of changed) commitCollections(game.key, game.prefs.collections ?? [])
   return changed
 }

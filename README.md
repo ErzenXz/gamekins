@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="branding/banner.png" alt="Lodestar: Every game. One home." width="100%">
+  <img src="branding/banner.png" alt="Gamekins: All your games. One cozy home." width="100%">
 </p>
 
 <p align="center">
@@ -8,15 +8,16 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/library.png" alt="Lodestar library" width="49%">
-  <img src="docs/screenshots/game.png" alt="Lodestar game page" width="49%">
-  <img src="docs/screenshots/downloads.png" alt="Lodestar downloads" width="49%">
-  <img src="docs/screenshots/settings.png" alt="Lodestar settings" width="49%">
+  <img src="docs/screenshots/library.png" alt="Gamekins library" width="49%">
+  <img src="docs/screenshots/game.png" alt="Gamekins game page" width="49%">
+  <img src="docs/screenshots/downloads.png" alt="Gamekins downloads" width="49%">
+  <img src="docs/screenshots/settings.png" alt="Gamekins settings" width="49%">
+  <img src="docs/screenshots/welcome.png" alt="Gamekins welcome screen" width="98.5%">
 </p>
 
 ## Why
 
-The official Epic Games launcher is slow and awkward. Lodestar gives your Epic library the client it deserves: a library, downloads manager and store that feel like Steam. It installs, updates and launches your games itself, so the Epic launcher isn't needed.
+The official Epic Games launcher is slow and awkward. Gamekins gives your Epic library the client it deserves: a library, downloads manager and store that feel like Steam. It installs, updates and launches your games itself, so the Epic launcher isn't needed.
 
 ## Features
 
@@ -32,8 +33,8 @@ The official Epic Games launcher is slow and awkward. Lodestar gives your Epic l
 - **Real play tracking.** "Running" and play time follow the game's actual processes, not just its launcher stub, so Stop really stops the game.
 - **Keeps your installs.** Adopts games the Epic launcher installed, including folders the launcher lost track of, with their DLC and optional content packs. You can also point it at an existing folder, or move an install to another drive.
 - **Add non-Epic games.** Add any program on your PC, like Steam's "Add a Non-Steam Game".
-- **Desktop shortcuts** that launch games through Lodestar (`lodestar://`).
-- **Epic's store, built in,** with one sign-in shared with the app. Lodestar never sees your password: you sign in on Epic's own page.
+- **Desktop shortcuts** that launch games through Gamekins (`gamekins://`).
+- **Epic's store, built in,** with one sign-in shared with the app. Gamekins never sees your password: you sign in on Epic's own page.
 - **Storage manager, system tray, close-to-tray and launch at login.**
 
 ## Getting started
@@ -51,9 +52,9 @@ npm run typecheck
 
 | Command | Output |
 | --- | --- |
-| `npm run dist:win` | `dist/Lodestar-Setup-x.y.z.exe` (NSIS installer) |
-| `npm run dist:store` | `dist/Lodestar-x.y.z.appx` for the Microsoft Store |
-| `npm run dist:mac` | `dist/Lodestar-x.y.z-mac.dmg` (universal). You must build this on a Mac. |
+| `npm run dist:win` | `dist/Gamekins-Setup-x.y.z.exe` (NSIS installer) |
+| `npm run dist:store` | `dist/Gamekins-x.y.z.appx` for the Microsoft Store |
+| `npm run dist:mac` | `dist/Gamekins-x.y.z-mac.dmg` (universal). You must build this on a Mac. |
 
 To regenerate the icons from `branding/`, run `npx electron scripts/make-icons.cjs`.
 
@@ -74,23 +75,23 @@ src/
     providers/ one folder per store; implement GameProvider to add GOG, EA, Ubisoft...
       epic/    OAuth, library and catalog, manifest parser, installer, launcher-data import
       local/   non-Epic games
-  preload/     exposes window.lodestar
+  preload/     exposes window.gamekins
   renderer/    React 19 UI (zustand store; Steam-style views)
 docs/          Steam UI reference, QA audit, screenshots
 branding/      logo, icon, banner
 ```
 
 ### How the Epic integration works
-- **Sign-in:** happens in a window showing Epic's real login page. Lodestar exchanges the resulting code for tokens, which are encrypted with the OS keychain and refreshed automatically.
+- **Sign-in:** happens in a window showing Epic's real login page. Gamekins exchanges the resulting code for tokens, which are encrypted with the OS keychain and refreshed automatically.
 - **Library:** comes from Epic's library, catalog and assets services, so update detection is automatic.
-- **Installs:** Lodestar parses Epic's build manifests (binary and legacy JSON), downloads the chunks in parallel, writes the files, and checks each one's SHA-1. A resume log makes pausing and crashes safe. Updates reuse chunks already on disk; changed files are staged and swapped in at the end.
-- **Launching:** Lodestar runs the game directly with Epic's auth arguments, plus an ownership token for games that need one. Games managed by EA or Ubisoft go through the official launcher.
+- **Installs:** Gamekins parses Epic's build manifests (binary and legacy JSON), downloads the chunks in parallel, writes the files, and checks each one's SHA-1. A resume log makes pausing and crashes safe. Updates reuse chunks already on disk; changed files are staged and swapped in at the end.
+- **Launching:** Gamekins runs the game directly with Epic's auth arguments, plus an ownership token for games that need one. Games managed by EA or Ubisoft go through the official launcher.
 
 ## Status
 
-Early but very usable. Not done yet: cloud saves, achievements, friends, and choosing optional content packs on first install. Logs are in `%APPDATA%\Lodestar\logs\lodestar.log`.
+Early but very usable. Not done yet: cloud saves, achievements, friends, and choosing optional content packs on first install. Logs are in `%APPDATA%\Gamekins\logs\gamekins.log`.
 
-Lodestar uses the same public launcher client credentials as the open-source projects [Legendary](https://github.com/derrod/legendary) and [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher). It is not affiliated with Epic Games, Inc. or Valve Corporation. "Epic Games" and "Steam" are trademarks of their owners.
+Gamekins uses the same public launcher client credentials as the open-source projects [Legendary](https://github.com/derrod/legendary) and [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher). It is not affiliated with Epic Games, Inc. or Valve Corporation. "Epic Games" and "Steam" are trademarks of their owners.
 
 ## License
 

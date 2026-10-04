@@ -144,7 +144,7 @@ const same =(a: Route, b: Route): boolean => JSON.stringify(a) === JSON.stringif
 
 function readGridSize(): number {
   try {
-    const v = Number(localStorage.getItem('lodestar.gridSize'))
+    const v = Number(localStorage.getItem('gamekins.gridSize'))
     return v >= 110 && v <= 260 ? v : 160
   } catch {
     return 160
@@ -153,7 +153,7 @@ function readGridSize(): number {
 
 function readSort(): LibrarySort {
   try {
-    const v = localStorage.getItem('lodestar.librarySort')
+    const v = localStorage.getItem('gamekins.librarySort')
     return v === 'recent' || v === 'playtime' || v === 'size' || v === 'installed' ? v : 'alpha'
   } catch {
     return 'alpha'
@@ -202,9 +202,9 @@ export const useStore = create<State>((set, get) => ({
   launching: {},
   moving: {},
   collectionPrompt: null,
-  emptyCollections: readJson<string[]>('lodestar.collections.empty', []),
+  emptyCollections: readJson<string[]>('gamekins.collections.empty', []),
   libraryPage: 'home',
-  sideRecent: readJson<boolean>('lodestar.sidebar.recent', false),
+  sideRecent: readJson<boolean>('gamekins.sidebar.recent', false),
   storeRequest: null,
   storeActivation: 0,
   sessionExpired: false,
@@ -215,7 +215,7 @@ export const useStore = create<State>((set, get) => ({
   signIn(provider = 'epic') {
     if (loginPromise) return loginPromise
     set({ signingIn: true })
-    loginPromise = window.lodestar.accounts
+    loginPromise = window.gamekins.accounts
       .login(provider)
       .then((acc) => {
         set({ sessionExpired: false })
@@ -236,7 +236,7 @@ export const useStore = create<State>((set, get) => ({
   async signOut(provider) {
     loggingOut = true
     try {
-      await window.lodestar.accounts.logout(provider)
+      await window.gamekins.accounts.logout(provider)
       set({ sessionExpired: false })
     } catch (err) {
       get().toast({ kind: 'error', message: errorMessage(err) })
@@ -278,12 +278,12 @@ export const useStore = create<State>((set, get) => ({
   setCollectionPrompt: (collectionPrompt) => set({ collectionPrompt, contextMenu: null }),
   setEmptyCollections(emptyCollections) {
     set({ emptyCollections })
-    writeJson('lodestar.collections.empty', emptyCollections)
+    writeJson('gamekins.collections.empty', emptyCollections)
   },
   setLibraryPage: (libraryPage) => set({ libraryPage }),
   setSideRecent(sideRecent) {
     set({ sideRecent })
-    writeJson('lodestar.sidebar.recent', sideRecent)
+    writeJson('gamekins.sidebar.recent', sideRecent)
   },
 
   navigate(route) {
@@ -338,7 +338,7 @@ export const useStore = create<State>((set, get) => ({
   setGridSize(gridSize) {
     set({ gridSize })
     try {
-      localStorage.setItem('lodestar.gridSize', String(gridSize))
+      localStorage.setItem('gamekins.gridSize', String(gridSize))
     } catch {
       /* storage unavailable */
     }
@@ -346,7 +346,7 @@ export const useStore = create<State>((set, get) => ({
   setLibrarySort(librarySort) {
     set({ librarySort })
     try {
-      localStorage.setItem('lodestar.librarySort', librarySort)
+      localStorage.setItem('gamekins.librarySort', librarySort)
     } catch {
       /* storage unavailable */
     }
@@ -357,7 +357,7 @@ export const useStore = create<State>((set, get) => ({
     set({ refreshing: true })
     try {
       const revision = eventRevisions.library
-      const games = await window.lodestar.library.refresh()
+      const games = await window.gamekins.library.refresh()
       if (revision === eventRevisions.library) applyLibrary(games)
     } catch (err) {
       get().toast({ kind: 'error', message: errorMessage(err) })
@@ -367,7 +367,7 @@ export const useStore = create<State>((set, get) => ({
   },
   async saveSettings(patch) {
     const revision = ++eventRevisions.settings
-    const settings = await window.lodestar.settings.set(patch)
+    const settings = await window.gamekins.settings.set(patch)
     if (revision === eventRevisions.settings) set({ settings })
   }
 }))
@@ -425,7 +425,7 @@ function applyDownloads(jobs: DownloadJob[]): void {
 function subscribe(): void {
   if (subscribed) return
   subscribed = true
-  const v = window.lodestar
+  const v = window.gamekins
   v.on.library((games) => { eventRevisions.library++; applyLibrary(games) })
   v.on.libraryProgress((libraryProgress) => useStore.setState({ libraryProgress }))
   v.on.downloads((jobs) => { eventRevisions.downloads++; applyDownloads(jobs) })
@@ -462,7 +462,7 @@ export function bootstrap(): Promise<void> {
 }
 
 async function load(): Promise<void> {
-  const v = window.lodestar
+  const v = window.gamekins
   subscribe()
   const revisions = { ...eventRevisions }
   const parts = [

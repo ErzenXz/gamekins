@@ -286,7 +286,7 @@ class Downloads extends EventEmitter {
       if (game && !game.dlcOf && !job.parentKey && job.kind === 'install' && job.createdFolder &&
           !library.installInfo(job.gameKey) && game.provider === job.providerId && game.appName === job.appName) {
         const boundary = await FsBoundary.create(job.installPath)
-        const owner = join(job.installPath, '.lodestar', 'owner')
+        const owner = join(job.installPath, '.gamekins', 'owner')
         await boundary.check(owner)
         const markerMatches = (await readFile(owner, 'utf8')) === job.id
         const current = library.providerGame(job.gameKey)
@@ -491,7 +491,7 @@ class Downloads extends EventEmitter {
       if (!(await lstat(job.installPath)).isDirectory()) throw new Error('Install folder is not a directory')
     }
     const boundary = await FsBoundary.create(job.installPath)
-    const owner = join(job.installPath, '.lodestar', 'owner')
+    const owner = join(job.installPath, '.gamekins', 'owner')
     await boundary.check(owner)
     const previous = await readFile(owner, 'utf8').catch((err: NodeJS.ErrnoException) => {
       if (err.code !== 'ENOENT') throw err

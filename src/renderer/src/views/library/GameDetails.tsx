@@ -15,7 +15,7 @@ function load(key: string, force = false): void {
   if (cur && !force && (cur.status === 'loading' || cur.details)) return
   cache.set(key, { status: 'loading', details: cur?.details ?? null })
   notify()
-  window.lodestar.games
+  window.gamekins.games
     .details(key, force)
     .then((details) => cache.set(key, { status: 'done', details }))
     .catch(() => cache.set(key, { status: 'done', details: cur?.details ?? null }))
@@ -36,7 +36,7 @@ export function useGameDetails(key: string): { details: GameDetails | null; load
   return { details: entry?.details ?? null, loading: entry?.status === 'loading', refresh }
 }
 
-const open = (url: string): void => void window.lodestar.app.openExternal(url)
+const open = (url: string): void => void window.gamekins.app.openExternal(url)
 
 // ───────────── How long to beat ─────────────
 

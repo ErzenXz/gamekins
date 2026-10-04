@@ -207,8 +207,8 @@ class Library extends EventEmitter {
               const key = `${p.id}:${appName}`
               if (operations.blocked(key)) continue
               const mine = d.games[key]
-              // Adopt launcher installs we don't know about and keep adopted ones in sync. Once Lodestar has
-              // installed/updated a game itself (source "lodestar") our record wins over the launcher's.
+              // Adopt launcher installs we don't know about and keep adopted ones in sync. Once Gamekins has
+              // installed/updated a game itself (source "gamekins") our record wins over the launcher's.
               if (!mine || mine.source === 'epic-launcher' || mine.source === 'local') {
                 d.games[key] = { ...info, prereqsInstalled: mine?.prereqsInstalled }
               }

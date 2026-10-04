@@ -1,10 +1,10 @@
 {
-  "name": "lodestar",
-  "productName": "Lodestar",
+  "name": "gamekins",
+  "productName": "Gamekins",
   "version": "0.1.0",
   "description": "A fast, beautiful, Steam-style launcher for your Epic Games library.",
   "main": "./out/main/index.js",
-  "author": "Lodestar contributors",
+  "author": "Gamekins contributors",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
@@ -37,8 +37,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ErzenXz/lodestar.git"
+    "url": "https://github.com/ErzenXz/gamekins.git"
   },
-  "homepage": "https://github.com/ErzenXz/lodestar",
+  "homepage": "https://github.com/ErzenXz/gamekins",
   "private": true
 }

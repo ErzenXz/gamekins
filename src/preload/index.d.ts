@@ -1,7 +1,7 @@
-import type { LodestarApi } from '../shared/api'
+import type { GamekinsApi } from '../shared/api'
 
 declare global {
   interface Window {
-    lodestar: LodestarApi
+    gamekins: GamekinsApi
   }
 }

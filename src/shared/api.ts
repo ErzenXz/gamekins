@@ -18,8 +18,8 @@ import type {
   Toast
 } from './types'
 
-/** The surface exposed to the renderer as `window.lodestar`. */
-export interface LodestarApi {
+/** The surface exposed to the renderer as `window.gamekins`. */
+export interface GamekinsApi {
   app: {
     info(): Promise<AppInfo>
     openExternal(url: string): Promise<void>
@@ -61,7 +61,7 @@ export interface LodestarApi {
     addLocal(paths: string[]): Promise<string[]>
     /** Set (filePath) or reset (null) custom artwork. */
     setArtwork(key: string, kind: ArtworkKind, filePath: string | null): Promise<void>
-    /** Put a desktop shortcut that launches the game through Lodestar. */
+    /** Put a desktop shortcut that launches the game through Gamekins. */
     createShortcut(key: string): Promise<void>
     /** Rich details (Steam store data, HowLongToBeat); cached for two weeks, `force` refetches. */
     details(key: string, force?: boolean): Promise<GameDetails | null>
