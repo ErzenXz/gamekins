@@ -108,7 +108,7 @@ export function Shelf({
           onContextMenu={onTitleContextMenu}
         >
           {title}
-          {count !== undefined && <span className="shelf-count">({count})</span>}
+          {count !== undefined && <span className="shelf-count">{count}</span>}
         </TitleTag>
         <span className="shelf-rule" />
         {extra}

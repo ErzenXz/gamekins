@@ -44,16 +44,33 @@ import { useFetch } from './providers/epic/api'
 const isMac = process.platform === 'darwin'
 const STORE_HOSTS = ['epicgames.com', 'unrealengine.com', 'fab.com']
 const REFRESH_EVERY_MS = 30 * 60_000
-const startHidden = process.argv.includes('--hidden')
+// --hidden: launched at login; the window isn't even created until it's opened from the tray.
+const launchedAtLogin = process.argv.includes('--hidden')
+// Dev/test runs: create the window but keep it hidden (args can't be passed through electron-vite).
+const startHidden = launchedAtLogin || process.env.GAMEKINS_START_HIDDEN === '1'
+// A window hidden in the tray this long is destroyed, freeing its renderer, images and GPU
+// surfaces; reopening rebuilds it in about half a second. Downloads and tracking live here.
+const DISCARD_HIDDEN_MS = 60_000
 const STORE_CSS = `
   egs-navigation { display: none !important; }
   div:has(> egs-navigation), div:has(> div > egs-navigation) { height: 0 !important; min-height: 0 !important; }
   main#app-main-content > div:first-child:has(#global-search-input) { display: none !important; }
+  /* 2026 store layout: a sticky search + Discover/Browse/News row duplicates our toolbar. */
+  body > nav[class*="_topNav_"] { display: none !important; }
+  body > [class*="_mainView_"] { padding-top: 16px !important; }
 `
 
 let win: BrowserWindow | null = null
 const appUrl = process.env.ELECTRON_RENDERER_URL ? new URL(process.env.ELECTRON_RENDERER_URL).href : pathToFileURL(join(__dirname, '../renderer/index.html')).href
 let quitting = false
+let discardTimer: ReturnType<typeof setTimeout> | undefined
+
+function discardWhenHidden(): void {
+  clearTimeout(discardTimer)
+  discardTimer = setTimeout(() => {
+    if (win && !win.isDestroyed() && !win.isVisible()) win.destroy()
+  }, DISCARD_HIDDEN_MS)
+}
 
 function send(channel: string, payload: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
@@ -66,12 +83,18 @@ function accounts(): Account[] {
 }
 
 function showWindow(view?: string): void {
-  if (!win || win.isDestroyed()) createWindow(true)
+  clearTimeout(discardTimer)
+  const fresh = !win || win.isDestroyed()
+  if (fresh) createWindow(true)
   if (!win) return
   if (win.isMinimized()) win.restore()
   win.show()
   win.focus()
-  if (view) send(EVENTS.navigate, { view })
+  if (!view) return
+  // A window rebuilt from the tray has no listeners yet: send once its preload is running
+  // (the preload keeps the event until React subscribes).
+  if (fresh) win.webContents.once('did-finish-load', () => send(EVENTS.navigate, { view }))
+  else send(EVENTS.navigate, { view })
 }
 
 function quit(): void {
@@ -87,12 +110,12 @@ function createWindow(show = !startHidden): void {
     minWidth: 1000,
     minHeight: 640,
     show: false,
-    backgroundColor: '#171d25',
+    backgroundColor: '#0a0d12',
     title: 'Gamekins',
     titleBarStyle: 'hidden',
     ...(isMac
-      ? { trafficLightPosition: { x: 14, y: 13 } }
-      : { titleBarOverlay: { color: '#171d25', symbolColor: '#8b929a', height: 40 } }),
+      ? { trafficLightPosition: { x: 16, y: 17 } }
+      : { titleBarOverlay: { color: '#0a0d12', symbolColor: '#a9b3c1', height: 48 } }),
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -112,8 +135,10 @@ function createWindow(show = !startHidden): void {
     if (!quitting && (settings().closeToTray || isMac)) {
       e.preventDefault()
       win?.hide()
+      discardWhenHidden()
     }
   })
+  win.on('show', () => clearTimeout(discardTimer))
   win.on('closed', () => (win = null))
   win.webContents.on('will-navigate', (e, url) => { if (url !== appUrl) e.preventDefault() })
   win.webContents.on('will-redirect', (e, url) => { if (url !== appUrl) e.preventDefault() })
@@ -484,7 +509,7 @@ function registerIpc(): void {
     epicSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
     epicSession.setPermissionCheckHandler(() => false)
     guardWebviews()
-    createWindow()
+    if (!launchedAtLogin) createWindow()
     createTray({
       show: showWindow,
       quit,
@@ -519,6 +544,8 @@ function registerIpc(): void {
   })
 
   app.on('window-all-closed', () => {
-    if (!isMac) app.quit()
+    // A window discarded in the tray (or never opened after a login launch) keeps the app running.
+    if (isMac || (!quitting && settings().closeToTray)) return
+    app.quit()
   })
 }

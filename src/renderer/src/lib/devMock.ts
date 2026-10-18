@@ -162,7 +162,8 @@ export function installDevMock(): void {
     bandwidthLimitMBps: 0,
     downloadsDuringGameplay: false,
     closeToTray: true,
-    launchAtLogin: false
+    launchAtLogin: false,
+    hardwareAcceleration: true
   }
   let accounts: Account[] = flag === 'signedout' ? [] : [{ provider: 'epic', id: 'me', displayName: 'PlayerOne' }]
 

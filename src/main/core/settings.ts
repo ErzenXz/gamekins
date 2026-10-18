@@ -23,7 +23,8 @@ export const settingsStore = new JsonStore<Settings>('settings', {
   bandwidthLimitMBps: 0,
   downloadsDuringGameplay: false,
   closeToTray: true,
-  launchAtLogin: false
+  launchAtLogin: false,
+  hardwareAcceleration: true
 })
 
 export const settings = (): Settings => settingsStore.data

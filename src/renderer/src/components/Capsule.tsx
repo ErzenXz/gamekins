@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo } from 'react'
 import type { DownloadJob, Game } from '@shared/types'
 import { img } from '../lib/format'
 import { isQuickKind, jobProgress, openMenuAt, runPrimary } from '../lib/gameActions'
@@ -50,28 +50,15 @@ export const Capsule = memo(
   function Capsule({ game: supplied, width = 154 }: CapsuleProps): React.JSX.Element {
     const game = useGame(supplied.key) ?? supplied
     const job = useTileJob(game.key)
-    const wrap = useRef<HTMLDivElement>(null)
-    const [glowReady, setGlowReady] = useState(false)
-    useEffect(() => {
-      const el = wrap.current
-      if (!el || glowReady) return
-      const observer = new IntersectionObserver(([entry]) => {
-        if (entry.isIntersecting) { setGlowReady(true); observer.disconnect() }
-      })
-      observer.observe(el)
-      return () => observer.disconnect()
-    }, [glowReady])
     const primary = usePrimary(game, job)
     const quick = isQuickKind(primary.kind)
     const pct = job ? jobProgress(job) * 100 : 0
     const open = (): void => useStore.getState().navigate({ view: 'library', gameKey: game.key })
     const w = width > 160 ? 450 : 300
     const art = img(game.images.tall, w, Math.round((w * 4) / 3))
-    const glow = art ?? (game.images.thumb && game.images.thumb.startsWith('data:') ? game.images.thumb : undefined)
 
     return (
-      <div className="cap-wrap" ref={wrap} style={{ width }} onMouseEnter={() => setGlowReady(true)} onFocus={() => setGlowReady(true)}>
-        {glow && <div className="cap-glow" style={{ backgroundImage: glowReady ? `url("${glow}")` : undefined }} aria-hidden />}
+      <div className="cap-wrap" style={{ width }}>
         <div
           className={`cap ${game.install ? 'installed' : 'uninstalled'} ${game.running ? 'running' : ''} ${job ? 'busy' : ''}`}
           data-ctx-key={game.key}
@@ -93,7 +80,6 @@ export const Capsule = memo(
               <TitleCard title={game.title} className="img" />
             )}
           </div>
-          <span className="cap-shine" aria-hidden />
 
           {game.running ? (
             <span className="cap-pill running">Running</span>

@@ -13,8 +13,8 @@ const REDEEM_URL = 'https://www.epicgames.com/redeem'
 const FREE_URL = 'https://store.epicgames.com/en-US/free-games'
 const EPIC_ACCOUNT = 'https://www.epicgames.com/account/personal'
 
-type MenuId = 'gamekins' | 'view' | 'games' | 'help' | 'account'
-type NavId = 'store' | 'library' | 'downloads' | 'user'
+type MenuId = 'gamekins' | 'account'
+type NavId = 'store' | 'library' | 'downloads'
 
 const go = (r: Route): void => useStore.getState().navigate(r)
 const openLibrary = (page: 'home' | 'collections'): void => {
@@ -23,7 +23,7 @@ const openLibrary = (page: 'home' | 'collections'): void => {
   s.setLibraryPage(page)
 }
 
-/** Window chrome: Steam's menu row + big nav row (+ the thin strip above library pages). */
+/** Window chrome: one slim row with the app menu, history, Steam's big nav tabs and the account. */
 export function TitleBar(): React.JSX.Element {
   const view = useStore((s) => s.route.view)
   const section = useStore((s) => (s.route.view === 'settings' ? s.route.section : undefined))
@@ -60,36 +60,24 @@ export function TitleBar(): React.JSX.Element {
 
   const menus: Record<MenuId, MenuItem[]> = {
     gamekins: [
-      { label: 'Settings', shortcut: `${mod}+,`, onSelect: () => go({ view: 'settings' }) },
+      { heading: 'Library' },
+      { label: 'Collections', onSelect: () => openLibrary('collections') },
+      { label: 'Add a non-Epic game…', onSelect: () => s().setAddGameOpen(true) },
+      { label: refreshing ? 'Refreshing library…' : 'Refresh library', disabled: refreshing, onSelect: () => void s().refresh() },
+      { heading: 'Store' },
+      { label: 'Free games this week', onSelect: () => go({ view: 'store', url: FREE_URL }) },
+      { label: 'Redeem a code…', onSelect: () => go({ view: 'store', url: REDEEM_URL }) },
+      { separator: true },
+      { label: 'Settings', shortcut: `${mod}+,`, checked: view === 'settings' && section !== 'storage', onSelect: () => go({ view: 'settings' }) },
+      { label: 'Storage', checked: view === 'settings' && section === 'storage', onSelect: () => go({ view: 'settings', section: 'storage' }) },
+      { label: 'Epic Games support', onSelect: () => void window.gamekins.app.openExternal('https://www.epicgames.com/help') },
+      { label: 'Epic Games status', onSelect: () => void window.gamekins.app.openExternal('https://status.epicgames.com') },
+      { label: 'About Gamekins', onSelect: () => setAbout(true) },
+      { separator: true },
       account
         ? { label: 'Sign out of account…', onSelect: signOut }
         : { label: signingIn ? 'Signing in…' : 'Sign in to Epic Games…', disabled: signingIn, onSelect: signIn },
-      { separator: true },
       { label: isMac() ? 'Quit Gamekins' : 'Exit', shortcut: isMac() ? '⌘+Q' : undefined, onSelect: exit }
-    ],
-    view: [
-      { label: 'Store', shortcut: `${mod}+1`, checked: view === 'store', onSelect: () => go({ view: 'store' }) },
-      { label: 'Library', shortcut: `${mod}+2`, checked: view === 'library', onSelect: () => go({ view: 'library' }) },
-      { label: 'Downloads', shortcut: `${mod}+3`, checked: view === 'downloads', onSelect: () => go({ view: 'downloads' }) },
-      { label: 'Settings', shortcut: `${mod}+,`, checked: view === 'settings' && section !== 'storage', onSelect: () => go({ view: 'settings' }) },
-      { label: 'Storage', checked: view === 'settings' && section === 'storage', onSelect: () => go({ view: 'settings', section: 'storage' }) },
-      { separator: true },
-      { label: 'Back', shortcut: 'Alt+←', disabled: !canBack, onSelect: () => s().goBack() },
-      { label: 'Forward', shortcut: 'Alt+→', disabled: !canForward, onSelect: () => s().goForward() }
-    ],
-    games: [
-      { label: 'View games library', onSelect: () => openLibrary('home') },
-      { label: 'Add a non-Epic game to my library…', onSelect: () => s().setAddGameOpen(true) },
-      { label: refreshing ? 'Refreshing library…' : 'Refresh library', disabled: refreshing, onSelect: () => void s().refresh() },
-      { separator: true },
-      { label: 'Redeem a code…', onSelect: () => go({ view: 'store', url: REDEEM_URL }) },
-      { label: 'Free games this week', onSelect: () => go({ view: 'store', url: FREE_URL }) }
-    ],
-    help: [
-      { label: 'Epic Games support', onSelect: () => void window.gamekins.app.openExternal('https://www.epicgames.com/help') },
-      { label: 'Epic Games status', onSelect: () => void window.gamekins.app.openExternal('https://status.epicgames.com') },
-      { separator: true },
-      { label: 'About Gamekins', onSelect: () => setAbout(true) }
     ],
     account: account
       ? [
@@ -183,7 +171,6 @@ export function TitleBar(): React.JSX.Element {
         aria-expanded={open?.id === id}
         onMouseDown={toggle(id)}
         onKeyDown={keyOpen(id)}
-        onMouseEnter={() => open && open.id !== id && open.id !== 'account' && setOpen({ id, keyboard: false })}
       >
         {label}
       </button>
@@ -191,128 +178,96 @@ export function TitleBar(): React.JSX.Element {
     </div>
   )
 
-  const userLabel = account ? account.displayName : 'Sign in'
-  const activeTab: NavId | null =
-    view === 'store'
-      ? 'store'
-      : view === 'library'
-        ? 'library'
-        : view === 'downloads'
-          ? 'downloads'
-          : view === 'settings' && (section === 'account' || section === 'accounts')
-            ? 'user'
-            : null
+  const activeTab: NavId | null = view === 'store' || view === 'library' || view === 'downloads' ? view : null
+  const accountActive = view === 'settings' && (section === 'account' || section === 'accounts')
 
   return (
     <>
       <header className={`titlebar ${focused ? 'focused' : ''}`}>
-        <div className="tb-focusbar" />
         {open && <div className="tb-backdrop" onMouseDown={() => setOpen(null)} />}
-
-        <div className="tb-top">
-          <div className="tb-menus">
-            {menuButton(
-              'gamekins',
-              <>
-                <GamekinsMark size={16} /> Gamekins
-              </>
+        {menuButton(
+          'gamekins',
+          <>
+            <GamekinsMark size={22} />
+            <span className="tb-brand">Gamekins</span>
+            <Caret />
+          </>
+        )}
+        <div className="tb-history">
+          <button className="tb-arrow" disabled={!canBack} onClick={() => s().goBack()} title="Back (Alt+←)" aria-label="Back">
+            <ChevronLeft size={18} strokeWidth={2.2} />
+          </button>
+          <button className="tb-arrow" disabled={!canForward} onClick={() => s().goForward()} title="Forward (Alt+→)" aria-label="Forward">
+            <ChevronRight size={18} strokeWidth={2.2} />
+          </button>
+        </div>
+        <nav className="tb-tabs">
+          <NavTab
+            id="store"
+            label="Store"
+            active={activeTab === 'store'}
+            title={`Store (${mod}+1)`}
+            onClick={() => go({ view: 'store' })}
+            items={STORE_LINKS.map((l) => ({ label: l.label, onSelect: () => go({ view: 'store', url: l.url }) }))}
+          />
+          <NavTab
+            id="library"
+            label="Library"
+            active={activeTab === 'library'}
+            title={`Library (${mod}+2)`}
+            onClick={() => go({ view: 'library' })}
+            items={[
+              { label: 'Home', onSelect: () => openLibrary('home') },
+              { label: 'Collections', onSelect: () => openLibrary('collections') },
+              { label: 'Downloads', onSelect: () => go({ view: 'downloads' }) }
+            ]}
+          />
+          <NavTab
+            id="downloads"
+            label="Downloads"
+            active={activeTab === 'downloads'}
+            title={`Downloads (${mod}+3)`}
+            onClick={() => go({ view: 'downloads' })}
+            badge={liveCount > 0 ? <span className={`tb-badge ${downloading ? 'busy' : ''}`}>{liveCount}</span> : null}
+          />
+        </nav>
+        <div className="tb-drag" />
+        <div className="tb-controls">
+          {!account && sessionExpired && (
+            <button className="tb-pill tb-alert" onClick={signIn} title="Your Epic Games session expired. Sign in again." disabled={signingIn}>
+              <TriangleAlert size={14} />
+              <span>Session expired</span>
+            </button>
+          )}
+          <div className="tb-menu-wrap">
+            <button
+              className={`tb-pill tb-account ${account ? 'online' : 'signed-out'} ${open?.id === 'account' || accountActive ? 'open' : ''}`}
+              onMouseDown={toggle('account')}
+              onKeyDown={keyOpen('account')}
+              aria-haspopup="menu"
+              aria-expanded={open?.id === 'account'}
+              title={account ? `Signed in to Epic Games as ${account.displayName}` : 'Not signed in to Epic Games'}
+            >
+              <span className="tb-avatar">{account ? account.displayName[0]?.toUpperCase() : '?'}</span>
+              <span className="tb-account-name">{account ? account.displayName : signingIn ? 'Signing in…' : 'Sign in'}</span>
+              <Caret />
+            </button>
+            {open?.id === 'account' && (
+              <Dropdown items={menus.account} align="right" autoFocus={open.keyboard} onClose={() => setOpen(null)} />
             )}
-            {menuButton('view', 'View')}
-            {menuButton('games', 'Games')}
-            {menuButton('help', 'Help')}
-          </div>
-          <div className="tb-drag" />
-          <div className="tb-controls">
-            {!account && sessionExpired && (
-              <button className="tb-pill tb-alert" onClick={signIn} title="Your Epic Games session expired. Sign in again." disabled={signingIn}>
-                <TriangleAlert size={14} />
-                <span>Session expired</span>
-              </button>
-            )}
-            <div className="tb-menu-wrap">
-              <button
-                className={`tb-pill tb-account ${account ? 'online' : 'signed-out'} ${open?.id === 'account' ? 'open' : ''}`}
-                onMouseDown={toggle('account')}
-                onKeyDown={keyOpen('account')}
-                aria-haspopup="menu"
-                aria-expanded={open?.id === 'account'}
-                title={account ? `Signed in to Epic Games as ${account.displayName}` : 'Not signed in to Epic Games'}
-              >
-                <span className="tb-avatar">{account ? account.displayName[0]?.toUpperCase() : '?'}</span>
-                <span className="tb-account-name">{account ? account.displayName : signingIn ? 'Signing in…' : 'Sign in'}</span>
-                <svg className="tb-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-                  <path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" />
-                </svg>
-              </button>
-              {open?.id === 'account' && (
-                <Dropdown items={menus.account} align="right" autoFocus={open.keyboard} onClose={() => setOpen(null)} />
-              )}
-            </div>
           </div>
         </div>
-
-        <div className="tb-nav">
-          <button className="tb-arrow first" disabled={!canBack} onClick={() => s().goBack()} title="Back (Alt+←)">
-            <ChevronLeft size={20} strokeWidth={2.4} />
-          </button>
-          <button className="tb-arrow" disabled={!canForward} onClick={() => s().goForward()} title="Forward (Alt+→)">
-            <ChevronRight size={20} strokeWidth={2.4} />
-          </button>
-          <nav className="tb-tabs">
-            <NavTab
-              id="store"
-              label="Store"
-              active={activeTab === 'store'}
-              title={`Store (${mod}+1)`}
-              onClick={() => go({ view: 'store' })}
-              items={STORE_LINKS.map((l) => ({ label: l.label, onSelect: () => go({ view: 'store', url: l.url }) }))}
-            />
-            <NavTab
-              id="library"
-              label="Library"
-              active={activeTab === 'library'}
-              title={`Library (${mod}+2)`}
-              onClick={() => go({ view: 'library' })}
-              items={[
-                { label: 'Home', onSelect: () => openLibrary('home') },
-                { label: 'Collections', onSelect: () => openLibrary('collections') },
-                { label: 'Downloads', onSelect: () => go({ view: 'downloads' }) }
-              ]}
-            />
-            <NavTab
-              id="downloads"
-              label="Downloads"
-              active={activeTab === 'downloads'}
-              title={`Downloads (${mod}+3)`}
-              onClick={() => go({ view: 'downloads' })}
-              badge={liveCount > 0 ? <span className={`tb-badge ${downloading ? 'busy' : ''}`}>{liveCount}</span> : null}
-            />
-            <NavTab
-              id="user"
-              label={userLabel}
-              active={activeTab === 'user'}
-              title={account ? 'Your account' : 'Sign in to Epic Games'}
-              onClick={() => go({ view: 'settings', section: 'account' })}
-              items={
-                account
-                  ? [
-                      { label: 'Account details', onSelect: () => go({ view: 'settings', section: 'account' }) },
-                      { label: 'Epic account page', onSelect: () => void window.gamekins.app.openExternal(EPIC_ACCOUNT) },
-                      { label: 'Wishlist', onSelect: () => go({ view: 'store', url: STORE_LINKS.find((l) => l.label === 'Wishlist')!.url }) }
-                    ]
-                  : [
-                      { label: 'Sign in to Epic Games…', disabled: signingIn, onSelect: signIn },
-                      { label: 'Account settings', onSelect: () => go({ view: 'settings', section: 'account' }) }
-                    ]
-              }
-            />
-          </nav>
-          <div className="tb-drag" />
-        </div>
-        {view !== 'store' && <div className="tb-strip" />}
       </header>
       {about && <AboutDialog onClose={() => setAbout(false)} />}
     </>
+  )
+}
+
+function Caret(): React.JSX.Element {
+  return (
+    <svg className="tb-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 
@@ -388,7 +343,7 @@ function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
     >
       <div className="about">
         <GamekinsMark size={64} />
-        <div className="about-name">GAMEKINS</div>
+        <div className="about-name">Gamekins</div>
         <div className="about-version">
           Version {info?.version ?? '—'} · {os}
         </div>

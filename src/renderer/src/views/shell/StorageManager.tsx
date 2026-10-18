@@ -1,7 +1,6 @@
 import { FolderOpen, HardDrive, Loader2, RefreshCw, Star } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StorageDrive, StorageGame } from '@shared/types'
-import { Select } from '../../components/shell/Select'
 import { bytes, img } from '../../lib/format'
 import { act, errorMessage, jobFor, useStore } from '../../store'
 import { libraryIndex } from '../../lib/entityIndex'
@@ -73,28 +72,14 @@ export function StorageManager(): React.JSX.Element {
       </div>
     )
 
-  const gameBytes = drive.games.reduce((n, g) => n + g.sizeBytes, 0)
-  const used = Math.max(0, drive.totalBytes - drive.freeBytes)
-  const other = Math.max(0, used - gameBytes)
-  const pct = (n: number): string => `${drive.totalBytes ? (n / drive.totalBytes) * 100 : 0}%`
+  const { gameBytes, other } = usage(drive)
   const toggleSort = (by: Sort): void =>
     setSort((s) => (s.by === by ? { by, desc: !s.desc } : { by, desc: by === 'size' }))
 
   return (
     <div className="sm">
       <div className="sm-top">
-        <Select
-          ariaLabel="Drive"
-          value={drive.root}
-          minWidth={320}
-          onChange={setRoot}
-          display={<DriveLabel drive={drive} isDefault={drive.root === defaultRoot} />}
-          options={drives.map((d) => ({
-            value: d.root,
-            label: driveName(d.root),
-            render: <DriveLabel drive={d} isDefault={d.root === defaultRoot} />
-          }))}
-        />
+        <h2 className="st-sub">Drives</h2>
         <div className="sm-top-actions">
           <button
             className="btn btn-ghost"
@@ -112,9 +97,20 @@ export function StorageManager(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="sm-bar" role="img" aria-label={`${bytes(used)} used of ${bytes(drive.totalBytes)}`}>
-        <span className="seg games" style={{ width: pct(gameBytes) }} />
-        <span className="seg other" style={{ width: pct(other) }} />
+      <div className="sm-drives" role="radiogroup" aria-label="Drive">
+        {drives.map((d) => (
+          <button
+            key={d.root}
+            type="button"
+            role="radio"
+            aria-checked={d.root === drive.root}
+            className={`sm-drive-card ${d.root === drive.root ? 'active' : ''}`}
+            onClick={() => setRoot(d.root)}
+          >
+            <DriveLabel drive={d} isDefault={d.root === defaultRoot} />
+            <UsageBar drive={d} />
+          </button>
+        ))}
       </div>
       <div className="sm-legend tabular">
         <span>
@@ -150,6 +146,24 @@ export function StorageManager(): React.JSX.Element {
         )}
       </div>
     </div>
+  )
+}
+
+function usage(drive: StorageDrive): { gameBytes: number; used: number; other: number } {
+  const gameBytes = drive.games.reduce((n, g) => n + g.sizeBytes, 0)
+  const used = Math.max(0, drive.totalBytes - drive.freeBytes)
+  return { gameBytes, used, other: Math.max(0, used - gameBytes) }
+}
+
+/** Pill usage bar: games, then other files, over free space. */
+function UsageBar({ drive }: { drive: StorageDrive }): React.JSX.Element {
+  const { gameBytes, used, other } = usage(drive)
+  const pct = (n: number): string => `${drive.totalBytes ? (n / drive.totalBytes) * 100 : 0}%`
+  return (
+    <span className="sm-bar" role="img" aria-label={`${bytes(used)} used of ${bytes(drive.totalBytes)}`}>
+      <span className="seg games" style={{ width: pct(gameBytes) }} />
+      <span className="seg other" style={{ width: pct(other) }} />
+    </span>
   )
 }
 

@@ -1,183 +1,221 @@
-/* ═════════════════════════ Store (§1.6 + §7) ═════════════════════════ */
+/* ═════════════════════════ Store ═════════════════════════
+   A slim browser toolbar and a store nav strip above Epic's embedded web store. */
 .store {
   flex-direction: column;
   min-height: 0;
-  background: #1b2838;
+  background: var(--bg-main);
 }
+
+/* ───────── Toolbar: history buttons + URL pill ───────── */
 .store-urlbar {
   flex: none;
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 30px;
-  padding: 0 4px 4px 9px;
-  background: var(--bg-chrome);
-  box-shadow:
-    inset 1px 0 0 rgba(61, 68, 80, 0.75),
-    inset -1px 0 0 rgba(61, 68, 80, 0.25);
+  height: 44px;
+  padding: 0 10px;
+  background: var(--bg-app);
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 .sb-btn {
+  flex: none;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 24px;
-  border-radius: 16px;
-  color: #67707b;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  color: var(--text-2);
   transition:
-    background var(--ease-chrome),
-    color var(--ease-chrome);
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .sb-btn:not(:disabled):hover {
-  background: #23262e;
-  color: #b8bcbf;
+  background: var(--surface-3);
+  color: #fff;
+}
+.sb-btn:not(:disabled):active {
+  background: var(--surface-4);
 }
 .sb-btn:disabled {
   opacity: 1;
-  color: #3d4450;
+  color: var(--text-4);
 }
 .store-url {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  max-width: 60%;
-  margin-left: 4px;
-  padding: 2px 16px 2px 8px;
-  border-radius: 16px;
-  font-size: 11px;
-  color: #67707b;
-  transition:
-    background var(--ease-chrome),
-    color var(--ease-chrome);
+  max-width: 760px;
+  height: 30px;
+  margin: 0 6px 0 8px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 12.5px;
+  color: var(--text-4);
+  transition: background-color var(--t-fast) ease-out;
   user-select: text;
 }
-.store-url span {
+.store-url > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.store-host {
+  font-weight: 500;
+  color: var(--text-2);
+}
 .store-url:hover {
-  background: #23262e;
-  color: #b8bcbf;
+  background: var(--surface-1);
 }
 .store-lock {
   flex: none;
-  color: #67707b;
+  color: var(--text-3);
 }
 
+/* ───────── Store nav: section pills, search, wishlist/cart ───────── */
 .store-navbar {
   flex: none;
-  padding: 7px 16px;
-  background: #1b2838;
+  padding: 8px 16px;
+  background: var(--bg-main);
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 .store-nav {
   display: flex;
   align-items: center;
-  height: 35px;
+  gap: 10px;
+  height: 34px;
   max-width: 1100px;
   margin: 0 auto;
-  background: linear-gradient(90deg, rgba(62, 103, 150, 0.919) 11.38%, rgba(58, 120, 177, 0.8) 25.23%, rgb(15, 33, 110) 100%);
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
 }
 .store-tabs {
   display: flex;
+  align-items: center;
+  gap: 2px;
   height: 100%;
   min-width: 0;
   overflow: hidden;
 }
 .store-tab {
   flex: none;
-  height: 100%;
-  padding: 0 15px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-md);
   font-size: 13px;
-  font-weight: 700;
-  line-height: 33px;
-  color: #d9dadd;
+  font-weight: 600;
+  line-height: 32px;
+  color: var(--text-2);
   white-space: nowrap;
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
-.store-tab:hover,
-.store-tab:focus-visible {
-  background: linear-gradient(135deg, #67c1f5 0%, #417a9b 100%);
+.store-tab:hover {
+  background: var(--surface-2);
   color: #fff;
-  outline: none;
+}
+.store-tab:focus-visible {
+  outline-offset: -2px;
 }
 .store-tab.active {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border);
   color: #fff;
-  box-shadow: inset 0 -2px 0 #67c1f5;
 }
 .store-search {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 0 1 260px;
+  flex: 0 1 280px;
   min-width: 140px;
   margin-left: auto;
-  margin-right: 4px;
 }
 .store-search input {
   width: 100%;
-  height: 30px;
-  padding: 0 38px 0 10px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
-  background: #316282;
-  color: #fff;
-  font-size: 14px;
-  box-shadow: 1px 1px 0 rgba(255, 255, 255, 0.1);
+  height: 32px;
+  padding: 0 38px 0 14px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+  font-size: 13px;
+  transition: background-color var(--t-fast) ease-out;
 }
 .store-search input::placeholder {
-  color: #0e1c25;
-  font-style: italic;
+  color: var(--text-4);
+}
+.store-search input:hover {
+  background: var(--surface-1);
 }
 .store-search input:focus {
-  background: #3c7299;
+  background: var(--bg-sunken);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px var(--accent-soft);
 }
 .store-search button {
   position: absolute;
-  right: 2px;
+  right: 3px;
   display: grid;
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: 3px;
-  background: linear-gradient(135deg, #67c1f5 0%, #417a9b 100%);
+  border-radius: 50%;
+  background: var(--accent);
   color: #fff;
+  transition: background-color var(--t-fast) ease-out;
+}
+.store-search button:not(:disabled):hover {
+  background: var(--accent-hover);
 }
 .store-search button:disabled {
-  opacity: 0.7;
+  opacity: 1;
+  background: transparent;
+  color: var(--text-4);
 }
 .store-quick {
+  flex: none;
   display: flex;
-  gap: 4px;
-  padding-right: 6px;
+  gap: 6px;
 }
 .store-pill {
   display: flex;
   align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 2px;
-  background: rgba(103, 193, 245, 0.2);
-  color: #c7d5e0;
-  font-size: 11px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 550;
   white-space: nowrap;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
-.store-pill:hover,
-.store-pill.active {
-  background: linear-gradient(135deg, #67c1f5 0%, #417a9b 100%);
+.store-pill:hover {
+  background: var(--surface-3);
   color: #fff;
 }
+.store-pill.active {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--accent-text);
+}
 .store-pill.cart {
-  background: rgba(164, 208, 7, 0.4);
-  color: #e5f2b5;
+  background: var(--ok-soft);
+  box-shadow: inset 0 0 0 1px rgba(61, 220, 132, 0.28);
+  color: var(--ok);
 }
 .store-pill.cart:hover,
 .store-pill.cart.active {
-  background: rgba(164, 208, 7, 0.7);
+  background: rgba(61, 220, 132, 0.24);
   color: #fff;
 }
 @media (max-width: 1100px) {
@@ -186,6 +224,7 @@
   }
 }
 
+/* ───────── Page ───────── */
 .store-page {
   position: relative;
   flex: 1;
@@ -196,8 +235,9 @@
   flex: 1;
   display: flex;
   border: 0;
-  background: #121212;
+  background: #121212; /* Epic's page colour, so loads don't flash */
 }
+/* Indeterminate load line; paused once hidden so idle pages don't animate. */
 .store-loading {
   position: absolute;
   inset: 0 0 auto;
@@ -214,8 +254,11 @@
 .store-loading div {
   height: 100%;
   width: 100%;
-  background: linear-gradient(to right, transparent, #1a9fff 40%, #00bbff 60%, transparent);
+  background: linear-gradient(to right, transparent, var(--accent) 40%, var(--accent-hover) 60%, transparent);
   animation: store-load 1.1s ease-in-out infinite;
+}
+.store-loading.off div {
+  animation-play-state: paused;
 }
 @keyframes store-load {
   from {
@@ -235,13 +278,16 @@
   justify-content: center;
   gap: 10px;
   padding: 24px;
-  background: linear-gradient(180deg, #2a475e 0%, #1b2838 80%);
-  color: #8f98a0;
+  background:
+    radial-gradient(60% 50% at 50% 35%, var(--accent-soft) 0%, transparent 70%),
+    var(--bg-main);
+  color: var(--text-3);
   text-align: center;
 }
 .store-overlay-title {
   font-size: 22px;
   font-weight: 700;
+  letter-spacing: -0.015em;
   color: #fff;
 }
 .store-overlay p {
@@ -250,11 +296,10 @@
   line-height: 22px;
 }
 .store-overlay .mono {
-  color: #67707b;
+  color: var(--text-4);
   user-select: text;
 }
 .store-overlay-actions {
   display: flex;
-  gap: 14px;
+  gap: 10px;
 }
-

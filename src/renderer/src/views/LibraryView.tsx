@@ -4,11 +4,13 @@ import type { ProviderInfo } from '@shared/types'
 import { Sidebar } from '../components/Sidebar'
 import { Mascot } from '../components/Mascot'
 import { libraryIndex } from '../lib/entityIndex'
+import { lazyWithPreload } from '../lib/lazy'
 import { img } from '../lib/format'
 import { act, useStore } from '../store'
 import { LibraryHome, LibraryLoading } from './LibraryHome'
 
-const GamePageHost = lazy(() => import('./library/GamePageHost'))
+// Preloaded by App once the app is idle, so the first game page opens without a wait.
+export const GamePageHost = lazyWithPreload(() => import('./library/GamePageHost'))
 const CollectionsPage = lazy(() => import('./library/CollectionsPage').then((m) => ({ default: m.CollectionsPage })))
 const CollectionDetail = lazy(() => import('./library/CollectionsPage').then((m) => ({ default: m.CollectionDetail })))
 

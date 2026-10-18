@@ -1,4 +1,4 @@
-import { CircleArrowDown, EyeOff, ListFilter, MonitorX, Play, RefreshCw, Search, Star, X } from 'lucide-react'
+import { CircleArrowDown, EyeOff, House, ListFilter, MonitorX, Play, RefreshCw, Search, Star, X } from 'lucide-react'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { DownloadJob, Game } from '@shared/types'
 import { img, recentColumnLabel } from '../lib/format'
@@ -6,7 +6,7 @@ import { availableHere, inCollection, isQuickKind, jobPhrase, jobProgress, prima
 import { type LibraryFilter, useStore } from '../store'
 import { openContextMenu, tileKeys } from './Capsule'
 import { Dropdown } from './library/controls'
-import { ClockGlyph, CollapseGlyph, GridGlyph, HouseArt, ProgressRing, ReadyGlyph } from './library/glyphs'
+import { ClockGlyph, CollapseGlyph, GridGlyph, ProgressRing, ReadyGlyph } from './library/glyphs'
 import {
   FILTER_LABELS,
   jobSig,
@@ -35,8 +35,8 @@ type Row =
   | { t: 'h'; id: string; label: string; count: number; collection?: string; top: number }
   | { t: 'g'; id: string; game: Game; top: number }
 
-const ROW_H = 24
-const HEAD_H = 30
+const ROW_H = 28
+const HEAD_H = 34
 const OVERSCAN = 12
 
 const COLLAPSE_KEY = 'gamekins.sidebar.collapsed'
@@ -292,7 +292,7 @@ export function Sidebar(): React.JSX.Element {
               navigate({ view: 'library' })
             }}
           >
-            <HouseArt />
+            <House size={16} />
             <span>Home</span>
           </button>
           <button
@@ -306,33 +306,6 @@ export function Sidebar(): React.JSX.Element {
             <GridGlyph />
           </button>
         </div>
-      </div>
-
-      <div className="side-filters">
-        <Dropdown
-          className="side-type"
-          value={filter}
-          options={filterOptions}
-          onChange={setFilter}
-          title="Show"
-          label={<span className="side-type-label">{filter === 'all' ? 'Games' : FILTER_LABELS[filter]}</span>}
-        />
-        <button
-          className={`side-toggle ${recentMode ? 'on' : ''}`}
-          title={recentMode ? 'Sorted by recent activity' : 'Sort by recent activity'}
-          aria-pressed={recentMode}
-          onClick={() => setSideRecent(!recentMode)}
-        >
-          <ClockGlyph />
-        </button>
-        <button
-          className={`side-toggle ${filter === 'installed' ? 'on' : ''}`}
-          title="Ready to play (installed games only)"
-          aria-pressed={filter === 'installed'}
-          onClick={() => setFilter(filter === 'installed' ? 'all' : 'installed')}
-        >
-          <ReadyGlyph />
-        </button>
       </div>
 
       <div className="side-search-row">
@@ -379,6 +352,33 @@ export function Sidebar(): React.JSX.Element {
         </div>
       )}
 
+      <div className="side-filters">
+        <Dropdown
+          className="side-type"
+          value={filter}
+          options={filterOptions}
+          onChange={setFilter}
+          title="Show"
+          label={<span className="side-type-label">{filter === 'all' ? 'Games' : FILTER_LABELS[filter]}</span>}
+        />
+        <button
+          className={`side-toggle ${recentMode ? 'on' : ''}`}
+          title={recentMode ? 'Sorted by recent activity' : 'Sort by recent activity'}
+          aria-pressed={recentMode}
+          onClick={() => setSideRecent(!recentMode)}
+        >
+          <ClockGlyph />
+        </button>
+        <button
+          className={`side-toggle ${filter === 'installed' ? 'on' : ''}`}
+          title="Ready to play (installed games only)"
+          aria-pressed={filter === 'installed'}
+          onClick={() => setFilter(filter === 'installed' ? 'all' : 'installed')}
+        >
+          <ReadyGlyph />
+        </button>
+      </div>
+
       <div className="side-list" ref={listRef} tabIndex={0} onKeyDown={onListKey} onScroll={onScroll} aria-label="Games">
         {loadingFirst ? (
           <SideSkeleton />
@@ -401,7 +401,7 @@ export function Sidebar(): React.JSX.Element {
                 >
                   <CollapseGlyph open={!collapsed[r.id]} />
                   <span className="side-group-name">{r.label}</span>
-                  <span className="side-group-count">({r.count})</span>
+                  <span className="side-group-count">{r.count}</span>
                 </button>
               ) : (
                 <SideRow

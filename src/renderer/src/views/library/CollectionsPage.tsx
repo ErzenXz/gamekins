@@ -34,7 +34,7 @@ export function CollectionsPage(): React.JSX.Element {
       <div className="lh-inner">
         <div className="shelf-head">
           <h3 className="shelf-title">
-            Collections <span className="shelf-count">({names.length + (favs.length ? 1 : 0)})</span>
+            Collections <span className="shelf-count">{names.length + (favs.length ? 1 : 0)}</span>
           </h3>
           <span className="shelf-rule" />
           <button className="lbtn" onClick={() => setCollectionPrompt({ mode: 'create' })}>
@@ -58,7 +58,9 @@ export function CollectionsPage(): React.JSX.Element {
             <div className="coll-art">
               <Plus size={40} strokeWidth={1.4} />
             </div>
-            <div className="coll-name">Create new collection</div>
+            <div className="coll-name">
+              <span className="coll-label">Create new collection</span>
+            </div>
           </button>
         </div>
         {names.length === 0 && (
@@ -104,8 +106,9 @@ function CollectionTile({
         )}
       </div>
       <div className="coll-name">
-        {name === FAVORITES && <Star size={13} fill="currentColor" className="fav" />} {name}
-        <span>({games.length})</span>
+        {name === FAVORITES && <Star size={13} fill="currentColor" className="fav" />}
+        <span className="coll-label">{name}</span>
+        <span className="coll-count">{games.length}</span>
       </div>
     </button>
   )
@@ -130,7 +133,7 @@ export function CollectionDetail({ name }: { name: string }): React.JSX.Element 
         <div className="shelf-head">
           <h3 className="shelf-title" onContextMenu={fav ? undefined : (e) => openCollectionMenu(e, name)}>
             {fav && <Star size={15} className="shelf-icon fav" fill="currentColor" />}
-            {name} <span className="shelf-count">({games.length})</span>
+            {name} <span className="shelf-count">{games.length}</span>
           </h3>
           {!fav && exists && (
             <span className="coll-actions">

@@ -1,24 +1,39 @@
-/* ═════════════════════════ Downloads page (§6) ═════════════════════════ */
+/* ═════════════════════════ Downloads page ═════════════════════════
+   Steam's structure (active item + graph on top, queue below) on the
+   Gamekins surfaces: one hero card for the active download, queue rows as
+   ringed cards, pill progress and pill buttons. Static paint only: no
+   blend modes, no filters; the only loops are active-progress ones. */
 .dls {
+  --dl-net: var(--accent);
+  --dl-disk: var(--ok);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: radial-gradient(farthest-corner at 0 0, #3d4450 0%, #23262e 90%);
+  background: var(--bg-main);
 }
 
-/* Top section: hero + graph */
+/* ───────── Hero card: graph banner + active item ───────── */
+.dls-head {
+  flex: none;
+  margin: 16px 18px 0;
+  border-radius: var(--r-xl);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+
+/* Banner: game art fading in from the left, speed graph on the right */
 .dls-top {
   position: relative;
-  flex: none;
   height: 200px;
   overflow: hidden;
-  background: #0e141b;
 }
 .dls-hero {
   position: absolute;
   inset: 0 auto 0 0;
   width: min(62%, 900px);
   overflow: hidden;
+  pointer-events: none;
 }
 .dls-hero-img {
   position: absolute;
@@ -26,137 +41,197 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scale(1.5);
+  object-position: center 30%;
+  opacity: 0.9;
+  transform: scale(1.2);
   transform-origin: 30% 40%;
-  -webkit-mask-image: linear-gradient(to right, #0e141b 40%, transparent 100%);
-  mask-image: linear-gradient(to right, #0e141b 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 35%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 35%, transparent 100%);
+  animation: dls-fade 0.3s ease-out;
 }
+@keyframes dls-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* Plain scrim (no blending) so the logo/title reads on any art. */
 .dls-hero-wash {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to right, transparent 15%, #0056d6 90%);
-  mix-blend-mode: multiply;
+  background:
+    linear-gradient(to right, rgba(10, 13, 18, 0.55) 0%, rgba(10, 13, 18, 0) 55%),
+    linear-gradient(to top, rgba(21, 26, 34, 0.7) 0%, rgba(21, 26, 34, 0) 45%);
 }
 .dls-hero.empty .dls-hero-wash {
-  background: radial-gradient(60% 90% at 20% 50%, #1a9fff 0%, #0056d6 45%, transparent 75%);
-  mix-blend-mode: normal;
-  opacity: 0.3;
+  background: radial-gradient(55% 85% at 18% 50%, var(--accent-soft) 0%, transparent 75%);
+}
+.dls-idle {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transform: translateY(-50%);
+}
+.dls-idle > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dls-idle b {
+  font-size: 16px;
+  font-weight: 650;
+  color: #fff;
+}
+.dls-idle span {
+  font-size: 13px;
+  color: var(--text-3);
 }
 .dls-hero-logo {
   position: absolute;
-  left: 20px;
-  top: 5%;
-  width: 50%;
-  max-width: 530px;
-  height: 90%;
+  left: 24px;
+  top: 12%;
+  width: 46%;
+  max-width: 480px;
+  height: 76%;
   object-fit: contain;
   object-position: left center;
-  filter: drop-shadow(4px 4px 4px rgba(0, 0, 0, 0.75));
+  animation: dls-fade 0.3s ease-out;
 }
 .dls-hero-name {
   position: absolute;
   left: 24px;
   bottom: 22px;
   max-width: 40%;
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
   line-height: 1.1;
+  letter-spacing: -0.02em;
   color: #fff;
-  text-shadow:
-    1px 1px 10px #000,
-    0 0 22px rgba(0, 0, 0, 0.53);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* Graph */
 .dl-graph {
   position: absolute;
   top: 0;
-  left: 200px;
-  width: calc(100% - 200px - 24px);
-  max-width: 64%;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 40px, #000 145px);
-  mask-image: linear-gradient(to right, transparent 0, transparent 40px, #000 145px);
-  mix-blend-mode: screen;
+  right: 16px;
+  width: min(64%, calc(100% - 216px));
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 96px);
+  mask-image: linear-gradient(to right, transparent 0, #000 96px);
 }
 @media (max-width: 1158px) {
   .dl-graph {
-    max-width: 55%;
+    width: min(58%, calc(100% - 216px));
   }
 }
 .dl-graph-svg {
   display: block;
 }
+.dl-grid {
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
 .dl-bar {
-  fill: rgba(26, 159, 255, 0.5);
-  transition: fill 0.1s;
+  fill: var(--dl-net);
+  fill-opacity: 0.5;
+  transition: fill-opacity var(--t-fast) ease-out;
 }
 .dl-bar.hot {
-  fill: rgba(102, 192, 255, 0.95);
+  fill-opacity: 1;
+}
+.dl-area-top {
+  stop-color: var(--dl-disk);
+  stop-opacity: 0.2;
+}
+.dl-area-bottom {
+  stop-color: var(--dl-disk);
+  stop-opacity: 0;
 }
 .dl-line {
   fill: none;
-  stroke: #59bf40;
+  stroke: var(--dl-disk);
   stroke-width: 2;
   stroke-linejoin: round;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
+}
+.dl-guide {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
 }
 .dl-dot {
   fill: #fff;
+  stroke: var(--dl-disk);
+  stroke-width: 2;
 }
 .dl-tip {
   position: absolute;
   top: 10px;
-  width: 150px;
-  padding: 6px 10px;
-  background: #23262e;
-  box-shadow: 0 0 12px #000;
-  font-size: 12px;
-  color: #dcdedf;
-  pointer-events: none;
   z-index: 2;
+  display: grid;
+  gap: 3px;
+  width: 150px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  color: var(--text-2);
+  pointer-events: none;
 }
 .dl-tip div {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   white-space: nowrap;
 }
 .dl-tip b {
   margin-left: auto;
+  font-weight: 600;
   color: #fff;
 }
 .sw {
-  width: 10px;
-  height: 10px;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
 }
 .sw.net {
-  background: rgba(26, 159, 255, 0.9);
+  background: var(--dl-net);
 }
 .sw.disk {
-  height: 2px;
-  background: #59bf40;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--dl-disk);
 }
 
+/* Legend + stats, top right of the banner */
 .dls-meters {
   position: absolute;
-  right: 68px;
-  top: 18px;
+  right: 64px;
+  top: 16px;
   display: flex;
   align-items: flex-end;
-  gap: 32px;
+  gap: 28px;
   pointer-events: none;
 }
 .dls-legend {
   display: flex;
-  gap: 24px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  gap: 16px;
+  padding-bottom: 2px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #b8bcbf;
+  color: var(--text-3);
 }
 .dls-legend span {
   display: flex;
@@ -164,86 +239,114 @@
   gap: 6px;
 }
 .lg-net {
-  width: 14px;
-  height: 14px;
-  background: rgba(26, 159, 255, 0.9);
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--dl-net);
 }
 .lg-disk {
   width: 14px;
-  height: 2px;
-  background: #59bf40;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--dl-disk);
 }
 .dls-stats {
   display: flex;
-  gap: 10px;
+  gap: 6px;
 }
+/* Label above value (markup is value-first). */
 .dls-stat {
   display: flex;
-  flex-direction: column;
-  min-width: 100px;
+  flex-direction: column-reverse;
+  min-width: 92px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-strong);
 }
 .dls-stat-value {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.01em;
   color: #fff;
   white-space: nowrap;
 }
 .dls-stat-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 16px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8b929a;
+  color: var(--text-3);
+  white-space: nowrap;
 }
 .dls-gear {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 16px;
+  right: 16px;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 2px;
-  background: #3d4450;
-  color: #dcdedf;
-  transition: background 0.15s;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .dls-gear:hover {
-  background: #67707b;
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 @media (max-width: 1100px) {
   .dls-stat {
-    min-width: 80px;
+    min-width: 78px;
   }
   .dls-legend {
     display: none;
   }
 }
 
-/* Active item (§6.3) */
+/* ───────── Active item ───────── */
 .dls-active {
-  flex: none;
   display: flex;
-  gap: 24px;
-  padding: 20px 24px 14px;
-  background: #0e141b;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 18px;
+  box-shadow: inset 0 1px 0 var(--border);
 }
 .dls-art {
+  position: relative;
   flex: none;
   width: 161px;
   height: 75px;
+  border-radius: var(--r-md);
   overflow: hidden;
-  background: #23262e;
+  background: var(--surface-3);
+}
+/* Hairline ring painted above the image. */
+.dls-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
 }
 .dls-art.big {
   width: 231px;
   height: 108px;
+  border-radius: var(--r-lg);
 }
 .dls-art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform var(--t-med) var(--ease-out);
+}
+.dls-art:hover img {
+  transform: scale(1.04);
 }
 .dls-art-fallback {
   display: grid;
@@ -251,7 +354,8 @@
   height: 100%;
   padding: 6px;
   font-size: 12px;
-  color: #8b929a;
+  font-weight: 550;
+  color: var(--text-3);
   text-align: center;
 }
 .dls-active-body {
@@ -262,14 +366,15 @@
 }
 .dls-active-top {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
 }
 .dls-active-title {
-  flex: 1;
   min-width: 0;
-  font-size: 28px;
-  line-height: 32px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.015em;
   color: #fff;
   text-align: left;
   overflow: hidden;
@@ -278,53 +383,82 @@
 }
 .dls-active-title:hover {
   text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
   text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 .dls-tag {
   flex: none;
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 22px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #67707b;
+  color: var(--text-2);
+  white-space: nowrap;
 }
 .dls-active-status {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  margin: 6px 0 8px;
+  gap: 10px;
+  margin: 4px 0 10px;
 }
 .dls-state {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--accent-text);
+}
+.dls-active.verifying .dls-state {
+  color: var(--ok);
 }
 .dls-eta {
-  font-size: 12px;
-  font-weight: 300;
-  color: #8b929a;
+  font-size: 12.5px;
+  color: var(--text-3);
 }
+
+/* Two-layer pill bar: faint network fill under the solid disk fill. */
 .dls-bar {
   position: relative;
-  height: 6px;
-  background: #3d4450;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
   overflow: hidden;
 }
 .dls-bar > div {
   position: absolute;
   inset: 0 auto 0 0;
+  border-radius: inherit;
+  overflow: hidden;
   transition: width 0.2s linear;
 }
 .dls-bar .net {
-  background: rgba(26, 159, 255, 0.5);
+  background: rgba(61, 155, 255, 0.32);
 }
 .dls-bar .disk {
-  background: #1a9fff;
+  background: var(--accent);
 }
 .dls-bar .verify {
-  background: #59bf40;
+  background: var(--ok);
+}
+/* Shimmer only while bytes are actually flowing. */
+.dls-active.downloading .dls-bar .disk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: dls-shimmer 1.8s linear infinite;
+}
+@keyframes dls-shimmer {
+  to {
+    transform: translateX(100%);
+  }
 }
 .dls-bar.indeterminate .disk {
   width: 30%;
@@ -341,111 +475,140 @@
 .dls-active-nums {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 16px;
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #8b929a;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
 }
 .dls-active-nums b {
-  color: #dcdedf;
+  font-weight: 600;
+  color: var(--text);
 }
 .dls-dot {
   margin: 0 8px;
+  color: var(--text-4);
 }
 .dls-pct {
-  color: #dcdedf;
+  font-size: 13px;
+  font-weight: 650;
+  color: #fff;
 }
 .dls-active-foot {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 8px;
   min-width: 0;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .dls-throttle {
   flex: none;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #67707b;
-  transition: color 0.15s;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .dls-throttle b {
-  color: #8b929a;
-  transition: color 0.15s;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: color var(--t-fast) ease-out;
 }
-.dls-throttle:hover,
+.dls-throttle:hover {
+  background: var(--surface-3);
+  color: #fff;
+}
 .dls-throttle:hover b {
-  color: #1a9fff;
+  color: var(--accent-text);
 }
 .dls-file {
   min-width: 0;
+  margin-left: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: rtl;
   text-align: left;
   font-size: 11px;
-  color: #67707b;
+  color: var(--text-4);
 }
 .dls-active-actions {
   flex: none;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
 }
 .dls-pause {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  border-radius: 2px;
-  background: linear-gradient(314deg, #0056d6 -23%, #1a9fff 120%);
-  background-size: 330% 100%;
-  background-position: 25% 0;
+  height: 36px;
+  padding: 0 18px 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: background-position 0.2s ease-out;
+  transition:
+    background-color var(--t-fast) ease-out,
+    transform var(--t-fast) ease-out;
 }
 .dls-pause:hover {
-  background-position: 0 0;
+  background: var(--accent-hover);
+}
+.dls-pause:active {
+  transform: translateY(1px);
 }
 .dls-x {
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
-  color: #67707b;
-  transition: color 0.15s;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out,
+    opacity var(--t-fast) ease-out;
 }
 .dls-x:hover {
+  background: var(--surface-3);
   color: #fff;
 }
 
-/* Queue lists (§6.4) */
+/* ───────── Queue ───────── */
 .dls-lists {
   flex: 1;
   min-height: 0;
-  padding: 16px 0 24px;
+  padding: 20px 18px 28px;
 }
 .dls-banner {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 40px;
-  margin: 0 24px 16px;
+  min-height: 44px;
+  margin-bottom: 18px;
   padding: 6px 8px 6px 14px;
-  background: rgba(26, 159, 255, 0.15);
-  border-left: 3px solid #1a9fff;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(61, 155, 255, 0.25);
   font-size: 13px;
-  color: #dcdedf;
+  color: var(--text-2);
 }
 .dls-banner > svg {
-  color: #1a9fff;
+  flex: none;
+  color: var(--accent-text);
 }
 .dls-banner-text {
   flex: 1;
@@ -460,93 +623,100 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 24px 16px;
-  padding: 10px 12px 10px 16px;
-  background: rgba(14, 20, 27, 0.6);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  margin-bottom: 18px;
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #dcdedf;
+  color: var(--text-2);
 }
 .dls-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 48px 24px;
-  color: #67707b;
+  color: var(--text-4);
   text-align: center;
 }
 .dls-empty-title {
-  margin-top: 6px;
-  font-size: 20px;
+  margin-top: 8px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #dcdedf;
+  letter-spacing: -0.01em;
+  color: #fff;
 }
 .dls-empty-sub {
-  margin-bottom: 10px;
-  font-size: 14px;
-  color: #8b929a;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  color: var(--text-3);
 }
 .dls-section {
-  padding-bottom: 24px;
+  padding-bottom: 26px;
 }
 .dls-section-head {
   display: flex;
   align-items: center;
-  padding: 0 40px 0 24px;
-  margin-bottom: 8px;
+  gap: 12px;
+  min-height: 30px;
+  margin-bottom: 10px;
+  padding-left: 2px;
 }
 .dls-section-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  line-height: 34px;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 20px;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--text-2);
   white-space: nowrap;
 }
 .dls-section-title span {
   font-weight: 500;
-  color: #8b929a;
+  letter-spacing: 0.02em;
+  color: var(--text-4);
 }
 .dls-rule {
   flex: 1;
-  height: 2px;
-  margin: 0 10px;
-  background: rgba(103, 112, 123, 0.3);
+  height: 1px;
+  background: var(--border);
 }
 .dls-note {
-  margin-right: 14px;
   font-size: 12px;
-  color: #8b929a;
+  color: var(--text-3);
   white-space: nowrap;
-  transition: color 0.15s;
+  transition: color var(--t-fast) ease-out;
 }
 .dls-note:hover {
-  color: #1a9fff;
+  color: var(--accent-text);
 }
 .dls-section-btn {
-  min-width: 118px;
-  padding: 10px 24px;
-  border-radius: 2px;
-  background: #3d4450;
-  color: #fff;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
-  transition: background 0.15s;
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .dls-section-btn:not(:disabled):hover {
-  background: #67707b;
+  background: var(--surface-4);
+  color: #fff;
 }
 .dls-list {
-  padding: 0 24px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .dls-drop {
   position: relative;
@@ -554,44 +724,49 @@
 .dls-drop.dragging {
   opacity: 0.45;
 }
+/* Insertion marker sits in the 6px gap between rows. */
 .dls-drop.drop-before::before,
 .dls-drop.drop-after::after {
   content: '';
   position: absolute;
-  left: 12px;
-  right: 0;
-  height: 0;
-  border-top: 2px dashed #1e90ff;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
   z-index: 2;
+  pointer-events: none;
 }
 .dls-drop.drop-before::before {
-  top: -1px;
+  top: -4px;
 }
 .dls-drop.drop-after::after {
-  bottom: -1px;
+  bottom: -4px;
 }
 .dls-row {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: 91px;
-  padding: 8px 12px;
-  border-radius: 2px;
-  transition: background 0.15s;
+  gap: 18px;
+  min-height: 95px;
+  padding: 10px 12px 10px 10px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: background-color var(--t-fast) ease-out;
 }
 .dls-row:hover {
-  background: #3d4450;
+  background: var(--surface-2);
 }
 .dls-grip {
   position: absolute;
-  top: 2px;
-  left: calc(50% - 12px);
-  color: #67707b;
+  top: -1px;
+  left: calc(50% - 9px);
+  color: var(--text-4);
   opacity: 0;
   transform: rotate(90deg);
   cursor: grab;
-  transition: opacity 0.15s;
+  transition: opacity var(--t-fast) ease-out;
 }
 .dls-row:hover .dls-grip {
   opacity: 1;
@@ -603,9 +778,10 @@
 .dls-row-title {
   display: block;
   max-width: 100%;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 22px;
-  font-weight: 500;
+  letter-spacing: -0.01em;
   color: #fff;
   text-align: left;
   overflow: hidden;
@@ -614,36 +790,46 @@
 }
 .dls-row-title:hover {
   text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
   text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 .dls-row-kind {
-  font-weight: 400;
-  color: #67707b;
+  font-weight: 450;
+  letter-spacing: 0;
+  color: var(--text-3);
 }
 .dls-row-meta {
   display: flex;
   align-items: center;
   gap: 10px;
   height: 22px;
-  margin-top: 2px;
-  font-size: 13px;
-  color: #8b929a;
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--text-3);
 }
 .dls-row-meta b {
-  color: #dcdedf;
-  font-weight: 500;
+  color: var(--text);
+  font-weight: 550;
 }
 .dls-row-meta .err {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ff8c7a;
+  color: var(--danger);
 }
 .dls-row-wait {
-  font-size: 12px;
-  font-weight: 700;
+  flex: none;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 20px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #1a9fff;
+  color: var(--accent-text);
+  white-space: nowrap;
 }
 .dls-row-right {
   flex: none;
@@ -651,55 +837,58 @@
   text-align: right;
 }
 .dls-row-status {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #dcdedf;
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .completed .dls-row-status {
-  font-weight: 400;
+  font-size: 12.5px;
+  font-weight: 450;
   letter-spacing: 0;
   text-transform: none;
-  color: #8b929a;
+  color: var(--text-3);
 }
 .dls-row-status.err {
-  color: #de3618;
+  color: var(--danger);
 }
 .dls-thin {
-  height: 3px;
+  height: 4px;
   margin-top: 8px;
-  background: #3d4450;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
   overflow: hidden;
 }
 .dls-row:hover .dls-thin {
-  background: rgba(103, 112, 123, 0.5);
+  background: var(--surface-4);
 }
 .dls-thin > div {
   height: 100%;
-  background: #67707b;
+  border-radius: inherit;
+  background: var(--text-4);
   transition: width 0.2s linear;
 }
 .next .dls-thin > div {
-  background: #1a9fff;
+  background: var(--accent);
 }
 .dls-row-actions {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 124px;
   justify-content: flex-end;
+  gap: 6px;
+  min-width: 124px;
 }
 .dls-order {
   display: flex;
   flex-direction: column;
   gap: 2px;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--t-fast) ease-out;
 }
 .dls-row:hover .dls-order,
 .dls-order:focus-within {
@@ -710,11 +899,14 @@
   place-items: center;
   width: 22px;
   height: 17px;
-  border-radius: 2px;
-  color: #b8bcbf;
+  border-radius: var(--r-xs);
+  color: var(--text-3);
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .dls-mini:not(:disabled):hover {
-  background: #8b929a;
+  background: var(--surface-4);
   color: #fff;
 }
 .dls-mini:disabled {
@@ -725,70 +917,83 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  padding: 8px;
-  border-radius: 2px;
-  background: #3d4450;
-  color: #dcdedf;
-  transition: background 0.15s;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out,
+    transform var(--t-fast) ease-out;
 }
-.dls-row:hover .dls-btn {
-  background: #67707b;
+.dls-btn svg {
+  width: 16px;
+  height: 16px;
 }
-.dls-btn:hover,
-.dls-row:hover .dls-btn:hover {
-  background: #8b929a;
+.dls-btn:hover {
+  background: var(--surface-4);
   color: #fff;
 }
-.dls-btn.play,
-.dls-row:hover .dls-btn.play {
-  background: linear-gradient(to right, #70d61d 0%, #01a75b 60%);
-  background-size: 330% 100%;
-  background-position: 25% 0;
+.dls-btn:active {
+  transform: translateY(1px);
+}
+.dls-btn.play {
+  background: var(--play);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
   color: #fff;
 }
 .dls-btn.play:hover {
-  background-position: 0 0;
+  background: var(--play-hover);
 }
 .dls-row .dls-x {
+  width: 30px;
+  height: 30px;
   opacity: 0;
-  color: #8b929a;
 }
 .dls-row:hover .dls-x,
 .dls-row .dls-x:focus-visible {
   opacity: 1;
 }
-.dls-row .dls-x:hover {
-  color: #fff;
-}
 .dls-running {
-  font-size: 12px;
-  font-weight: 700;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--ok-soft);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 24px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #adff2f;
+  color: var(--ingame);
 }
+
+/* ───────── Short windows: shrink the banner so the queue stays visible ───────── */
 @media (max-height: 720px) {
   .dls-hero-name {
     font-size: 22px;
     bottom: 16px;
   }
-  .dls-meters {
-    top: 12px;
-  }
+  .dls-meters,
   .dls-gear {
     top: 12px;
   }
 }
 @media (max-height: 760px) {
+  .dls-head {
+    margin-top: 12px;
+  }
   .dls-active {
-    padding: 12px 24px 10px;
+    padding: 12px 16px;
   }
   .dls-art.big {
     width: 161px;
     height: 75px;
+    border-radius: var(--r-md);
   }
   .dls-active-title {
-    font-size: 22px;
-    line-height: 26px;
+    font-size: 19px;
+    line-height: 24px;
+  }
+  .dls-active-status {
+    margin-bottom: 8px;
   }
 }
-

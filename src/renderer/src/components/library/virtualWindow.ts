@@ -1,6 +1,10 @@
 import { useLayoutEffect, useState, type RefObject } from 'react'
 
-/** Coordinates in the content box; one update per animation frame during scroll/resize. */
+/**
+ * Coordinates in the content box; one update per animation frame during scroll/resize.
+ * Scrolling only reads scrollTop: the element's offset inside the scroller is measured
+ * when something resizes, so a scroll frame never forces a layout.
+ */
 export function useVirtualViewport(ref: RefObject<HTMLElement | null>): { top: number; bottom: number; width: number; capsuleWidth: number } {
   const [view, setView] = useState({ top: 0, bottom: 0, width: 0, capsuleWidth: 0 })
   useLayoutEffect(() => {
@@ -8,28 +12,45 @@ export function useVirtualViewport(ref: RefObject<HTMLElement | null>): { top: n
     const scroll = el?.closest<HTMLElement>('.scroll')
     if (!el || !scroll) return
     let frame = 0
+    let dirty = true
+    let offset = 0
+    let height = 0
+    let width = 0
+    let capsuleWidth = 0
     const measure = (): void => {
       frame = 0
-      const rect = el.getBoundingClientRect()
-      const parent = scroll.getBoundingClientRect()
-      const top = parent.top - rect.top
-      const next = { top, bottom: top + scroll.clientHeight, width: el.clientWidth, capsuleWidth: parseFloat(getComputedStyle(el).getPropertyValue('--cap-w')) || 0 }
-      setView((v) => v.top === next.top && v.bottom === next.bottom && v.width === next.width && v.capsuleWidth === next.capsuleWidth ? v : next)
+      if (dirty) {
+        dirty = false
+        offset = el.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop
+        height = scroll.clientHeight
+        width = el.clientWidth
+        capsuleWidth = parseFloat(getComputedStyle(el).getPropertyValue('--cap-w')) || 0
+      }
+      const top = scroll.scrollTop - offset
+      const next = { top, bottom: top + height, width, capsuleWidth }
+      setView((v) => (v.top === next.top && v.bottom === next.bottom && v.width === next.width && v.capsuleWidth === next.capsuleWidth ? v : next))
     }
-    const schedule = (): void => { if (!frame) frame = requestAnimationFrame(measure) }
-    const observer = new ResizeObserver(schedule)
+    const remeasure = (): void => {
+      dirty = true
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    const onScroll = (): void => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    // Resizes of the grid, the scroller, or anything above the grid inside it move the grid.
+    const observer = new ResizeObserver(remeasure)
     observer.observe(el)
     observer.observe(scroll)
-    // Resize does not report changes to this element's position caused by preceding shelves.
-    const intersection = new IntersectionObserver(schedule, { root: scroll })
+    for (const child of scroll.children) observer.observe(child)
+    const intersection = new IntersectionObserver(remeasure, { root: scroll })
     intersection.observe(el)
-    scroll.addEventListener('scroll', schedule, { passive: true })
+    scroll.addEventListener('scroll', onScroll, { passive: true })
     measure()
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
       intersection.disconnect()
-      scroll.removeEventListener('scroll', schedule)
+      scroll.removeEventListener('scroll', onScroll)
     }
   }, [ref])
   return view

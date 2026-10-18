@@ -80,7 +80,6 @@ const FeaturedCard = memo(
             {art ? <Img src={art} title={game.title} eager /> : <LocalTile game={game} />}
           </div>
           <div className="featured-foot">
-            {art && <div className="featured-blur" style={{ backgroundImage: `url("${art}")` }} aria-hidden />}
             {quick ? (
               <button
                 className={`featured-play ${primary.kind === 'play' ? 'play' : 'install'}`}
@@ -106,7 +105,6 @@ const FeaturedCard = memo(
               </span>
             </div>
           </div>
-          <span className="cap-shine" aria-hidden />
           {job && (
             <div className={`cap-bar ${job.state}`}>
               <div style={{ width: `${jobProgress(job) * 100}%` }} />

@@ -173,6 +173,8 @@ export interface Settings {
   downloadsDuringGameplay: boolean
   closeToTray: boolean
   launchAtLogin: boolean
+  /** GPU rendering for the UI. Off saves memory and leaves graphics memory to games; applies after a restart. */
+  hardwareAcceleration: boolean
 }
 
 export interface FreeGame {

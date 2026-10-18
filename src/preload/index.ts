@@ -14,6 +14,32 @@ function subscribe<T>(channel: string) {
   }
 }
 
+/**
+ * Like subscribe, but keeps the latest event that arrived before anyone listened: a window
+ * rebuilt from the tray gets "open Downloads" before React has mounted.
+ */
+function subscribeBuffered<T>(channel: string) {
+  let pending: { payload: T } | null = null
+  let listeners = 0
+  ipcRenderer.on(channel, (_e, payload: T) => {
+    if (!listeners) pending = { payload }
+  })
+  const base = subscribe<T>(channel)
+  return (cb: (payload: T) => void): (() => void) => {
+    const off = base(cb)
+    listeners++
+    if (pending) {
+      const { payload } = pending
+      pending = null
+      queueMicrotask(() => cb(payload))
+    }
+    return () => {
+      listeners--
+      off()
+    }
+  }
+}
+
 const api: GamekinsApi = {
   app: {
     info: invoke('app:info'),
@@ -70,7 +96,7 @@ const api: GamekinsApi = {
     downloads: subscribe(EVENTS.downloads),
     accounts: subscribe(EVENTS.accounts),
     toast: subscribe(EVENTS.toast),
-    navigate: subscribe(EVENTS.navigate)
+    navigate: subscribeBuffered(EVENTS.navigate)
   }
 } as GamekinsApi
 

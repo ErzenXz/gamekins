@@ -1,79 +1,124 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   Global tokens + primitives. Values follow Steam's shipped client CSS
-   (see docs/steam-ui-reference.md §11). Class names are shared by every view.
+   Gamekins design tokens + primitives.
+   Steam's layout and density, with a modern finish: layered cool surfaces,
+   hairline borders instead of bevels, rounded shapes, quick transform/opacity
+   motion. See docs/design-system.md.
+
+   Performance rules for every stylesheet:
+   - Animate only transform and opacity. Never animate filter, box-shadow,
+     width/height or background on things that repeat (tiles, rows).
+   - No backdrop-filter, and no filter: blur() on large areas or lists. For
+     ambient art, upscale a tiny image instead (it blurs for free).
+   - No 3D (perspective, preserve-3d) and no will-change on list items.
    ═══════════════════════════════════════════════════════════════════════ */
 :root {
-  /* Valve system greys */
-  --gpSystemLightestGrey: #dcdedf;
-  --gpSystemLighterGrey: #b8bcbf;
-  --gpSystemLightGrey: #8b929a;
-  --gpSystemGrey: #67707b;
-  --gpSystemDarkGrey: #3d4450;
-  --gpSystemDarkerGrey: #23262e;
-  --gpSystemDarkestGrey: #0e141b;
-  --gpColor-Blue: #1a9fff;
-  --gpColor-BlueHi: #00bbff;
-  --gpColor-Green: #5ba32b;
-  --gpColor-GreenHi: #59bf40;
-  --gpColor-Red: #d94126;
-  --gpColor-RedHi: #ee563b;
-  --gpColor-Yellow: #ffc82c;
-  --gpColor-ChalkyBlue: #66c0f4;
-
-  /* Surfaces */
-  --bg-chrome: #171d25;
-  --bg-main: #24282f;
-  --bg-library: #24282f;
-  --bg-deep: #0e141b;
-  --bg-darkest: #0e141b;
-  --bg-darker: #23262e;
-  --bg-dark: #3d4450;
-  --bg-side: #23262e;
-  --bg-raised: #2a2f38;
-  --bg-hover: #3d4450;
-  --bg-select: #3e4e69;
-  --bg-dialog: radial-gradient(circle at top left, rgba(74, 81, 92, 0.4) 0%, rgba(75, 81, 92, 0) 60%), #25282e;
-  --line: rgba(255, 255, 255, 0.1);
-  --rule: rgba(103, 112, 123, 0.3);
-  --chrome-bevel: inset rgba(61, 68, 80, 0.75) 1px 1px 1px 0, inset rgba(61, 68, 80, 0.25) -1px 0 1px 0;
+  /* Surfaces, darkest to lightest */
+  --bg-app: #0a0d12; /* window chrome: top bar, footer */
+  --bg-sunken: #07090d; /* wells, text fields, progress tracks */
+  --bg-side: #0d1117; /* left game list */
+  --bg-main: #11151c; /* main content */
+  --surface-1: #151a22; /* cards, panels */
+  --surface-2: #1a2029; /* raised: menus, hovered cards */
+  --surface-3: #222936; /* controls, hovered rows */
+  --surface-4: #2b3443; /* selected, pressed */
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.1);
+  --scrim: rgba(4, 6, 10, 0.62);
 
   /* Text */
-  --text: #dcdedf;
+  --text: #e7ecf2;
   --text-strong: #ffffff;
-  --text-light: #b8bcbf;
-  --text-dim: #8b929a;
-  --text-faint: #67707b;
-  --text-dialog: #acb2b8;
+  --text-2: #a9b3c1;
+  --text-3: #7c8796;
+  --text-4: #5a6473;
 
-  /* Accents */
-  --accent: #1a9fff;
-  --accent-hi: #00bbff;
-  --accent-soft: #66c0f4;
-  --link: #6dcff6;
+  /* Accent: Steam blue, a touch brighter */
+  --accent: #3d9bff;
+  --accent-hover: #63afff;
+  --accent-press: #2b87ec;
+  --accent-text: #7fc1ff;
+  --accent-soft: rgba(61, 155, 255, 0.14);
+  --accent-line: rgba(61, 155, 255, 0.5);
+  --brand: linear-gradient(135deg, #3d9bff 0%, #7b61ff 100%);
+
+  /* Status */
+  --ok: #3ddc84;
+  --ok-soft: rgba(61, 220, 132, 0.14);
+  --warn: #ffc24b;
+  --warn-soft: rgba(255, 194, 75, 0.14);
+  --danger: #ff5d52;
+  --danger-soft: rgba(255, 93, 82, 0.14);
   --online: #4cb4ff;
-  --ingame: #90ba3c;
-  --ok: #59bf40;
-  --warn: #ffc82c;
-  --error: #de3618;
-  --danger: #d94126;
-  --play: linear-gradient(to right, #70d61d 0%, #01a75b 60%);
-  --play-hover: linear-gradient(to right, #8be33a 0%, #0bbd68 60%);
-  --install: linear-gradient(to right, #47bfff 0%, #1a44c2 60%);
-  --install-hover: linear-gradient(to right, #66ccff 0%, #2a58dc 60%);
+  --ingame: #a3d15b;
 
-  /* Menus */
-  --menu-bg: #3d4450;
-  --menu-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.67);
-  --shadow-pop: 0 10px 32px rgba(0, 0, 0, 0.67);
+  /* Big actions keep Steam's green Play and blue Install */
+  --play: linear-gradient(180deg, #43dd80 0%, #1fb35a 100%);
+  --play-hover: linear-gradient(180deg, #58e88f 0%, #27c264 100%);
+  --install: linear-gradient(180deg, #52aaff 0%, #2b7fe8 100%);
+  --install-hover: linear-gradient(180deg, #6ab7ff 0%, #358cf3 100%);
 
-  /* Motion & shape */
+  /* Shape */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* Depth: flat surfaces use borders; only floating things cast shadows */
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --menu-shadow: var(--shadow-pop);
+
+  /* Motion */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-chrome: 0.15s ease-out;
-  --radius: 2px;
-  --radius-input: 3px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 0.12s;
+  --t-med: 0.18s;
+  --ease-chrome: 0.12s ease-out;
 
-  --font: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font: 'Inter Variable', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --mono: 'Cascadia Mono', 'SF Mono', Consolas, Menlo, monospace;
+
+  /* Legacy names, kept so older rules follow the new palette */
+  --gpSystemLightestGrey: var(--text);
+  --gpSystemLighterGrey: var(--text-2);
+  --gpSystemLightGrey: var(--text-3);
+  --gpSystemGrey: var(--text-4);
+  --gpSystemDarkGrey: var(--surface-3);
+  --gpSystemDarkerGrey: var(--surface-1);
+  --gpSystemDarkestGrey: var(--bg-sunken);
+  --gpColor-Blue: var(--accent);
+  --gpColor-BlueHi: var(--accent-hover);
+  --gpColor-Green: var(--ok);
+  --gpColor-GreenHi: var(--ok);
+  --gpColor-Red: var(--danger);
+  --gpColor-RedHi: var(--danger);
+  --gpColor-Yellow: var(--warn);
+  --gpColor-ChalkyBlue: var(--accent-text);
+  --bg-chrome: var(--bg-app);
+  --bg-library: var(--bg-main);
+  --bg-deep: var(--bg-sunken);
+  --bg-darkest: var(--bg-sunken);
+  --bg-darker: var(--surface-1);
+  --bg-dark: var(--surface-3);
+  --bg-raised: var(--surface-2);
+  --bg-hover: var(--surface-3);
+  --bg-select: var(--surface-4);
+  --bg-dialog: var(--surface-1);
+  --line: var(--border-strong);
+  --rule: var(--border);
+  --chrome-bevel: none;
+  --text-light: var(--text-2);
+  --text-dim: var(--text-3);
+  --text-faint: var(--text-4);
+  --text-dialog: var(--text-2);
+  --accent-hi: var(--accent-hover);
+  --link: var(--accent-text);
+  --error: var(--danger);
+  --menu-bg: var(--surface-2);
+  --radius: var(--r-md);
+  --radius-input: var(--r-md);
   color-scheme: dark;
 }
 
@@ -89,13 +134,14 @@ body,
 }
 
 body {
-  background: var(--bg-chrome);
+  background: var(--bg-app);
   color: var(--text);
-  font-family: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font);
   font-size: 14px;
-  line-height: 1.4;
-  font-feature-settings: 'cv11', 'ss01';
+  line-height: 1.45;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
   user-select: none;
 }
@@ -135,18 +181,18 @@ img {
   outline-offset: 2px;
 }
 ::selection {
-  background: rgba(26, 159, 255, 0.45);
+  background: rgba(61, 155, 255, 0.4);
   color: #fff;
 }
 kbd {
   display: inline-block;
   min-width: 22px;
-  padding: 2px 7px;
-  border-radius: var(--radius-input);
-  background: #3d4450;
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
-  font: 600 11px/1.5 var(--font);
-  color: var(--text);
+  padding: 1px 7px;
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  font: 600 11px/1.6 var(--font);
+  color: var(--text-2);
   text-align: center;
   white-space: nowrap;
 }
@@ -161,7 +207,7 @@ kbd {
 }
 
 .muted {
-  color: var(--text-dim);
+  color: var(--text-3);
 }
 .small {
   font-size: 12px;
@@ -174,7 +220,7 @@ kbd {
   white-space: pre-wrap;
 }
 .text-error {
-  color: #ff7b6e;
+  color: var(--danger);
 }
 .tabular {
   font-variant-numeric: tabular-nums;
@@ -188,26 +234,26 @@ kbd {
   }
 }
 
-/* ───────── Scrollbars (Steam library style) ───────── */
+/* ───────── Scrollbars: thin, no track ───────── */
 .scroll {
   overflow-y: auto;
   overflow-x: hidden;
 }
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #606774;
+  background-color: rgba(255, 255, 255, 0.12);
   border: 3px solid transparent;
   background-clip: padding-box;
-  border-radius: 6px;
+  border-radius: var(--r-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #7b8392;
+  background-color: rgba(255, 255, 255, 0.22);
 }
 ::-webkit-scrollbar-thumb:active {
-  background-color: #7b8392;
+  background-color: rgba(255, 255, 255, 0.3);
   border-width: 2px;
 }
 ::-webkit-scrollbar-track,
@@ -219,135 +265,141 @@ kbd {
   background: transparent;
 }
 
-/* ───────── Buttons (Steam DialogButton family) ───────── */
+/* ───────── Buttons ───────── */
 .btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: var(--radius);
-  background: #3d4450;
-  color: #dfe3e6;
-  font-size: 14px;
-  font-weight: 400;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 550;
   white-space: nowrap;
   transition:
-    opacity 0.2s ease-out,
-    background 0.2s ease-out,
-    background-position 0.2s ease-out,
-    color 0.2s ease-out,
-    box-shadow 0.2s ease-out;
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out,
+    transform var(--t-fast) ease-out;
 }
 .btn:not(:disabled):hover {
-  background-color: #464d58;
+  background-color: var(--surface-4);
   color: #fff;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }
 .btn:not(:disabled):active {
-  background-color: #393f49;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transform: translateY(1px);
   transition-duration: 0.04s;
 }
 .btn:disabled {
   opacity: 1;
-  background: rgba(61, 67, 77, 0.35);
-  color: rgb(90, 97, 108);
+  background: var(--surface-2);
+  color: var(--text-4);
   box-shadow: none;
 }
 .btn-lg {
   height: 44px;
   padding: 0 24px;
   font-size: 15px;
+  border-radius: var(--r-lg);
 }
 .btn.small {
-  height: 26px;
-  padding: 0 10px;
+  height: 28px;
+  padding: 0 11px;
   font-size: 12px;
+  border-radius: var(--r-sm);
 }
 
-/* Primary (blue) — the lighter sweep on hover moves the gradient, Steam-style. */
+/* Primary actions: solid colour with a soft top highlight. */
 .btn-blue,
 .btn-play {
   color: #fff;
-  background-size: 330% 100%;
-  background-position: 25% 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 .btn-blue {
-  background-image: linear-gradient(to right, #47bfff 0%, #1a44c2 60%);
+  background: var(--accent);
+}
+.btn-blue:not(:disabled):hover {
+  background: var(--accent-hover);
 }
 .btn-play {
-  background-image: linear-gradient(to right, #70d61d 0%, #01a75b 60%);
+  background: var(--play);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
 }
-.btn-blue:not(:disabled):hover,
 .btn-play:not(:disabled):hover {
-  background-color: transparent;
-  background-position: 0% 0;
-  color: #fff;
-}
-.btn-blue:not(:disabled):active,
-.btn-play:not(:disabled):active {
-  background-position: 40% 0;
+  background: var(--play-hover);
 }
 .btn-blue:disabled,
 .btn-play:disabled {
-  background-image: none;
+  background: var(--surface-2);
+  color: var(--text-4);
+  box-shadow: none;
+  text-shadow: none;
 }
 
-/* Secondary / default dialog button. */
+/* Secondary: quieter than the default. */
 .btn-ghost {
-  background: #3d4450;
-  color: #dfe3e6;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+}
+.btn-ghost:not(:disabled):hover {
+  background: var(--surface-3);
 }
 
 .btn-danger {
-  background: #c44848;
+  background: var(--danger);
   color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .btn-danger:not(:disabled):hover {
-  background: #d75a5a;
+  background: #ff7369;
 }
 
 /* Icon-only button (shared by shell and library) */
 .icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius);
-  color: var(--text-dim);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  color: var(--text-3);
   transition:
-    background var(--ease-chrome),
-    color var(--ease-chrome);
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .icon-btn:not(:disabled):hover {
-  background: #3d4450;
+  background: var(--surface-3);
   color: #fff;
 }
 .icon-btn.big {
   width: 40px;
   height: 40px;
-  background: rgba(172, 178, 201, 0.14);
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .icon-btn.big:not(:disabled):hover {
-  background: rgba(205, 213, 226, 0.26);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .chip {
-  padding: 3px 10px;
-  border-radius: 9001px;
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
   font-size: 12px;
-  color: var(--text-dim);
-  background: rgba(103, 112, 123, 0.2);
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--surface-3);
   transition:
-    background var(--ease-chrome),
-    color var(--ease-chrome);
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .chip:hover {
   color: #fff;
-  background: #3d4450;
+  background: var(--surface-4);
 }
 .chip.active {
   background: var(--accent);
@@ -356,8 +408,8 @@ kbd {
 
 .progress {
   height: 6px;
-  background: #3d4450;
-  border-radius: 10px;
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .progress > div {
@@ -367,7 +419,7 @@ kbd {
   transition: width 0.2s linear;
 }
 .progress.big {
-  height: 10px;
+  height: 8px;
 }
 .progress.thin {
   height: 3px;
@@ -375,89 +427,87 @@ kbd {
 }
 
 /* ───────── Form controls ───────── */
-
-/* Native select, styled like Steam's DialogDropDown (blue chevron). */
 select {
   appearance: none;
   height: 34px;
-  padding: 0 36px 0 14px;
-  background: rgba(59, 63, 72, 0.5)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23189cff' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+  padding: 0 34px 0 12px;
+  background: var(--bg-sunken)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%237c8796' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
     no-repeat right 12px center;
-  border: 0;
-  border-radius: var(--radius-input);
-  color: #dfe3e6;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text);
   font-size: 13px;
   cursor: pointer;
   transition:
-    background-color 0.2s ease-out,
-    box-shadow 0.2s ease-out;
+    border-color var(--t-fast) ease-out,
+    background-color var(--t-fast) ease-out;
 }
 select:hover {
-  background-color: #464d58;
-  color: #fff;
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.16);
+  background-color: var(--surface-1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 select option {
-  background: #373c44;
+  background: var(--surface-2);
   color: var(--text);
 }
 
-/* Plain text field (Steam DialogTextInput) */
 .input {
   height: 34px;
-  padding: 0 10px;
-  background: rgba(59, 63, 72, 0.5);
-  border: 0;
-  border-radius: var(--radius-input);
-  color: #dfe3e6;
-  font-size: 14px;
+  padding: 0 11px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 13.5px;
   transition:
-    background 0.2s ease-out,
-    box-shadow 0.2s ease-out;
+    border-color var(--t-fast) ease-out,
+    box-shadow var(--t-fast) ease-out;
 }
 .input::placeholder {
-  color: #969696;
-  font-style: italic;
+  color: var(--text-4);
 }
 .input:hover {
-  background: rgba(67, 73, 83, 0.6);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 .input:focus {
-  background: #23262e;
-  box-shadow: inset 1px 1px 4px rgba(0, 0, 0, 0.67);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* Toggle (Steam settings toggle: 38×22 rail, springy knob). */
+/* Toggle: 36×20 rail, 16px knob. */
 .switch {
   appearance: none;
   position: relative;
   flex: none;
-  width: 38px;
-  height: 22px;
+  width: 36px;
+  height: 20px;
   margin: 0;
-  border-radius: 9001px;
-  background: rgba(255, 255, 255, 0.15);
-  overflow: visible;
+  border-radius: var(--r-pill);
+  background: var(--surface-4);
+  box-shadow: inset 0 0 0 1px var(--border);
   cursor: pointer;
-  transition:
-    background 0.2s ease-out,
-    box-shadow 0.2s ease-out;
+  transition: background-color var(--t-med) ease-out;
 }
 .switch::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 22px;
-  height: 22px;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.35);
-  transition: transform 0.2s cubic-bezier(0.1, 0.12, 0.53, 1.72);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform var(--t-med) var(--ease-out);
 }
 .switch:hover {
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3);
+  background-color: #344055;
 }
 .switch:checked {
   background: var(--accent);
@@ -466,27 +516,26 @@ select option {
   transform: translateX(16px);
 }
 .switch:disabled {
-  background: #67707b;
+  background: var(--surface-2);
   cursor: default;
-  box-shadow: none;
 }
 .switch:disabled::after {
-  background: #8b929a;
+  background: var(--text-4);
 }
 .switch:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), inset 0 0 0 1px var(--accent);
 }
 
-/* ───────── Modal dialog (Steam popup dialog) ───────── */
+/* ───────── Modal dialog ───────── */
 .modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 1500;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.7);
-  animation: fade 0.16s ease-out;
+  background: var(--scrim);
+  animation: fade var(--t-med) ease-out;
   -webkit-app-region: no-drag;
 }
 .modal-backdrop.closing {
@@ -504,22 +553,15 @@ select option {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-dialog);
+  background: var(--surface-1);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-pop);
+  animation: modal-in 0.22s var(--ease-out);
+}
+.modal.danger {
   box-shadow:
-    0 0 0 1px #000,
-    0 24px 64px rgba(0, 0, 0, 0.6);
-  animation: modal-in 0.2s var(--ease);
-}
-/* Focus hairline along the top edge (red for destructive dialogs). */
-.modal::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(to right, #00ccff, #3366ff);
-}
-.modal.danger::before {
-  background: #c44848;
+    var(--shadow-pop),
+    inset 0 2px 0 var(--danger);
 }
 .modal-backdrop.closing .modal {
   transform: scale(0.98);
@@ -531,46 +573,48 @@ select option {
 @keyframes modal-in {
   from {
     opacity: 0;
-    transform: scale(0.97);
+    transform: translateY(8px) scale(0.98);
   }
 }
 .modal-head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 24px 24px 0;
+  padding: 22px 56px 0 24px;
 }
 .modal-title {
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 28px;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 26px;
+  letter-spacing: -0.01em;
   color: #fff;
   overflow-wrap: anywhere;
 }
 .modal-close {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 14px;
+  right: 14px;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 18px;
-  color: #788a92;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  color: var(--text-3);
   transition:
-    background var(--ease-chrome),
-    color var(--ease-chrome);
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .modal-close:hover {
-  background: #e22a27;
+  background: var(--surface-3);
   color: #fff;
 }
 .modal-body {
   padding: 12px 24px 8px;
   overflow-y: auto;
-  color: var(--text-dialog);
+  color: var(--text-2);
   font-size: 14px;
   line-height: 22px;
 }
@@ -581,13 +625,13 @@ select option {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 14px;
-  padding: 16px 24px 24px;
+  gap: 10px;
+  padding: 16px 24px 22px;
   margin-top: auto;
 }
 .modal-footer .btn {
-  min-width: 100px;
-  padding: 0 12px;
+  min-width: 96px;
+  padding: 0 14px;
 }
 
 /* ───────── Shared dialog bits (install / properties) ───────── */
@@ -595,6 +639,7 @@ select option {
   margin: 0 0 22px;
   font-size: 22px;
   font-weight: 700;
+  letter-spacing: -0.015em;
   color: #fff;
 }
 .install-head {
@@ -606,7 +651,7 @@ select option {
   width: 96px;
   height: 128px;
   object-fit: cover;
-  border-radius: var(--radius);
+  border-radius: var(--r-md);
 }
 .install-sizes {
   flex: 1;
@@ -618,11 +663,11 @@ select option {
   margin: 0;
 }
 .install-sizes dt {
-  color: var(--text-dim);
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 .install-sizes dd {
   margin: 0;
@@ -631,16 +676,16 @@ select option {
 .note {
   margin: 12px 0 0;
   font-size: 12px;
-  color: var(--text-dim);
+  color: var(--text-3);
 }
 .field-label {
   display: block;
-  margin-bottom: 4px;
-  font-size: 13px;
-  font-weight: 300;
-  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-dialog);
+  color: var(--text-3);
 }
 .path-picker {
   display: flex;
@@ -650,10 +695,11 @@ select option {
 .path {
   flex: 1;
   min-width: 0;
-  padding: 7px 10px;
-  background: rgba(59, 63, 72, 0.5);
-  border-radius: var(--radius-input);
-  color: #dfe3e6;
+  padding: 7px 11px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

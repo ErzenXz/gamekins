@@ -6,11 +6,12 @@ import { ErrorBoundary } from './components/shell/ErrorBoundary'
 import { TitleBar } from './components/TitleBar'
 import { Toasts } from './components/Toasts'
 import { bootstrap, useStore } from './store'
-import { LibraryView } from './views/LibraryView'
+import { GamePageHost, LibraryView } from './views/LibraryView'
+import { lazyWithPreload } from './lib/lazy'
 import { watchStoreLifetime } from './components/shell/storeLifetime'
 
 // Everything but the library loads on first use: smaller startup bundle, faster first paint.
-const DownloadsView = lazy(() => import('./views/DownloadsView').then((m) => ({ default: m.DownloadsView })))
+const DownloadsView = lazyWithPreload(() => import('./views/DownloadsView').then((m) => ({ default: m.DownloadsView })))
 const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })))
 const StoreView = lazy(() => import('./views/StoreView').then((m) => ({ default: m.StoreView })))
 const InstallDialog = lazy(() => import('./components/InstallDialog').then((m) => ({ default: m.InstallDialog })))
@@ -48,6 +49,19 @@ function Shell(): React.JSX.Element {
   }, [])
 
   useEffect(() => watchStoreLifetime(setStoreMounted), [])
+  // Once the library is up and the app is idle, fetch the code for the next likely clicks
+  // (a game page, Downloads) so opening them doesn't wait on a chunk load.
+  useEffect(() => {
+    if (!ready) return
+    const id = requestIdleCallback(
+      () => {
+        void GamePageHost.preload()
+        void DownloadsView.preload()
+      },
+      { timeout: 5000 }
+    )
+    return () => cancelIdleCallback(id)
+  }, [ready])
   // Dialogs are only fetched once something opens them.
   const installOpen = useStore((s) => s.installKey !== null)
   const propertiesOpen = useStore((s) => s.propertiesKey !== null)

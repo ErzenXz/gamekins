@@ -1,7 +1,8 @@
 import { libraryIndex } from '../../lib/entityIndex'
 import { useStore } from '../../store'
 
-const IDLE_MS = 10 * 60_000
+// The store page is its own renderer (~230 MB), so it goes soon after you leave it.
+const IDLE_MS = 3 * 60_000
 const HIDDEN_MS = 2 * 60_000
 
 /** Only leaving Store starts the idle clock; other route changes retain its deadline. */

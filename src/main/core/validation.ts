@@ -22,7 +22,7 @@ export const settingsSchema = {
   installDir: path, maxWorkers: (v: unknown) => number(v) && Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 64,
   bandwidthLimitMBps: number, autoUpdate: boolean, launchViaEpicLauncher: boolean,
   importEpicLauncherInstalls: boolean, installPrerequisites: boolean, minimizeOnLaunch: boolean,
-  downloadsDuringGameplay: boolean, closeToTray: boolean, launchAtLogin: boolean
+  downloadsDuringGameplay: boolean, closeToTray: boolean, launchAtLogin: boolean, hardwareAcceleration: boolean
 }
 export const installSchema = {
   path, version: string, executable: string, launchCommand: string, platform: oneOf('Windows', 'Mac'),

@@ -212,6 +212,11 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
   const path = pathOf(nav.url)
   const secure = nav.url.startsWith('https:')
   const loading = nav.loading && !inert
+  // URL bar: host emphasised, path dimmed.
+  const shown = displayUrl(nav.url)
+  const slash = shown.indexOf('/')
+  const host = slash < 0 ? shown : shown.slice(0, slash)
+  const rest = slash < 0 ? '' : shown.slice(slash)
 
   return (
     <div className="store" style={{ display: visible ? 'flex' : 'none' }}>
@@ -238,9 +243,12 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
         <button className="sb-btn" onClick={() => go(STORE_HOME)} title="Store home">
           <Home size={15} />
         </button>
-        <div className="store-url" title={displayUrl(nav.url)}>
-          {secure && <Lock size={12} className="store-lock" />}
-          <span>{displayUrl(nav.url)}</span>
+        <div className="store-url" title={shown}>
+          {secure && <Lock size={13} className="store-lock" />}
+          <span>
+            <span className="store-host">{host}</span>
+            {rest}
+          </span>
         </div>
         <button className="sb-btn" title="Open in your browser" onClick={() => void window.gamekins.app.openExternal(nav.url)}>
           <ExternalLink size={15} />
@@ -260,7 +268,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="search the store"
+              placeholder="Search the store"
               spellCheck={false}
               aria-label="Search the store"
             />

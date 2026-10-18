@@ -78,18 +78,19 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
 
   useLayoutEffect(() => {
     scroller.current?.scrollTo({ top: 0 })
-    hero.current?.style.setProperty('--sy', '0')
     bar.current?.classList.remove('stuck')
   }, [game.key])
 
-  // Parallax hero + "stuck" action bar, without re-rendering React on scroll.
-  const onScroll = (): void => {
-    const el = scroller.current
-    if (!el || !hero.current) return
-    const y = el.scrollTop
-    hero.current.style.setProperty('--sy', String(Math.min(y, 700)))
-    bar.current?.classList.toggle('stuck', y >= hero.current.offsetHeight - 1)
-  }
+  // The action bar compacts once the hero has scrolled away. An observer instead of a
+  // scroll handler: scrolling stays on the compositor (the parallax is a CSS scroll timeline).
+  useEffect(() => {
+    const root = scroller.current
+    const target = hero.current
+    if (!root || !target) return
+    const observer = new IntersectionObserver(([entry]) => bar.current?.classList.toggle('stuck', !entry.isIntersecting), { root })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
 
   const toggleInfo = (): void => {
     const next = !showInfo
@@ -108,18 +109,17 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
   )
   const art = heroSources[0]
   const steamHero = !!art && art === steam?.art.hero
+  // Ambient colour behind the page: Epic's CDN serves a 48px copy, and stretching it blurs
+  // it for free (no filter to paint).
+  const ambientSrc = game.images.wide ?? game.images.tall
+  const ambient = ambientSrc && /^https:\/\/[^/]*epicgames\.com\//.test(ambientSrc) ? img(ambientSrc, 48) : undefined
   const s = useStore.getState()
 
   return (
     <div className="gp">
-      <div className="gp-scroll scroll" ref={scroller} onScroll={onScroll}>
+      <div className="gp-scroll scroll" ref={scroller}>
         <div className="gp-backdrop" aria-hidden>
-          {art && (
-            <>
-              <img key={art} className="gp-blur" src={img(art, 640)} alt="" draggable={false} />
-              <img key={`${art}-flip`} className="gp-blur-flip" src={img(art, 640)} alt="" draggable={false} />
-            </>
-          )}
+          {ambient && <img key={ambient} className="gp-ambient" src={ambient} alt="" draggable={false} />}
         </div>
 
         <header className={`gp-hero ${art ? '' : 'no-art'}`} ref={hero}>

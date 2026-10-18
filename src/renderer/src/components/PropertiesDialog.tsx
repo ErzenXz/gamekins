@@ -374,30 +374,32 @@ function Files({ game }: { game: Game }): React.JSX.Element {
   return (
     <>
       <h3 className="props-h">Installed Files</h3>
-      <div className="props-size">
-        <span>
-          Size of installation: <b>{inst.sizeBytes > 0 ? bytes(inst.sizeBytes) : 'Unknown'}</b>
-          {drive ? ` on ${drive}` : ''}
-        </span>
-        <button className="lbtn" disabled={moving} onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
-          <FolderOpen size={14} /> Browse…
-        </button>
-      </div>
-      <div className="props-path mono" title={inst.path}>
-        {inst.path}
-      </div>
-      <p className="props-hint">
-        {inst.source === 'epic-launcher' ? 'Imported from the Epic Games Launcher' : 'Installed by Gamekins'}
-        {inst.installedAt ? ` · ${shortDate(inst.installedAt)}` : ''}
-        {inst.version ? ` · version ${inst.version}` : ''}
-      </p>
-      {moving && (
-        <div className="props-moving">
-          <LoaderCircle size={13} className="spin" /> Moving files… this can take a few minutes across drives. You can close
-          this window.
-          <div className="props-moving-bar" />
+      <div className="props-field">
+        <div className="props-size">
+          <span>
+            Size of installation: <b>{inst.sizeBytes > 0 ? bytes(inst.sizeBytes) : 'Unknown'}</b>
+            {drive ? ` on ${drive}` : ''}
+          </span>
+          <button className="lbtn" disabled={moving} onClick={() => act(() => window.gamekins.games.openFolder(game.key))}>
+            <FolderOpen size={14} /> Browse…
+          </button>
         </div>
-      )}
+        <div className="props-path mono" title={inst.path}>
+          {inst.path}
+        </div>
+        <p className="props-hint">
+          {inst.source === 'epic-launcher' ? 'Imported from the Epic Games Launcher' : 'Installed by Gamekins'}
+          {inst.installedAt ? ` · ${shortDate(inst.installedAt)}` : ''}
+          {inst.version ? ` · version ${inst.version}` : ''}
+        </p>
+        {moving && (
+          <div className="props-moving">
+            <LoaderCircle size={13} className="spin" /> Moving files… this can take a few minutes across drives. You can close
+            this window.
+            <div className="props-moving-bar" />
+          </div>
+        )}
+      </div>
       {!third && (
         <OptionRow title="Move install folder" hint="Moves the game to another folder or drive. Its folder name stays the same.">
           <button className="lbtn" disabled={moving || !canModify(game, job)} onClick={() => void move()}>

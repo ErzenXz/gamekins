@@ -45,20 +45,6 @@ export function GridGlyph(): React.JSX.Element {
   )
 }
 
-/** Line-art house behind the left panel's "Home" bar. */
-export function HouseArt(): React.JSX.Element {
-  return (
-    <svg className="home-art" viewBox="0 0 222 134" aria-hidden>
-      <path
-        d="M22 124 111 66l89 58M150 91V70h14v30M44 110v24M178 110v24M100 92h22v14h-22zM111 92v14M100 99h22"
-        fill="rgba(255,255,255,.05)"
-        stroke="#9b9b9b"
-        strokeWidth="2"
-      />
-    </svg>
-  )
-}
-
 export function ClockGlyph(): React.JSX.Element {
   return (
     <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden>

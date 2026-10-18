@@ -190,20 +190,23 @@ function InstallDialogBody({ game }: { game: Game }): React.JSX.Element {
       <>
         {header}
         <div className="idlg-space">
-          <span>
-            Disk space required: <b>{plan ? bytes(plan.installBytes) : '…'}</b>
-          </span>
-          <span>
-            Disk space available: <b className={notEnough ? 'bad' : ''}>{plan ? (plan.freeBytes ? bytes(plan.freeBytes) : 'Unknown') : '…'}</b>
-          </span>
+          <div className="idlg-stat">
+            <span>Disk space required</span>
+            <b>{plan ? bytes(plan.installBytes) : '…'}</b>
+          </div>
+          <div className="idlg-stat">
+            <span>Disk space available</span>
+            <b className={notEnough ? 'bad' : ''}>{plan ? (plan.freeBytes ? bytes(plan.freeBytes) : 'Unknown') : '…'}</b>
+          </div>
           {plan && plan.downloadBytes > 0 && plan.downloadBytes !== plan.installBytes && (
-            <span>
-              Download size: <b>{bytes(plan.downloadBytes)}</b>
-            </span>
+            <div className="idlg-stat">
+              <span>Download size</span>
+              <b>{bytes(plan.downloadBytes)}</b>
+            </div>
           )}
         </div>
 
-        <div className="idlg-label">Install to:</div>
+        <div className="idlg-label">Install to</div>
         <div className={`idlg-folder ${notEnough ? 'bad' : ''}`}>
           <span className="idlg-folder-flag">{baseDir === defaultDir ? <Star size={14} fill="currentColor" /> : <HardDrive size={14} />}</span>
           <span className="idlg-folder-path" title={baseDir}>

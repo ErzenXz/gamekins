@@ -1,6 +1,6 @@
 /* ───────── Game page ───────── */
 .gp {
-  background: radial-gradient(100% 100% at 45% 35%, rgb(44, 50, 61) 0%, rgb(21, 22, 22) 100%);
+  background: var(--bg-main);
   overflow: hidden;
 }
 .gp-scroll {
@@ -9,60 +9,57 @@
   overflow-y: auto;
   overflow-x: hidden;
   container: gp / inline-size;
+  scroll-timeline: --gp-scroll y;
 }
+/* Ambient colour from the game's art: a 48px image stretched (blurred for free), dimmed and faded out. */
 .gp-backdrop {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: calc(var(--lib-hero-h) * 1.3 + 480px);
+  height: calc(var(--lib-hero-h) + 520px);
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 100%);
 }
-.gp-blur,
-.gp-blur-flip {
+.gp-ambient {
   position: absolute;
-  left: -10%;
+  inset: -10%;
   width: 120%;
+  height: 120%;
   object-fit: cover;
-  animation: lib-fade 0.6s ease-out;
-}
-.gp-blur {
-  top: 0;
-  height: calc(var(--lib-hero-h) * 1.3);
-  filter: blur(40px) saturate(1.3) brightness(0.75);
-  opacity: 0.7;
-}
-.gp-blur-flip {
-  top: calc(var(--lib-hero-h) * 1.3 - 2px);
-  height: calc(var(--lib-hero-h) * 2);
-  transform: scaleY(-1);
-  filter: blur(40px) saturate(2);
-  opacity: 0.2;
+  opacity: 0.32;
+  animation: lib-fade 0.5s ease-out;
 }
 .gp-hero {
   position: relative;
   z-index: 1;
   height: var(--lib-hero-h);
-  overflow: hidden;
+  overflow: clip;
 }
 .gp-hero.no-art {
-  background: linear-gradient(135deg, #1d2129, #141414);
+  background: linear-gradient(135deg, var(--surface-2), var(--bg-main));
 }
+/* Parallax on a scroll timeline: runs on the compositor, no scroll handler. */
 .gp-hero-art {
   position: absolute;
   inset: 0;
-  transform: translateY(calc(var(--sy, 0) * 0.5px));
-  will-change: transform;
+  animation: gp-parallax linear both;
+  animation-timeline: --gp-scroll;
+  animation-range: 0 700px;
+}
+@keyframes gp-parallax {
+  to {
+    transform: translateY(350px);
+  }
 }
 .gp-hero-art > .img {
   position: absolute;
   inset: 0;
   background: transparent;
-  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
 }
 .gp-hero-art > .img img {
   object-position: center 20%;
@@ -76,12 +73,11 @@
   object-fit: contain;
   transform: translateY(-50%);
   opacity: 0.2;
-  filter: blur(1px);
 }
 .gp-tags {
   position: absolute;
   top: 16px;
-  right: 24px;
+  right: 20px;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
@@ -90,32 +86,28 @@
   max-width: 40%;
 }
 .gp-tag {
-  padding: 0 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(6px);
-  font-size: 12px;
-  line-height: 20px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: rgba(7, 9, 13, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.82);
   white-space: nowrap;
-  transition:
-    color 0.15s,
-    background 0.15s,
-    border-color 0.15s;
+  transition: background-color var(--t-fast);
 }
 button.gp-tag:hover {
+  background: rgba(7, 9, 13, 0.85);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(0, 0, 0, 0.3);
 }
 .gp-tag.hidden {
-  color: rgba(237, 196, 253, 0.8);
+  color: #e2c4ff;
 }
 .gp-logo-area {
   position: absolute;
-  inset: 16px 26px 16px 26px;
+  inset: 16px 28px 22px;
   z-index: 2;
   display: flex;
   align-items: flex-end;
@@ -132,45 +124,40 @@ button.gp-tag:hover {
 .gp-title {
   max-width: 70%;
   margin: 0 0 4px;
-  font: 700 clamp(24px, 3.2cqi, 46px) / 1.1 var(--lib-font);
-  letter-spacing: 1px;
+  font: 800 clamp(26px, 3.4cqi, 48px) / 1.08 var(--lib-font);
+  letter-spacing: -0.02em;
   color: #fff;
-  text-shadow:
-    1px 1px 10px #000,
-    0 0 22px rgba(0, 0, 0, 0.53);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* Play bar */
+/* Action bar: sits under the hero and turns into a solid full-width bar once stuck. Its
+   height never changes (no layout shift while scrolling); only paint and the Play size do. */
 .gp-bar {
   position: sticky;
   top: 0;
   z-index: 6;
   display: flex;
   align-items: center;
-  min-height: 63px;
-  padding: 10px 20px 7px;
+  min-height: 72px;
+  margin: 0 18px;
+  padding: 12px 16px;
   container: gpbar / inline-size;
-  background: linear-gradient(to top, rgba(36, 40, 47, 0.55) 18px, transparent 100%), rgba(29, 34, 39, 0.45);
-  box-shadow: inset 0 1px rgba(193, 202, 207, 0.1);
-  transition:
-    background 0.16s ease-out,
-    box-shadow 0.16s ease-out,
-    padding 0.16s ease-out,
-    min-height 0.16s ease-out;
+  border-radius: var(--r-xl);
+  background: rgba(21, 26, 34, 0.78);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .gp-bar.stuck {
-  min-height: 48px;
-  padding: 6px 20px;
-  background: rgba(39, 44, 53, 0.82);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  margin: 0;
+  padding: 12px 22px;
+  border-radius: 0;
+  background: rgba(17, 21, 28, 0.97);
   box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.27),
-    0 2px 6px rgba(0, 0, 0, 0.53);
+    inset 0 -1px 0 var(--border-strong),
+    0 10px 24px rgba(0, 0, 0, 0.35);
 }
 .gp-mini {
   display: flex;
@@ -180,34 +167,31 @@ button.gp-tag:hover {
   opacity: 0;
   overflow: hidden;
   white-space: nowrap;
-  transition:
-    max-width 0.16s ease-out,
-    opacity 0.16s ease-out,
-    margin 0.16s ease-out;
+  transition: opacity var(--t-med) ease-out;
 }
 .gp-mini img,
 .gp-mini-letter {
   flex: none;
   width: 32px;
   height: 32px;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   object-fit: cover;
 }
 .gp-mini-letter {
   display: grid;
   place-items: center;
-  background: var(--lib-dark);
+  background: var(--surface-3);
   font-weight: 700;
 }
 .gp-mini span {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
 }
 .gp-bar.stuck .gp-mini {
-  max-width: 240px;
+  max-width: 260px;
   opacity: 1;
   margin-right: 16px;
 }
@@ -220,135 +204,136 @@ button.gp-tag:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-width: 164px;
-  height: 46px;
-  padding: 4px 16px 4px 12px;
-  border-radius: 2px;
+  gap: 10px;
+  min-width: 168px;
+  height: 48px;
+  padding: 0 22px 0 18px;
+  border-radius: var(--r-lg);
   color: #fff;
-  font: 300 20px/32px var(--lib-font);
-  letter-spacing: 1px;
+  font: 700 15px/1 var(--lib-font);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-  background-size: 330% 100%;
-  background-position: 25%;
-  transition:
-    background-position 0.2s ease-out,
-    height 0.16s ease-out,
-    font-size 0.16s ease-out,
-    filter 0.2s;
+  transition: transform var(--t-fast) ease-out;
 }
 .gp-play .glyph {
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 .gp-play.green {
-  background-image: linear-gradient(to right, #70d61d 0%, #01a75b 60%);
+  background: var(--play);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 20px rgba(31, 179, 90, 0.3);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
-.gp-play.green .glyph {
-  color: #c1ffcb;
+.gp-play.green:not(:disabled):hover {
+  background: var(--play-hover);
 }
 .gp-play.blue {
-  background-image: linear-gradient(to right, #47bfff 0%, #1a44c2 60%);
+  background: var(--install);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 6px 20px rgba(43, 127, 232, 0.3);
 }
-.gp-play.blue .glyph {
-  color: #cbeeff;
+.gp-play.blue:not(:disabled):hover {
+  background: var(--install-hover);
 }
-.gp-play:not(:disabled):hover {
-  background-position: 0%;
-}
-.gp-play:not(:disabled):hover .glyph {
-  color: #fff;
+.gp-play:not(:disabled):active {
+  transform: translateY(1px);
 }
 .gp-play:disabled {
   opacity: 1;
 }
 .gp-play.busy {
   cursor: progress;
-  filter: saturate(0.75) brightness(0.92);
+  opacity: 0.85;
 }
 .gp-play.grey {
-  background: #2e3136;
-  color: rgba(255, 255, 255, 0.5);
+  background: var(--surface-3);
+  color: var(--text-3);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .gp-play.split {
-  border-radius: 2px 0 0 2px;
+  border-radius: var(--r-lg) var(--r-xs) var(--r-xs) var(--r-lg);
 }
 .gp-play-split {
   display: grid;
   place-items: center;
-  width: 25px;
+  width: 30px;
   margin-left: 2px;
-  border-radius: 0 2px 2px 0;
-  background: rgb(35, 94, 207);
-  color: #cbeeff;
-  transition: background 0.2s;
+  border-radius: var(--r-xs) var(--r-lg) var(--r-lg) var(--r-xs);
+  background: var(--accent-press);
+  color: #fff;
+  transition: background-color var(--t-fast);
 }
 .gp-play-split:hover {
-  background: rgb(55, 120, 235);
-  color: #fff;
+  background: var(--accent);
 }
 .gp-play-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 30;
   min-width: 220px;
-  padding: 4px 0;
-  background: var(--lib-dark);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.67);
-  animation: lib-fade 0.12s ease-out;
+  padding: 6px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-pop);
+  animation: dd-in 0.14s var(--ease-out);
 }
 .gp-play-menu button {
   display: block;
   width: 100%;
-  padding: 8px 18px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
   text-align: left;
   font-size: 13px;
-  color: var(--lib-text);
+  color: var(--text);
 }
 .gp-play-menu button:hover {
-  background: var(--lib-text);
-  color: var(--lib-dark);
+  background: var(--surface-4);
+  color: #fff;
 }
 .gp-bar.stuck .gp-play {
-  height: 34px;
-  min-width: 130px;
-  font-size: 16px;
+  height: 40px;
+  min-width: 132px;
 }
 .gp-stats {
   display: flex;
   align-items: center;
+  gap: 4px;
   min-width: 0;
-  margin-left: 12px;
+  margin-left: 14px;
   overflow: hidden;
   transition:
-    opacity 0.16s ease-out,
-    transform 0.16s ease-out;
+    opacity var(--t-med) ease-out,
+    transform var(--t-med) ease-out;
 }
 .gp-bar.stuck .gp-stats,
 .gp-bar.stuck .gp-dl {
   opacity: 0;
-  transform: translateY(-24px);
+  transform: translateY(-12px);
   pointer-events: none;
 }
 .gp-stat {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  margin: 0 5px;
-  padding: 6px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-left: 1px solid var(--border);
 }
 .gp-stat-icon {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-4);
+}
+.gp-stat-icon svg {
+  width: 22px;
+  height: 22px;
 }
 .gp-stat-text {
   display: flex;
@@ -356,27 +341,29 @@ button.gp-tag:hover {
   min-width: 0;
 }
 .gp-stat-label {
-  font-size: 14px;
-  line-height: 18px;
-  letter-spacing: 1px;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 16px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.52);
+  color: var(--text-3);
   white-space: nowrap;
 }
 .gp-stat-value {
   max-width: 170px;
-  font-size: 13px;
-  line-height: 17px;
-  color: rgba(255, 255, 255, 0.32);
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 18px;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .gp-stat.green .gp-stat-value {
-  color: #81c221;
+  color: var(--ingame);
 }
 .gp-stat.blue .gp-stat-value {
-  color: #74d1ff;
+  color: var(--accent-text);
 }
 @container gpbar (max-width: 960px) {
   .gp-stat:nth-child(4) {
@@ -399,128 +386,129 @@ button.gp-tag:hover {
   }
   .gp-play {
     min-width: 114px;
-    font-size: 16px;
   }
 }
 .gp-dl {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   margin-left: 18px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
   text-align: left;
   transition:
-    background 0.15s,
-    opacity 0.16s ease-out,
-    transform 0.16s ease-out;
+    background-color var(--t-fast),
+    opacity var(--t-med) ease-out,
+    transform var(--t-med) ease-out;
 }
 .gp-dl:hover {
-  background: rgba(172, 178, 201, 0.1);
+  background: var(--surface-3);
 }
 .gp-dl-label {
-  font-size: 14px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
   white-space: nowrap;
 }
 .gp-dl-detail {
   max-width: 320px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.32);
+  font-size: 12.5px;
+  color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .gp-dl.error .gp-dl-detail {
-  color: #ff8f7a;
+  color: var(--danger);
 }
 .gp-dl-bar {
   display: block;
-  width: 170px;
+  width: 180px;
   height: 4px;
-  border-radius: 3px;
-  background: #151619;
+  border-radius: var(--r-pill);
+  background: var(--surface-4);
   overflow: hidden;
 }
 .gp-dl-bar span {
   display: block;
   height: 100%;
-  border-radius: 3px;
-  background: #2d73ff;
+  border-radius: inherit;
+  background: var(--accent);
   transition: width 0.1s linear;
 }
 .gp-dl.paused .gp-dl-bar span,
 .gp-dl.queued .gp-dl-bar span {
-  background: #535c70;
+  background: var(--text-3);
 }
 .gp-dl.error .gp-dl-bar span {
-  background: var(--lib-error);
+  background: var(--danger);
 }
 .gp-icons {
   flex: none;
   display: flex;
-  gap: 10px;
+  gap: 6px;
   margin-left: auto;
   padding-left: 12px;
 }
 .gp-icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background: rgba(172, 178, 201, 0.14);
-  color: rgba(255, 255, 255, 0.5);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
   transition:
-    background 0.15s,
-    color 0.15s;
+    background-color var(--t-fast),
+    color var(--t-fast);
 }
 .gp-icon:hover {
-  background: rgba(205, 213, 226, 0.26);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 .gp-icon.on {
-  background: rgba(172, 178, 201, 0.28);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
 }
 .gp-icon.fav.on {
-  color: #67b3ff;
+  color: var(--warn);
 }
 .gp-icon.fav.on svg {
-  animation: lib-pop 0.8s ease-out;
+  animation: lib-pop 0.6s ease-out;
 }
 
-/* Sub-nav */
+/* Sub-nav: quiet pills */
 .gp-links {
   position: relative;
   z-index: 1;
   display: flex;
-  justify-content: space-around;
-  gap: 4px;
-  margin: 4px 10px 0;
-  padding: 4px 10px 2px;
-  border-radius: 2px;
-  background: radial-gradient(100% 80% at 64% 95%, rgba(108, 119, 134, 0.1) 40%, rgba(83, 104, 104, 0.1) 100%);
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 18px 0;
 }
 .gp-links button {
-  padding: 2px 12px 4px;
-  border-radius: 2px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px var(--border);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  font-weight: 550;
+  color: var(--text-2);
   white-space: nowrap;
   transition:
-    background 0.2s ease-out,
-    color 0.2s ease-out;
+    background-color var(--t-fast),
+    color var(--t-fast);
 }
 .gp-links button:not(:disabled):hover {
-  background: rgba(101, 113, 128, 0.36);
+  background: var(--surface-3);
   color: #fff;
 }
 .gp-links button:disabled {
-  opacity: 1;
-  color: rgba(255, 255, 255, 0.15);
+  opacity: 0.4;
 }
 
 /* Info panel */
@@ -529,11 +517,11 @@ button.gp-tag:hover {
   z-index: 1;
   display: flex;
   gap: 18px;
-  margin: 10px 10px 0;
+  margin: 12px 18px 0;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 2px;
-  background: radial-gradient(100% 80% at 64% 95%, rgba(58, 75, 99, 0.6) 0%, rgba(35, 48, 66, 0.3) 40%, rgba(21, 22, 22, 0.1) 100%);
+  border-radius: var(--r-xl);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
   animation: lib-fade-up 0.2s ease-out;
 }
 .gp-infopanel-cover {
@@ -541,7 +529,7 @@ button.gp-tag:hover {
   flex: none;
   width: 120px;
   aspect-ratio: 3 / 4;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  border-radius: var(--r-md);
   overflow: hidden;
 }
 .gp-infopanel-cover > .img {
@@ -555,14 +543,15 @@ button.gp-tag:hover {
 .gp-infopanel h3 {
   margin: 0 0 6px;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: #fff;
 }
 .gp-infopanel p {
   margin: 0 0 10px;
   font-size: 13px;
   line-height: 1.6;
-  color: #acb2b8;
+  color: var(--text-2);
   display: -webkit-box;
   -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
@@ -575,15 +564,15 @@ button.gp-tag:hover {
   gap: 6px 22px;
   margin-bottom: 12px;
   font-size: 13px;
-  color: var(--lib-text-2);
+  color: var(--text-2);
 }
 .gp-infopanel-facts b {
   margin-right: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 1px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lib-text-4);
+  color: var(--text-4);
 }
 .gp-infopanel-actions {
   display: flex;
@@ -596,8 +585,8 @@ button.gp-tag:hover {
   z-index: 1;
   display: flex;
   align-items: flex-start;
-  gap: 32px;
-  padding: 18px 10px 40px;
+  gap: 28px;
+  padding: 22px 18px 44px;
 }
 .gp-left {
   flex: 1;
@@ -610,7 +599,7 @@ button.gp-tag:hover {
 }
 @container gp (max-width: 880px) {
   .gp-columns {
-    gap: 22px;
+    gap: 20px;
   }
 }
 @container gp (max-width: 640px) {
@@ -632,34 +621,35 @@ button.gp-tag:hover {
 }
 .gp-sec-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin: 0 0 10px;
-  padding-left: 10px;
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 1px;
+  padding-left: 2px;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #94a1a6;
+  color: var(--text-2);
 }
 .gp-sec-title span {
   font-size: 12px;
-  letter-spacing: 0.5px;
+  font-weight: 500;
+  letter-spacing: 0;
   text-transform: none;
-  color: var(--lib-text-4);
+  color: var(--text-4);
 }
 .gp-panel {
-  padding: 12px 12px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 2px;
-  background: radial-gradient(100% 80% at 64% 95%, rgba(58, 75, 99, 0.6) 0%, rgba(35, 48, 66, 0.3) 40%, rgba(21, 22, 22, 0.1) 100%);
+  padding: 12px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .gp-panel-link {
   display: block;
   margin: 10px 0 0 auto;
   font-size: 13px;
-  color: #888;
+  color: var(--text-3);
 }
 .gp-panel-link:hover {
   color: #fff;
@@ -668,11 +658,12 @@ button.gp-tag:hover {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px;
-  background: linear-gradient(to right, rgb(59, 65, 74) 0%, rgb(44, 49, 56) 95%);
-  box-shadow: 1px 2px 12px 1px rgba(26, 27, 37, 0.25);
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
   font-size: 13px;
-  color: #ccc;
+  color: var(--text-2);
 }
 .gp-highlight > div:last-child {
   display: flex;
@@ -682,7 +673,7 @@ button.gp-tag:hover {
 }
 .gp-highlight b {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
 }
 .gp-highlight-icon {
@@ -691,9 +682,9 @@ button.gp-tag:hover {
   place-items: center;
   width: 42px;
   height: 42px;
-  border-radius: 2px;
-  background: radial-gradient(circle at top left, rgba(81, 148, 255, 0.5), rgba(0, 39, 112, 0.075));
-  color: #b5ffff;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 .gp-note {
   display: flex;
@@ -701,15 +692,15 @@ button.gp-tag:hover {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 10px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-left: 3px solid var(--lib-text-4);
-  background: rgba(0, 0, 0, 0.18);
+  padding: 12px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
   font-size: 13px;
 }
 .gp-note > svg {
   flex: none;
-  color: var(--lib-text-2);
+  color: var(--text-3);
 }
 .gp-note > div {
   flex: 1;
@@ -719,29 +710,30 @@ button.gp-tag:hover {
   gap: 2px;
 }
 .gp-note b {
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
 }
 .gp-note span {
-  color: var(--lib-text-2);
+  color: var(--text-2);
   line-height: 1.45;
 }
 .gp-note.blue {
-  border-left-color: var(--lib-blue);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(61, 155, 255, 0.25);
 }
 .gp-note.blue > svg {
-  color: #74d1ff;
+  color: var(--accent-text);
 }
 .gp-note.red {
-  border-left-color: var(--lib-error);
+  background: var(--danger-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 93, 82, 0.28);
 }
 .gp-note.red > svg {
-  color: #ff7b63;
+  color: var(--danger);
 }
 .gp-note.subtle {
-  border-left-color: transparent;
   background: transparent;
-  opacity: 0.85;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .gp-feed {
   margin-top: 12px;
@@ -751,7 +743,7 @@ button.gp-tag:hover {
   align-items: center;
   gap: 12px;
   padding: 10px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
 }
 .gp-event-icon {
   flex: none;
@@ -759,9 +751,9 @@ button.gp-tag:hover {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--lib-text-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-3);
 }
 .gp-event-text {
   display: flex;
@@ -770,18 +762,18 @@ button.gp-tag:hover {
 }
 .gp-event-text b {
   font-size: 13px;
-  font-weight: 400;
-  color: var(--lib-text);
+  font-weight: 500;
+  color: var(--text);
 }
 .gp-event-text span {
   font-size: 12px;
-  color: var(--lib-text-4);
+  color: var(--text-4);
 }
 .gp-about p {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #acb2b8;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-2);
   white-space: pre-line;
   user-select: text;
 }
@@ -795,34 +787,34 @@ button.gp-tag:hover {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
 }
 .gp-row:last-child {
   border-bottom: 0;
 }
 .gp-row-label {
   flex: none;
-  font-size: 12px;
-  color: var(--lib-text-3);
+  font-size: 12.5px;
+  color: var(--text-3);
 }
 .gp-row-value {
   min-width: 0;
   font-size: 13px;
-  color: var(--lib-text);
+  color: var(--text);
   text-align: right;
   overflow-wrap: anywhere;
 }
 .gp-path {
   font-family: var(--mono);
   font-size: 12px;
-  color: #6dcff6;
+  color: var(--accent-text);
   text-align: right;
   overflow-wrap: anywhere;
   user-select: text;
 }
 .gp-path:hover {
-  color: #b0e9ff;
+  color: #fff;
   text-decoration: underline;
 }
 .gp-plats {
@@ -846,27 +838,30 @@ button.gp-tag:hover {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px;
-  border-radius: 2px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
   font-size: 13px;
-  color: var(--lib-text-2);
+  color: var(--text-2);
   text-align: left;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background-color var(--t-fast),
+    color var(--t-fast);
 }
 .gp-links-list button svg {
   flex: none;
-  color: var(--lib-text-3);
+  color: var(--text-3);
 }
 .gp-links-list button:not(:disabled):hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface-3);
   color: #fff;
 }
 .gp-links-list button:not(:disabled):hover svg {
   color: #fff;
 }
 .gp-links-list button.danger:not(:disabled):hover {
-  background: rgba(196, 72, 72, 0.35);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
-
+.gp-links-list button.danger:not(:disabled):hover svg {
+  color: var(--danger);
+}

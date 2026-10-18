@@ -63,7 +63,7 @@ export function LibraryHome(): React.JSX.Element {
         <div className="shelf-head">
           {searching ? (
             <h3 className="shelf-title">
-              Search results <span className="shelf-count">({games.length})</span>
+              Search results <span className="shelf-count">{games.length}</span>
               <button className="lh-clear" onClick={() => setSearch('')} title="Clear search">
                 <X size={14} />
               </button>
@@ -71,7 +71,7 @@ export function LibraryHome(): React.JSX.Element {
           ) : (
             <h3 className="shelf-title">
               {filter === 'all' ? 'All Games' : FILTER_LABELS[filter]}
-              <span className="shelf-count">({games.length})</span>
+              <span className="shelf-count">{games.length}</span>
             </h3>
           )}
           <span className="shelf-rule" />

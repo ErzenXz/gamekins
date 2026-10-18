@@ -98,8 +98,14 @@ function save(patch: Partial<Settings>): Promise<void> {
   return act(() => useStore.getState().saveSettings(patch))
 }
 
-function Heading({ children }: { children: ReactNode }): React.JSX.Element {
-  return <h2 className="st-sub">{children}</h2>
+/** A titled card of rows. */
+function Group({ title, children }: { title?: ReactNode; children: ReactNode }): React.JSX.Element {
+  return (
+    <section className="st-group">
+      {title && <h2 className="st-sub">{title}</h2>}
+      <div className="st-card">{children}</div>
+    </section>
+  )
 }
 
 function Row({
@@ -181,58 +187,60 @@ function AccountSection(): React.JSX.Element {
         </div>
       )}
 
-      <Heading>Connected stores</Heading>
-      {list
-        .filter((p) => p.id !== 'local')
-        .map((p) => {
-          const account = accounts.find((a) => a.provider === p.id)
-          return (
-            <Row
-              key={p.id}
-              label={
-                <span className="st-provider">
-                  <span className={`st-provider-logo ${p.id}`}>{p.name[0]}</span>
-                  {p.name}
-                </span>
-              }
-              hint={
-                !p.available
-                  ? 'Coming soon: Gamekins can’t connect to this store yet.'
-                  : account
-                    ? `Signed in as ${account.displayName}`
-                    : p.id === 'epic' && sessionExpired
-                      ? 'Session expired'
-                      : 'Not connected'
-              }
-              disabled={!p.available}
-            >
-              {!p.available ? (
-                <span className="st-soon">Coming soon</span>
-              ) : account ? (
-                <button className="btn btn-ghost" onClick={() => signOut(p.id as ProviderId, p.name)}>
-                  Sign out…
-                </button>
-              ) : (
-                <button className="btn btn-blue" disabled={signingIn} onClick={() => void useStore.getState().signIn(p.id as ProviderId)}>
-                  {signingIn && <Loader2 size={14} className="spin" />} {signingIn ? 'Signing in…' : 'Sign in'}
-                </button>
-              )}
-            </Row>
-          )
-        })}
+      <Group title="Connected stores">
+        {list
+          .filter((p) => p.id !== 'local')
+          .map((p) => {
+            const account = accounts.find((a) => a.provider === p.id)
+            return (
+              <Row
+                key={p.id}
+                label={
+                  <span className="st-provider">
+                    <span className={`st-provider-logo ${p.id}`}>{p.name[0]}</span>
+                    {p.name}
+                  </span>
+                }
+                hint={
+                  !p.available
+                    ? 'Coming soon: Gamekins can’t connect to this store yet.'
+                    : account
+                      ? `Signed in as ${account.displayName}`
+                      : p.id === 'epic' && sessionExpired
+                        ? 'Session expired'
+                        : 'Not connected'
+                }
+                disabled={!p.available}
+              >
+                {!p.available ? (
+                  <span className="st-soon">Coming soon</span>
+                ) : account ? (
+                  <button className="btn btn-ghost" onClick={() => signOut(p.id as ProviderId, p.name)}>
+                    Sign out…
+                  </button>
+                ) : (
+                  <button className="btn btn-blue" disabled={signingIn} onClick={() => void useStore.getState().signIn(p.id as ProviderId)}>
+                    {signingIn && <Loader2 size={14} className="spin" />} {signingIn ? 'Signing in…' : 'Sign in'}
+                  </button>
+                )}
+              </Row>
+            )
+          })}
+      </Group>
 
-      <Heading>Epic Games account</Heading>
-      <Row label="Account details" hint="Profile, password, two-factor authentication and linked accounts.">
-        <LinkButton url="https://www.epicgames.com/account/personal" />
-      </Row>
-      <Row label="Transactions" hint="Purchase history, receipts and refunds.">
-        <LinkButton url="https://www.epicgames.com/account/transactions" />
-      </Row>
-      <Row label="Redeem a code" hint="Activate a game or add-on with a product code.">
-        <button className="btn btn-ghost" onClick={() => useStore.getState().navigate({ view: 'store', url: 'https://www.epicgames.com/redeem' })}>
-          Redeem…
-        </button>
-      </Row>
+      <Group title="Epic Games account">
+        <Row label="Account details" hint="Profile, password, two-factor authentication and linked accounts.">
+          <LinkButton url="https://www.epicgames.com/account/personal" />
+        </Row>
+        <Row label="Transactions" hint="Purchase history, receipts and refunds.">
+          <LinkButton url="https://www.epicgames.com/account/transactions" />
+        </Row>
+        <Row label="Redeem a code" hint="Activate a game or add-on with a product code.">
+          <button className="btn btn-ghost" onClick={() => useStore.getState().navigate({ view: 'store', url: 'https://www.epicgames.com/redeem' })}>
+            Redeem…
+          </button>
+        </Row>
+      </Group>
     </>
   )
 }
@@ -274,38 +282,40 @@ function InterfaceSection(): React.JSX.Element {
   ]
   return (
     <>
-      <Heading>Library</Heading>
-      <Row label="Library display size" hint="Size of game capsules in the library grid." htmlFor="st-size">
-        <Select
-          id="st-size"
-          value={sizeOptions.some((s) => s.value === gridSize) ? gridSize : nearest}
-          options={sizeOptions}
-          onChange={(v) => useStore.getState().setGridSize(v)}
-        />
-      </Row>
-      <Row label="Sort games by" hint="Order of the All Games grid on the library home." htmlFor="st-sort">
-        <Select
-          id="st-sort"
-          value={sort}
-          options={[
-            { value: 'alpha', label: 'Alphabetical' },
-            { value: 'recent', label: 'Last played' },
-            { value: 'playtime', label: 'Hours played' },
-            { value: 'size', label: 'Size on disk' },
-            { value: 'installed', label: 'Installed first' }
-          ]}
-          onChange={(v) => useStore.getState().setLibrarySort(v)}
-        />
-      </Row>
-      <Heading>Keyboard shortcuts</Heading>
-      <div className="st-shortcuts">
-        {shortcuts.map(([k, v]) => (
-          <div key={k} className="st-shortcut">
-            <span>{v}</span>
-            <kbd>{k}</kbd>
-          </div>
-        ))}
-      </div>
+      <Group title="Library">
+        <Row label="Library display size" hint="Size of game capsules in the library grid." htmlFor="st-size">
+          <Select
+            id="st-size"
+            value={sizeOptions.some((s) => s.value === gridSize) ? gridSize : nearest}
+            options={sizeOptions}
+            onChange={(v) => useStore.getState().setGridSize(v)}
+          />
+        </Row>
+        <Row label="Sort games by" hint="Order of the All Games grid on the library home." htmlFor="st-sort">
+          <Select
+            id="st-sort"
+            value={sort}
+            options={[
+              { value: 'alpha', label: 'Alphabetical' },
+              { value: 'recent', label: 'Last played' },
+              { value: 'playtime', label: 'Hours played' },
+              { value: 'size', label: 'Size on disk' },
+              { value: 'installed', label: 'Installed first' }
+            ]}
+            onChange={(v) => useStore.getState().setLibrarySort(v)}
+          />
+        </Row>
+      </Group>
+      <Group title="Keyboard shortcuts">
+        <div className="st-shortcuts">
+          {shortcuts.map(([k, v]) => (
+            <div key={k} className="st-shortcut">
+              <span>{v}</span>
+              <kbd>{k}</kbd>
+            </div>
+          ))}
+        </div>
+      </Group>
     </>
   )
 }
@@ -314,76 +324,80 @@ function DownloadsSection({ settings, platform }: { settings: Settings; platform
   const nav = useStore.getState().navigate
   return (
     <>
-      <Heading>Content libraries</Heading>
-      <Row label="Default install folder" hint="New games are installed into their own folder here.">
-        <div className="st-path-picker">
-          <span className="st-path" title={settings.installDir}>
-            <bdi dir="ltr">{settings.installDir}</bdi>
-          </span>
-          <button
-            className="btn btn-ghost"
-            onClick={async () => {
-              const dir = await window.gamekins.app.pickDirectory(settings.installDir)
-              if (dir) await save({ installDir: dir })
-            }}
-          >
-            Change…
+      <Group title="Content libraries">
+        <Row label="Default install folder" hint="New games are installed into their own folder here.">
+          <div className="st-path-picker">
+            <span className="st-path" title={settings.installDir}>
+              <bdi dir="ltr">{settings.installDir}</bdi>
+            </span>
+            <button
+              className="btn btn-ghost"
+              onClick={async () => {
+                const dir = await window.gamekins.app.pickDirectory(settings.installDir)
+                if (dir) await save({ installDir: dir })
+              }}
+            >
+              Change…
+            </button>
+          </div>
+        </Row>
+        <Row label="Storage manager" hint="See what’s installed on each drive, and move or uninstall games.">
+          <button className="btn btn-ghost" onClick={() => useStore.getState().replaceRoute({ view: 'settings', section: 'storage' })}>
+            Open storage manager
           </button>
-        </div>
-      </Row>
-      <Row label="Storage manager" hint="See what’s installed on each drive, and move or uninstall games.">
-        <button className="btn btn-ghost" onClick={() => useStore.getState().replaceRoute({ view: 'settings', section: 'storage' })}>
-          Open storage manager
-        </button>
-      </Row>
+        </Row>
+      </Group>
 
-      <Heading>Download restrictions</Heading>
-      <Row label="Limit bandwidth to" hint="Caps download speed so the rest of the house can still stream and play." htmlFor="st-bw">
-        <Select
-          id="st-bw"
-          value={settings.bandwidthLimitMBps}
-          options={[
-            ...(BANDWIDTH.includes(settings.bandwidthLimitMBps) ? [] : [{ value: settings.bandwidthLimitMBps, label: `${settings.bandwidthLimitMBps} MB/s` }]),
-            ...BANDWIDTH.map((n) => ({ value: n, label: n === 0 ? 'No limit' : `${n} MB/s` }))
-          ]}
-          onChange={(v) => void save({ bandwidthLimitMBps: v })}
-        />
-      </Row>
-      <Row label="Parallel connections" hint="More is faster on good connections. 16 suits most." htmlFor="st-workers">
-        <Select
-          id="st-workers"
-          value={settings.maxWorkers}
-          options={[
-            ...(WORKERS.includes(settings.maxWorkers) ? [] : [{ value: settings.maxWorkers, label: `${settings.maxWorkers} connections` }]),
-            ...WORKERS.map((n) => ({ value: n, label: `${n} connections` }))
-          ]}
-          onChange={(v) => void save({ maxWorkers: v })}
-        />
-      </Row>
-      <Toggle
-        settings={settings}
-        k="downloadsDuringGameplay"
-        label="Allow downloads during gameplay"
-        hint="If this is off, downloads pause while a game is running and resume when you quit."
-      />
-
-      <Heading>Updates</Heading>
-      <Toggle settings={settings} k="autoUpdate" label="Keep games up to date" hint="Queue updates automatically when a new build is released." />
-      {platform === 'win32' && (
+      <Group title="Download restrictions">
+        <Row label="Limit bandwidth to" hint="Caps download speed so the rest of the house can still stream and play." htmlFor="st-bw">
+          <Select
+            id="st-bw"
+            value={settings.bandwidthLimitMBps}
+            options={[
+              ...(BANDWIDTH.includes(settings.bandwidthLimitMBps) ? [] : [{ value: settings.bandwidthLimitMBps, label: `${settings.bandwidthLimitMBps} MB/s` }]),
+              ...BANDWIDTH.map((n) => ({ value: n, label: n === 0 ? 'No limit' : `${n} MB/s` }))
+            ]}
+            onChange={(v) => void save({ bandwidthLimitMBps: v })}
+          />
+        </Row>
+        <Row label="Parallel connections" hint="More is faster on good connections. 16 suits most." htmlFor="st-workers">
+          <Select
+            id="st-workers"
+            value={settings.maxWorkers}
+            options={[
+              ...(WORKERS.includes(settings.maxWorkers) ? [] : [{ value: settings.maxWorkers, label: `${settings.maxWorkers} connections` }]),
+              ...WORKERS.map((n) => ({ value: n, label: `${n} connections` }))
+            ]}
+            onChange={(v) => void save({ maxWorkers: v })}
+          />
+        </Row>
         <Toggle
           settings={settings}
-          k="installPrerequisites"
-          label="Install game prerequisites"
-          hint="Run a game’s redistributables installer (DirectX, Visual C++) after its first install. Windows asks for admin rights."
+          k="downloadsDuringGameplay"
+          label="Allow downloads during gameplay"
+          hint="If this is off, downloads pause while a game is running and resume when you quit."
         />
-      )}
+      </Group>
 
-      <Heading>Queue</Heading>
-      <Row label="Downloads" hint="See progress, reorder the queue and clear finished items.">
-        <button className="btn btn-ghost" onClick={() => nav({ view: 'downloads' })}>
-          Open downloads
-        </button>
-      </Row>
+      <Group title="Updates">
+        <Toggle settings={settings} k="autoUpdate" label="Keep games up to date" hint="Queue updates automatically when a new build is released." />
+        {platform === 'win32' && (
+          <Toggle
+            settings={settings}
+            k="installPrerequisites"
+            label="Install game prerequisites"
+            hint="Run a game’s redistributables installer (DirectX, Visual C++) after its first install. Windows asks for admin rights."
+          />
+        )}
+      </Group>
+
+      <Group title="Queue">
+        <Row label="Downloads" hint="See progress, reorder the queue and clear finished items.">
+          <button className="btn btn-ghost" onClick={() => nav({ view: 'downloads' })}>
+            Open downloads
+          </button>
+        </Row>
+      </Group>
     </>
   )
 }
@@ -392,32 +406,35 @@ function LibrarySection({ settings }: { settings: Settings }): React.JSX.Element
   const refreshing = useStore((s) => s.refreshing)
   return (
     <>
-      <Heading>Existing installs</Heading>
-      <Toggle
-        settings={settings}
-        k="importEpicLauncherInstalls"
-        label="Find games installed by the Epic Games Launcher"
-        hint="Adopt existing installs instead of downloading them again."
-      />
-      <Row label="Refresh library" hint="Re-read your owned games and installed builds now.">
-        <button className="btn btn-ghost" disabled={refreshing} onClick={() => void useStore.getState().refresh()}>
-          <RefreshCw size={14} className={refreshing ? 'spin' : ''} /> {refreshing ? 'Refreshing…' : 'Refresh now'}
-        </button>
-      </Row>
-      <Heading>Launching games</Heading>
-      <Toggle
-        settings={settings}
-        k="launchViaEpicLauncher"
-        label="Launch through the Epic Games Launcher"
-        hint="A fallback for games that won’t start directly. You can also set this per game in Properties."
-      />
-      <Toggle settings={settings} k="minimizeOnLaunch" label="Minimize Gamekins when a game starts" hint="Get the launcher out of the way while you play." />
-      <Heading>Non-Epic games</Heading>
-      <Row label="Add a non-Epic game" hint="Put any program on this PC in your library and launch it from Gamekins.">
-        <button className="btn btn-ghost" onClick={() => useStore.getState().setAddGameOpen(true)}>
-          Add a game…
-        </button>
-      </Row>
+      <Group title="Existing installs">
+        <Toggle
+          settings={settings}
+          k="importEpicLauncherInstalls"
+          label="Find games installed by the Epic Games Launcher"
+          hint="Adopt existing installs instead of downloading them again."
+        />
+        <Row label="Refresh library" hint="Re-read your owned games and installed builds now.">
+          <button className="btn btn-ghost" disabled={refreshing} onClick={() => void useStore.getState().refresh()}>
+            <RefreshCw size={14} className={refreshing ? 'spin' : ''} /> {refreshing ? 'Refreshing…' : 'Refresh now'}
+          </button>
+        </Row>
+      </Group>
+      <Group title="Launching games">
+        <Toggle
+          settings={settings}
+          k="launchViaEpicLauncher"
+          label="Launch through the Epic Games Launcher"
+          hint="A fallback for games that won’t start directly. You can also set this per game in Properties."
+        />
+        <Toggle settings={settings} k="minimizeOnLaunch" label="Minimize Gamekins when a game starts" hint="Get the launcher out of the way while you play." />
+      </Group>
+      <Group title="Non-Epic games">
+        <Row label="Add a non-Epic game" hint="Put any program on this PC in your library and launch it from Gamekins.">
+          <button className="btn btn-ghost" onClick={() => useStore.getState().setAddGameOpen(true)}>
+            Add a game…
+          </button>
+        </Row>
+      </Group>
     </>
   )
 }
@@ -426,6 +443,7 @@ function StartupSection({ settings, platform }: { settings: Settings; platform: 
   const mac = platform === 'darwin'
   return (
     <>
+    <Group>
       <Toggle
         settings={settings}
         k="launchAtLogin"
@@ -445,6 +463,15 @@ function StartupSection({ settings, platform }: { settings: Settings; platform: 
           hint="Closing the window keeps Gamekins running in the tray so downloads continue. Use Gamekins › Exit to quit."
         />
       )}
+    </Group>
+    <Group title="Performance">
+      <Toggle
+        settings={settings}
+        k="hardwareAcceleration"
+        label="Use hardware acceleration"
+        hint="Draws the interface with your graphics card. Turn off to use a little less memory and leave all graphics memory to your games, at the cost of more CPU on big windows. Takes effect after restarting Gamekins."
+      />
+    </Group>
     </>
   )
 }
@@ -463,16 +490,17 @@ function AboutSection({ version, platform }: { version: string; platform: string
           <p className="st-hint">A fast, Steam-style client for your Epic Games library.</p>
         </div>
       </div>
-      <Heading>Help</Heading>
-      <Row label="Epic Games status" hint="Check whether sign-in, downloads or the store are having trouble.">
-        <LinkButton url="https://status.epicgames.com" />
-      </Row>
-      <Row label="Epic Games support" hint="Account, purchase and refund help from Epic.">
-        <LinkButton url="https://www.epicgames.com/help" />
-      </Row>
-      <Row label="Epic Games Store" hint="Open the store in your web browser.">
-        <LinkButton url="https://store.epicgames.com/" />
-      </Row>
+      <Group title="Help">
+        <Row label="Epic Games status" hint="Check whether sign-in, downloads or the store are having trouble.">
+          <LinkButton url="https://status.epicgames.com" />
+        </Row>
+        <Row label="Epic Games support" hint="Account, purchase and refund help from Epic.">
+          <LinkButton url="https://www.epicgames.com/help" />
+        </Row>
+        <Row label="Epic Games Store" hint="Open the store in your web browser.">
+          <LinkButton url="https://store.epicgames.com/" />
+        </Row>
+      </Group>
       <p className="st-legal">
         Gamekins is an independent project and is not affiliated with, endorsed by or sponsored by Epic Games, Inc. or Valve
         Corporation. All trademarks are property of their respective owners.

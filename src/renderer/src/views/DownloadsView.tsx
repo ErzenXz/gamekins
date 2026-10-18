@@ -129,40 +129,52 @@ export function DownloadsView(): React.JSX.Element {
 
   return (
     <div className="dls">
-      <header className="dls-top" style={{ height: graphH }}>
-        <div className={`dls-hero ${hero ? '' : 'empty'}`}>
-          {hero?.image && <img className="dls-hero-img" src={img(hero.image, 900)} alt="" />}
-          <div className="dls-hero-wash" />
-          {hero &&
-            (logo ? (
-              <img className="dls-hero-logo" src={img(logo, 600)} alt={hero.title} />
-            ) : (
-              <div className="dls-hero-name">{hero.title}</div>
-            ))}
-        </div>
-        <SpeedGraph network={active?.speedHistory ?? []} disk={active?.diskHistory ?? []} height={graphH} />
-        <div className="dls-meters">
-          <div className="dls-legend">
-            <span>
-              <i className="lg-net" /> Network
-            </span>
-            <span>
-              <i className="lg-disk" /> Disk usage
-            </span>
+      {/* Hero card: graph banner + the active item, joined into one panel. */}
+      <div className="dls-head">
+        <header className="dls-top" style={{ height: graphH }}>
+          <div className={`dls-hero ${hero ? '' : 'empty'}`}>
+            {hero?.image && <img className="dls-hero-img" src={img(hero.image, 900)} alt="" />}
+            <div className="dls-hero-wash" />
+            {!hero && (
+              <div className="dls-idle">
+                <Mascot pose="sleep" size={84} />
+                <div>
+                  <b>Nothing downloading</b>
+                  <span>Installs and updates show their progress here.</span>
+                </div>
+              </div>
+            )}
+            {hero &&
+              (logo ? (
+                <img className="dls-hero-logo" src={img(logo, 600)} alt={hero.title} />
+              ) : (
+                <div className="dls-hero-name">{hero.title}</div>
+              ))}
           </div>
-          <div className="dls-stats tabular">
-            <Stat label="Current" value={speed(active?.speedBps ?? 0)} />
-            <Stat label="Peak" value={speed(active ? peak.net : 0)} />
-            <Stat label="Total" value={bytes(active?.downloadedBytes ?? 0)} />
-            <Stat label="Disk usage" value={speed(active?.diskBps ?? 0)} />
+          <SpeedGraph network={active?.speedHistory ?? []} disk={active?.diskHistory ?? []} height={graphH} />
+          <div className="dls-meters">
+            <div className="dls-legend">
+              <span>
+                <i className="lg-net" /> Network
+              </span>
+              <span>
+                <i className="lg-disk" /> Disk usage
+              </span>
+            </div>
+            <div className="dls-stats tabular">
+              <Stat label="Current" value={speed(active?.speedBps ?? 0)} />
+              <Stat label="Peak" value={speed(active ? peak.net : 0)} />
+              <Stat label="Total" value={bytes(active?.downloadedBytes ?? 0)} />
+              <Stat label="Disk usage" value={speed(active?.diskBps ?? 0)} />
+            </div>
           </div>
-        </div>
-        <button className="dls-gear" onClick={toSettings} title="Download settings">
-          <Gear size={16} />
-        </button>
-      </header>
+          <button className="dls-gear" onClick={toSettings} title="Download settings">
+            <Gear size={16} />
+          </button>
+        </header>
 
-      {active && <ActiveItem job={active} limit={limit} autoUpdate={autoUpdate} onSettings={toSettings} />}
+        {active && <ActiveItem job={active} limit={limit} autoUpdate={autoUpdate} onSettings={toSettings} />}
+      </div>
 
       <div className="dls-lists scroll">
         {waiting && (
@@ -351,7 +363,7 @@ function ActiveItem({
   const eta = etaText(job)
 
   return (
-    <section className="dls-active">
+    <section className={`dls-active ${job.state}`}>
       <Art job={job} big />
       <div className="dls-active-body">
         <div className="dls-active-top">

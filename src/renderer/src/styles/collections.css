@@ -1,54 +1,141 @@
-/* Collections */
+/* ═════════════════════════ Collections ═════════════════════════
+   One card per collection: a fanned stack of up to three capsules over a sunken well. */
 .coll-page {
-  background: radial-gradient(100% 100% at 33% 45%, rgb(49, 61, 83) 0%, rgb(16, 19, 20) 100%);
+  background: var(--bg-main);
 }
+
+/* Page header: a large title instead of the shelf label. */
+.coll-page .shelf-head {
+  min-height: 40px;
+  margin-bottom: 6px;
+}
+.coll-page .shelf-title {
+  gap: 10px;
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 32px;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: #fff;
+}
+.coll-page .shelf-title .shelf-count {
+  font-size: 12px;
+  line-height: 20px;
+  padding: 0 8px;
+}
+
 .coll-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 26px 20px;
-  padding: 18px 10px 24px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 18px;
+  padding: 14px 4px 24px;
 }
+
+/* Card */
 .coll-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  text-align: left;
+  gap: 12px;
   min-width: 0;
+  padding: 10px 10px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
+  text-align: left;
+  isolation: isolate;
+  transition:
+    background-color var(--t-fast) ease-out,
+    transform var(--t-med) var(--ease-out);
 }
+/* Pre-painted hover shadow + ring, faded with opacity. */
+.coll-tile::before,
+.coll-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--t-med) ease-out;
+  pointer-events: none;
+}
+.coll-tile::before {
+  z-index: -1;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
+}
+.coll-tile::after {
+  z-index: 4;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.coll-tile:hover {
+  z-index: 1;
+  background: var(--surface-2);
+  transform: translateY(-3px);
+}
+.coll-tile:hover::before,
+.coll-tile:hover::after {
+  opacity: 1;
+}
+.coll-tile:active {
+  transform: translateY(-1px) scale(0.99);
+  transition-duration: 0.06s;
+}
+.coll-tile:focus-visible {
+  outline-offset: 3px;
+}
+
 .coll-art {
   position: relative;
   aspect-ratio: 4 / 3;
   display: grid;
   place-items: center;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  transition:
-    background 0.2s,
-    transform 0.4s var(--lib-cubic);
+  border-radius: var(--r-md);
+  background:
+    radial-gradient(80% 70% at 50% 100%, rgba(61, 155, 255, 0.08) 0%, transparent 70%),
+    var(--bg-sunken);
   overflow: hidden;
 }
-.coll-tile:hover .coll-art {
-  background: rgba(255, 255, 255, 0.07);
-  transform: translateY(-3px);
-}
-.coll-tile.new .coll-art {
-  color: #67707b;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
+
+/* "Create new collection" card */
+.coll-tile.new {
+  background: transparent;
   box-shadow: none;
 }
-.coll-tile.new:hover .coll-art {
-  color: #fff;
-  border-color: rgba(26, 159, 255, 0.6);
+.coll-tile.new .coll-art {
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-4);
+  transition:
+    background-color var(--t-fast) ease-out,
+    border-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
+.coll-tile.new:hover {
+  background: transparent;
+}
+.coll-tile.new::before,
+.coll-tile.new::after {
+  display: none;
+}
+.coll-tile.new:hover .coll-art {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+.coll-tile.new .coll-name {
+  color: var(--text-3);
+}
+
+/* Fanned capsule stack (2D transforms only). */
 .coll-cap {
   position: absolute;
   top: 12%;
   height: 76%;
   aspect-ratio: 3 / 4;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+  border-radius: var(--r-sm);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
   overflow: hidden;
-  transition: transform 0.4s var(--lib-cubic);
+  transition: transform var(--t-med) var(--ease-out);
 }
 .coll-cap .img {
   width: 100%;
@@ -63,13 +150,24 @@
   z-index: 2;
   left: 50%;
   transform: translateX(-95%) scale(0.86) rotate(-6deg);
-  filter: brightness(0.7);
 }
 .coll-cap.c2 {
   z-index: 1;
   left: 50%;
   transform: translateX(-5%) scale(0.86) rotate(6deg);
-  filter: brightness(0.7);
+}
+/* Dim the back capsules with a scrim instead of a filter. */
+.coll-cap.c1::after,
+.coll-cap.c2::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(7, 9, 13, 0.38);
+  pointer-events: none;
+}
+.coll-tile:hover .coll-cap.c0 {
+  transform: translateX(-50%) translateY(-3px);
 }
 .coll-tile:hover .coll-cap.c1 {
   transform: translateX(-108%) scale(0.86) rotate(-9deg);
@@ -78,64 +176,92 @@
   transform: translateX(8%) scale(0.86) rotate(9deg);
 }
 .coll-empty {
-  font-size: 12px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--lib-text-4);
+  color: var(--text-4);
 }
+
 .coll-name {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
+  padding: 0 4px;
   font-size: 14px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  font-weight: 300;
-  color: #d3d3d3;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text);
   white-space: nowrap;
+}
+.coll-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.coll-name span {
-  color: dimgray;
+.coll-count {
+  flex: none;
+  margin-left: auto;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .coll-name .fav {
-  color: #67b3ff;
+  flex: none;
+  color: var(--warn);
 }
 .coll-tile:hover .coll-name {
   color: #fff;
 }
+.coll-tile:hover .coll-count {
+  background: var(--surface-4);
+  color: var(--text-2);
+}
+
+/* Detail page header bits */
 .coll-back {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin: 0 0 8px 6px;
-  padding: 4px 8px 4px 4px;
-  border-radius: 2px;
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--lib-text-3);
+  height: 30px;
+  margin: 0 0 14px 4px;
+  padding: 0 12px 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .coll-back:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-3);
   color: #fff;
 }
 .coll-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 .coll-icon {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 2px;
-  color: var(--lib-text-3);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  transition:
+    background-color var(--t-fast) ease-out,
+    color var(--t-fast) ease-out;
 }
 .coll-icon:hover {
-  background: rgba(255, 255, 255, 0.13);
+  background: var(--surface-3);
   color: #fff;
 }
-
