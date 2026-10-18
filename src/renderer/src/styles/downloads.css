@@ -15,7 +15,7 @@
 /* ───────── Hero card: graph banner + active item ───────── */
 .dls-head {
   flex: none;
-  margin: 16px 18px 0;
+  margin: 18px 18px 0;
   border-radius: var(--r-xl);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -80,12 +80,13 @@
   gap: 3px;
 }
 .dls-idle b {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .dls-idle span {
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-3);
 }
 .dls-hero-logo {
@@ -104,10 +105,10 @@
   left: 24px;
   bottom: 22px;
   max-width: 40%;
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-heavy);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tighter);
   color: #fff;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
   display: -webkit-box;
@@ -183,7 +184,7 @@
   border-radius: var(--r-md);
   background: var(--surface-2);
   box-shadow: var(--shadow-pop);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-2);
   pointer-events: none;
 }
@@ -195,7 +196,7 @@
 }
 .dl-tip b {
   margin-left: auto;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .sw {
@@ -227,9 +228,9 @@
   display: flex;
   gap: 16px;
   padding-bottom: 2px;
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -263,18 +264,18 @@
   border-left: 1px solid var(--border-strong);
 }
 .dls-stat-value {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   line-height: 20px;
-  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   color: #fff;
   white-space: nowrap;
 }
 .dls-stat-label {
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   line-height: 16px;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
   white-space: nowrap;
@@ -353,8 +354,8 @@
   place-items: center;
   height: 100%;
   padding: 6px;
-  font-size: 12px;
-  font-weight: 550;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text-3);
   text-align: center;
 }
@@ -371,10 +372,10 @@
 }
 .dls-active-title {
   min-width: 0;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   line-height: 28px;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--tracking-tight);
   color: #fff;
   text-align: left;
   overflow: hidden;
@@ -393,10 +394,10 @@
   border-radius: var(--r-pill);
   background: var(--surface-3);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   line-height: 22px;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
   white-space: nowrap;
@@ -408,9 +409,9 @@
   margin: 4px 0 10px;
 }
 .dls-state {
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--accent-text);
 }
@@ -418,7 +419,8 @@
   color: var(--ok);
 }
 .dls-eta {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-3);
 }
 
@@ -478,11 +480,12 @@
   align-items: baseline;
   gap: 16px;
   margin-top: 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-3);
 }
 .dls-active-nums b {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
 }
 .dls-dot {
@@ -490,8 +493,9 @@
   color: var(--text-4);
 }
 .dls-pct {
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
   color: #fff;
 }
 .dls-active-foot {
@@ -508,8 +512,8 @@
   border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   color: var(--text-3);
   white-space: nowrap;
   transition:
@@ -517,7 +521,7 @@
     color var(--t-fast) ease-out;
 }
 .dls-throttle b {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-2);
   transition: color var(--t-fast) ease-out;
 }
@@ -536,7 +540,7 @@
   white-space: nowrap;
   direction: rtl;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--text-4);
 }
 .dls-active-actions {
@@ -556,9 +560,9 @@
   background: var(--accent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   color: #fff;
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   transition:
     background-color var(--t-fast) ease-out,
@@ -603,7 +607,7 @@
   border-radius: var(--r-lg);
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px rgba(61, 155, 255, 0.25);
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-2);
 }
 .dls-banner > svg {
@@ -616,7 +620,7 @@
 }
 .dls-banner b {
   color: #fff;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 .dls-paused {
   display: flex;
@@ -628,9 +632,9 @@
   border-radius: var(--r-lg);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
 }
@@ -645,14 +649,14 @@
 }
 .dls-empty-title {
   margin-top: 8px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .dls-empty-sub {
   margin-bottom: 12px;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   color: var(--text-3);
 }
 .dls-section {
@@ -663,22 +667,23 @@
   align-items: center;
   gap: 12px;
   min-height: 30px;
-  margin-bottom: 10px;
+  margin-bottom: 5px; /* label sits centred in 30px: 5px + 5px = the shared 10px label-to-content gap */
   padding-left: 2px;
 }
 .dls-section-title {
   margin: 0;
-  font-size: 12.5px;
-  font-weight: 650;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   line-height: 20px;
-  letter-spacing: 0.09em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
   white-space: nowrap;
 }
 .dls-section-title span {
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: var(--fw-medium);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
   color: var(--text-4);
 }
 .dls-rule {
@@ -687,7 +692,7 @@
   background: var(--border);
 }
 .dls-note {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
   white-space: nowrap;
   transition: color var(--t-fast) ease-out;
@@ -702,8 +707,8 @@
   background: var(--surface-3);
   box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
   transition:
     background-color var(--t-fast) ease-out,
@@ -748,8 +753,8 @@
   display: flex;
   align-items: center;
   gap: 18px;
-  min-height: 95px;
-  padding: 10px 12px 10px 10px;
+  min-height: 99px;
+  padding: 12px 14px 12px 12px;
   border-radius: var(--r-lg);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -778,10 +783,10 @@
 .dls-row-title {
   display: block;
   max-width: 100%;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   line-height: 22px;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-snug);
   color: #fff;
   text-align: left;
   overflow: hidden;
@@ -795,7 +800,7 @@
   text-underline-offset: 3px;
 }
 .dls-row-kind {
-  font-weight: 450;
+  font-weight: var(--fw-regular);
   letter-spacing: 0;
   color: var(--text-3);
 }
@@ -805,12 +810,13 @@
   gap: 10px;
   height: 22px;
   margin-top: 3px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-3);
 }
 .dls-row-meta b {
   color: var(--text);
-  font-weight: 550;
+  font-weight: var(--fw-medium);
 }
 .dls-row-meta .err {
   overflow: hidden;
@@ -823,10 +829,10 @@
   padding: 0 8px;
   border-radius: var(--r-pill);
   background: var(--accent-soft);
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   line-height: 20px;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--accent-text);
   white-space: nowrap;
@@ -837,9 +843,10 @@
   text-align: right;
 }
 .dls-row-status {
-  font-size: 11.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
   white-space: nowrap;
@@ -847,8 +854,8 @@
   text-overflow: ellipsis;
 }
 .completed .dls-row-status {
-  font-size: 12.5px;
-  font-weight: 450;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
   letter-spacing: 0;
   text-transform: none;
   color: var(--text-3);
@@ -958,10 +965,10 @@
   padding: 0 10px;
   border-radius: var(--r-pill);
   background: var(--ok-soft);
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   line-height: 24px;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--ingame);
 }
@@ -969,7 +976,7 @@
 /* ───────── Short windows: shrink the banner so the queue stays visible ───────── */
 @media (max-height: 720px) {
   .dls-hero-name {
-    font-size: 22px;
+    font-size: var(--fs-xl);
     bottom: 16px;
   }
   .dls-meters,
@@ -990,7 +997,7 @@
     border-radius: var(--r-md);
   }
   .dls-active-title {
-    font-size: 19px;
+    font-size: var(--fs-lg);
     line-height: 24px;
   }
   .dls-active-status {

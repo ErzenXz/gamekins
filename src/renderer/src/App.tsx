@@ -8,10 +8,12 @@ import { Toasts } from './components/Toasts'
 import { bootstrap, useStore } from './store'
 import { GamePageHost, LibraryView } from './views/LibraryView'
 import { lazyWithPreload } from './lib/lazy'
+import { startSocial, useSocial } from './lib/social'
 import { watchStoreLifetime } from './components/shell/storeLifetime'
 
 // Everything but the library loads on first use: smaller startup bundle, faster first paint.
 const DownloadsView = lazyWithPreload(() => import('./views/DownloadsView').then((m) => ({ default: m.DownloadsView })))
+const FriendsPanel = lazy(() => import('./components/friends/FriendsPanel'))
 const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })))
 const StoreView = lazy(() => import('./views/StoreView').then((m) => ({ default: m.StoreView })))
 const InstallDialog = lazy(() => import('./components/InstallDialog').then((m) => ({ default: m.InstallDialog })))
@@ -49,6 +51,10 @@ function Shell(): React.JSX.Element {
   }, [])
 
   useEffect(() => watchStoreLifetime(setStoreMounted), [])
+  const friendsOpen = useSocial((s) => s.open)
+  useEffect(() => {
+    if (ready) startSocial()
+  }, [ready])
   // Once the library is up and the app is idle, fetch the code for the next likely clicks
   // (a game page, Downloads) so opening them doesn't wait on a chunk load.
   useEffect(() => {
@@ -123,6 +129,13 @@ function Shell(): React.JSX.Element {
             {addGameOpen && <AddGameDialog />}
           </Suspense>
           <GameContextMenu />
+          {friendsOpen && (
+            <ErrorBoundary scope="view" onHome={() => useSocial.getState().setOpen(false)}>
+              <Suspense fallback={null}>
+                <FriendsPanel />
+              </Suspense>
+            </ErrorBoundary>
+          )}
         </>
       )}
       <ConfirmDialog />

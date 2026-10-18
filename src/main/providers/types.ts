@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import type { ChildProcess } from 'node:child_process'
-import type { Account, DownloadKind, FreeGame, Game, InstalledInfo, Platform, ProviderId } from '@shared/types'
+import type { EventEmitter } from 'node:events'
+import type { Account, ChatMessage, DownloadKind, FreeGame, Game, InstalledInfo, MyStatus, Platform, ProviderId, SocialState, StoreId } from '@shared/types'
 
 /** What a provider knows about an owned game, before the library merges in local state. */
 export type ProviderGame = Omit<
@@ -93,4 +94,39 @@ export interface GameProvider {
   discardPartial?(installPath: string): Promise<void>
   /** For DLC (`game.dlcOf`), removes only the DLC's own files. */
   uninstall(game: ProviderGame, install: InstalledInfo, shared?: { appName: string; install: InstalledInfo }[]): Promise<void>
+}
+
+/**
+ * One store's friends network (Epic, Steam, GOG). The social hub merges every network
+ * into the single friends list; ids here are the store's own account ids (the hub
+ * prefixes them with the store). `state()` returns this network only.
+ */
+export interface SocialNetworkProvider extends EventEmitter<SocialEvents> {
+  readonly provider: StoreId
+  readonly name: string
+  /** Messages can be sent from Gamekins. */
+  readonly canChat: boolean
+  /** Friend requests by display name can be sent from Gamekins. */
+  readonly canAddFriends: boolean
+  /** Signed in: load friends and go live with this status. */
+  start(status: MyStatus): Promise<void>
+  /** Signed out or quitting. */
+  stop(): void
+  setStatus(status: MyStatus): void
+  /** Game being played through Gamekins (shown to friends where the store supports it), or null. */
+  setActivity(title: string | null): void
+  state(): SocialState
+  refresh(): Promise<void>
+  chat(friendId: string): ChatMessage[]
+  sendMessage(friendId: string, text: string): ChatMessage
+  markRead(friendId: string): void
+  addFriend?(displayName: string): Promise<string>
+  accept?(friendId: string): Promise<void>
+  /** Decline, cancel or unfriend. */
+  remove?(friendId: string): Promise<void>
+}
+
+export interface SocialEvents {
+  changed: [SocialState]
+  message: [{ friendId: string; message: ChatMessage }]
 }

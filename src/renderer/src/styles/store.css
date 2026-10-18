@@ -53,7 +53,7 @@
   border-radius: var(--r-pill);
   background: var(--bg-sunken);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
   transition: background-color var(--t-fast) ease-out;
   user-select: text;
@@ -65,7 +65,7 @@
   white-space: nowrap;
 }
 .store-host {
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   color: var(--text-2);
 }
 .store-url:hover {
@@ -79,6 +79,7 @@
 /* ───────── Store nav: section pills, search, wishlist/cart ───────── */
 .store-navbar {
   flex: none;
+  container-type: inline-size;
   padding: 8px 16px;
   background: var(--bg-main);
   box-shadow: inset 0 -1px 0 var(--border);
@@ -104,8 +105,8 @@
   height: 32px;
   padding: 0 14px;
   border-radius: var(--r-md);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
   line-height: 32px;
   color: var(--text-2);
   white-space: nowrap;
@@ -142,7 +143,7 @@
   background: var(--bg-sunken);
   box-shadow: inset 0 0 0 1px var(--border-strong);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-base);
   transition: background-color var(--t-fast) ease-out;
 }
 .store-search input::placeholder {
@@ -192,8 +193,8 @@
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text-2);
-  font-size: 12.5px;
-  font-weight: 550;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   white-space: nowrap;
   transition:
     background-color var(--t-fast) ease-out,
@@ -285,14 +286,14 @@
   text-align: center;
 }
 .store-overlay-title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
   color: #fff;
 }
 .store-overlay p {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 22px;
 }
 .store-overlay .mono {
@@ -302,4 +303,45 @@
 .store-overlay-actions {
   display: flex;
   gap: 10px;
+}
+
+/* Store switcher: Epic / Steam / GOG (one page at a time). */
+.store-sites {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  margin-right: 10px;
+  padding: 2px;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.store-site {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 12px 0 6px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm, 12.5px);
+  font-weight: var(--fw-medium, 550);
+  color: var(--text-3);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.store-site:hover {
+  color: #fff;
+}
+.store-site.on {
+  background: var(--surface-4);
+  color: #fff;
+}
+@container (max-width: 980px) {
+  .store-site:not(.on) span:not(.store-badge) {
+    display: none;
+  }
+  .store-site:not(.on) {
+    padding: 0 6px;
+  }
 }

@@ -262,6 +262,16 @@ test('leftovers from jobs started under an earlier app name are removed, and not
   assert.equal(await fs.readFile(join(dirname(f.root), 'escape.bin.vapor-tmp'), 'utf8'), 'outside')
 })
 
+test('cancelling a job started under an old name cleans its leftovers even without a .gamekins folder', async (t) => {
+  const f = await fixture(t)
+  await fs.mkdir(join(f.root, '.vapor'))
+  await fs.writeFile(join(f.root, '.vapor', 'resume-TestApp.log'), 'v1\tgame.bin\n')
+  await fs.writeFile(join(f.root, 'game.bin.vapor-tmp'), 'partial')
+  await f.installer.discardPartial(f.root, 'TestApp', 'job1')
+  await assert.rejects(fs.stat(join(f.root, 'game.bin.vapor-tmp')), { code: 'ENOENT' })
+  await assert.rejects(fs.stat(join(f.root, '.vapor')), { code: 'ENOENT' })
+})
+
 test('body is throttled in 64 KiB slices before the next read', async (t) => {
   const f = await fixture(t)
   const task = f.installTask(manifest([['game.bin', [1]]]), {

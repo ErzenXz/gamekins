@@ -1,0 +1,159 @@
+/* Friends entry points that are always visible: the title-bar button and the footer's
+   "Friends & Chat" button. The panel itself is styled in friends.css (loaded with it). */
+.tb-friends {
+  position: relative;
+  z-index: 41;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 32px;
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.tb-friends:hover {
+  background: var(--surface-2);
+  color: #fff;
+}
+.tb-friends.on {
+  background: var(--surface-3);
+  color: #fff;
+}
+.tb-friends-badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-app);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  color: #fff;
+}
+
+.bb-presence.friends {
+  gap: 8px;
+  font-weight: 550;
+  color: var(--text-2);
+}
+.bb-presence.friends.open {
+  background: var(--surface-3);
+  color: #fff;
+}
+.bb-count {
+  font-weight: 450;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.bb-unread {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: #fff;
+}
+.bb-presence.away .bb-dot {
+  background: var(--warn);
+}
+.bb-presence.invisible .bb-dot {
+  background: var(--text-4);
+}
+
+/* Store marks (Epic / Steam / GOG / non-store), used by friends and the library. */
+.store-badge {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 4px;
+  vertical-align: middle;
+  color: #fff;
+}
+.store-badge.epic {
+  background: #2a2c30;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.store-badge.steam {
+  background: linear-gradient(135deg, #1b2838, #2a475e);
+  color: #c7d5e0;
+}
+.store-badge.gog {
+  background: #86328a;
+}
+.store-badge.local {
+  background: var(--surface-4);
+  color: var(--text-2);
+}
+
+/* Library: store filter chips (several stores) and the store mark on tiles. */
+.side-stores {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 0 10px 6px;
+}
+/* Inactive stores are icon-only (names in tooltips) so the row never wraps. */
+.side-stores button:not(.on):not(:first-child) span:not(.store-badge) {
+  display: none;
+}
+.side-stores button:not(.on):not(:first-child) {
+  padding: 0 6px;
+}
+.side-stores button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px 0 5px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs, 11.5px);
+  font-weight: var(--fw-medium, 550);
+  color: var(--text-3);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.side-stores button:first-child {
+  padding-left: 9px;
+}
+.side-stores button:hover {
+  background: var(--surface-2);
+  color: #fff;
+}
+.side-stores button.on {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: #fff;
+}
+.side-game .store-badge {
+  margin-left: 6px;
+  opacity: 0.5;
+  transition: opacity var(--t-fast);
+}
+.side-game:hover .store-badge,
+.side-game.selected .store-badge {
+  opacity: 1;
+}
+.cap-store {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 3;
+  display: flex;
+  border-radius: 5px;
+  box-shadow: 0 0 0 2px rgba(7, 9, 13, 0.55);
+  transition: opacity var(--t-fast);
+}
+.cap-wrap:hover .cap-store {
+  opacity: 0;
+}

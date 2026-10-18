@@ -7,6 +7,7 @@ import { type LibraryFilter, useStore } from '../store'
 import { openContextMenu, tileKeys } from './Capsule'
 import { Dropdown } from './library/controls'
 import { ClockGlyph, CollapseGlyph, GridGlyph, ProgressRing, ReadyGlyph } from './library/glyphs'
+import { STORE_NAMES, StoreBadge } from './library/StoreBadge'
 import {
   FILTER_LABELS,
   jobSig,
@@ -14,6 +15,8 @@ import {
   useCollections,
   useFilterCounts,
   useFilteredGames,
+  useMultiStore,
+  useStoreCounts,
   useLibraryGames,
   usePlatform,
   useGame,
@@ -281,6 +284,7 @@ export function Sidebar(): React.JSX.Element {
   while (end < rows.length && rows[end].top < endTop) end++
   const slice = rows.slice(start, Math.min(rows.length, end + OVERSCAN))
 
+  const multiStore = useMultiStore()
   return (
     <aside className="sidebar">
       <div className="side-head">
@@ -379,6 +383,8 @@ export function Sidebar(): React.JSX.Element {
         </button>
       </div>
 
+      <StoreChips />
+
       <div className="side-list" ref={listRef} tabIndex={0} onKeyDown={onListKey} onScroll={onScroll} aria-label="Games">
         {loadingFirst ? (
           <SideSkeleton />
@@ -406,6 +412,7 @@ export function Sidebar(): React.JSX.Element {
               ) : (
                 <SideRow
                   key={r.id}
+                  multiStore={multiStore}
                   game={r.game}
                   selected={gameKey === r.game.key}
                   top={r.top}
@@ -452,13 +459,15 @@ const SideRow = memo(
     game: supplied,
     selected,
     top,
-    platform
+    platform,
+    multiStore
   }: {
     game: Game
     job?: DownloadJob
     selected: boolean
     top: number
     platform: string
+    multiStore: boolean
   }): React.JSX.Element {
     const game = useGame(supplied.key) ?? supplied
     const job = useTileJob(game.key)
@@ -520,12 +529,14 @@ const SideRow = memo(
         {unavailable && (
           <MonitorX size={13} className="side-badge" aria-label={`Not available on ${platform === 'darwin' ? 'macOS' : 'Windows'}`} />
         )}
+        {multiStore && <StoreBadge store={game.provider} size={14} />}
       </div>
     )
   },
   (a, b) =>
     a.selected === b.selected &&
     a.top === b.top &&
+    a.multiStore === b.multiStore &&
     a.platform === b.platform &&
     sameTile(a.game, b.game) &&
     jobSig(a.job) === jobSig(b.job)
@@ -539,6 +550,35 @@ function SideSkeleton(): React.JSX.Element {
           <span />
           <span style={{ width: `${40 + ((i * 37) % 45)}%` }} />
         </div>
+      ))}
+    </div>
+  )
+}
+
+/** Store filter (All / Epic / Steam / GOG / non-store) when the library spans several stores. */
+function StoreChips(): React.JSX.Element | null {
+  const counts = useStoreCounts()
+  const store = useStore((s) => s.storeFilter)
+  const setStore = useStore((s) => s.setStoreFilter)
+  const stores = (['epic', 'steam', 'gog', 'local'] as const).filter((p) => counts[p])
+  if (stores.filter((p) => p !== 'local').length < 2 && store === 'all') return null
+  return (
+    <div className="side-stores" role="tablist" aria-label="Store">
+      <button role="tab" aria-selected={store === 'all'} className={store === 'all' ? 'on' : ''} onClick={() => setStore('all')}>
+        All
+      </button>
+      {stores.map((p) => (
+        <button
+          key={p}
+          role="tab"
+          aria-selected={store === p}
+          className={store === p ? 'on' : ''}
+          title={`${STORE_NAMES[p]} (${counts[p]})`}
+          onClick={() => setStore(store === p ? 'all' : p)}
+        >
+          <StoreBadge store={p} size={14} />
+          <span>{p === 'local' ? 'Other' : STORE_NAMES[p].replace(' Games', '')}</span>
+        </button>
       ))}
     </div>
   )

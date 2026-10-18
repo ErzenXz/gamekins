@@ -5,7 +5,8 @@ import { isQuickKind, jobProgress, openMenuAt, runPrimary } from '../lib/gameAct
 import { useStore } from '../store'
 import { DownloadGlyph, PlayGlyph } from './library/glyphs'
 import { Img, TitleCard } from './library/Img'
-import { jobSig, sameTile, useGame, usePrimary, useTileJob } from './library/libraryData'
+import { jobSig, sameTile, useGame, useMultiStore, usePrimary, useTileJob } from './library/libraryData'
+import { StoreBadge } from './library/StoreBadge'
 
 interface CapsuleProps {
   game: Game
@@ -51,6 +52,7 @@ export const Capsule = memo(
     const game = useGame(supplied.key) ?? supplied
     const job = useTileJob(game.key)
     const primary = usePrimary(game, job)
+    const multiStore = useMultiStore()
     const quick = isQuickKind(primary.kind)
     const pct = job ? jobProgress(job) * 100 : 0
     const open = (): void => useStore.getState().navigate({ view: 'library', gameKey: game.key })
@@ -118,6 +120,11 @@ export const Capsule = memo(
             </button>
           )}
 
+          {multiStore && !job && (
+            <span className="cap-store">
+              <StoreBadge store={game.provider} size={18} />
+            </span>
+          )}
           {job && (
             <div className={`cap-bar ${job.state}`}>
               <div style={{ width: `${pct}%` }} />

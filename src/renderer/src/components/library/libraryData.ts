@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import type { DownloadJob, Game } from '@shared/types'
+import type { DownloadJob, Game, ProviderId } from '@shared/types'
 import { collectionNames, jobProgress, type Primary, primaryAction } from '../../lib/gameActions'
 import { byTitle, jobIndex, libraryIndex } from '../../lib/entityIndex'
 import { type LibraryFilter, type LibrarySort, useStore } from '../../store'
@@ -21,14 +21,14 @@ export function useCollectionMembers(name: string): Game[] {
 }
 const EMPTY_GAMES: Game[] = []
 const filteredCache = new WeakMap<Game[], Map<string, Game[]>>()
-function filteredGames(all: Game[], search: string, filter: LibraryFilter): Game[] {
+function filteredGames(all: Game[], search: string, filter: LibraryFilter, store: ProviderId | 'all' = 'all'): Game[] {
   const q = search.trim().toLowerCase()
   let cache = filteredCache.get(all)
   if (!cache) { cache = new Map(); filteredCache.set(all, cache) }
-  const key = JSON.stringify([q, filter])
+  const key = JSON.stringify([q, filter, store])
   let games = cache.get(key)
   if (!games) {
-    games = all.filter((g) => matchesFilter(g, filter) && (!q || g.title.toLowerCase().includes(q)))
+    games = all.filter((g) => (store === 'all' || g.provider === store) && matchesFilter(g, filter) && (!q || g.title.toLowerCase().includes(q)))
     if (cache.size >= 8) cache.delete(cache.keys().next().value!)
     cache.set(key, games)
   }
@@ -47,10 +47,28 @@ export function matchesFilter(g: Game, filter: LibraryFilter): boolean {
 /** Games matching the current filter + search, A→Z. Hidden games only appear under the Hidden filter. */
 export function useFilteredGames(): Game[] {
   const all = useLibraryGames()
-  const { search: liveSearch, filter } = useStore(useShallow((s) => ({ search: s.search, filter: s.filter })))
+  const { search: liveSearch, filter, store } = useStore(useShallow((s) => ({ search: s.search, filter: s.filter, store: s.storeFilter })))
   // Typing stays responsive; the (possibly 1000-row) filter runs at lower priority.
   const search = useDeferredValue(liveSearch)
-  return filteredGames(all, search, filter)
+  return filteredGames(all, search, filter, store)
+}
+
+const storeCountsCache = new WeakMap<Game[], Partial<Record<ProviderId, number>>>()
+/** Visible games per store (Epic, Steam, GOG, non-store). */
+export function useStoreCounts(): Partial<Record<ProviderId, number>> {
+  const all = useLibraryGames()
+  let c = storeCountsCache.get(all)
+  if (!c) {
+    c = {}
+    for (const g of all) if (!g.prefs.hidden) c[g.provider] = (c[g.provider] ?? 0) + 1
+    storeCountsCache.set(all, c)
+  }
+  return c
+}
+
+/** The library spans more than one store (then rows and tiles show store badges). */
+export function useMultiStore(): boolean {
+  return Object.keys(useStoreCounts()).filter((k) => k !== 'local').length > 1
 }
 
 export type FilterCounts = Record<LibraryFilter, number>

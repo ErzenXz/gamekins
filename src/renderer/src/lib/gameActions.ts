@@ -80,8 +80,19 @@ export function availableHere(game: Game, platform: string): boolean {
   return game.platforms.includes(platform === 'darwin' ? 'Mac' : 'Windows')
 }
 
-/** Gamekins can download/repair this game's files itself (not local, not EA/Ubisoft-managed). */
-export const managedByGamekins = (g: Game): boolean => !isLocal(g) && !g.thirdPartyManagedApp
+/** Who put the files on disk, for "Installed by" labels. */
+export function installedBy(source: string | undefined): string {
+  if (source === 'epic-launcher') return 'Epic Games Launcher'
+  if (source === 'steam') return 'Steam'
+  if (source === 'gog') return 'GOG Galaxy'
+  return 'Gamekins'
+}
+
+/** Steam and GOG install, update and uninstall their own games (we hand off to their client). */
+export const clientManaged = (g: Pick<Game, 'provider'>): boolean => g.provider === 'steam' || g.provider === 'gog'
+
+/** Gamekins can download/repair this game's files itself (Epic games, not EA/Ubisoft-managed). */
+export const managedByGamekins = (g: Game): boolean => !isLocal(g) && !clientManaged(g) && !g.thirdPartyManagedApp
 
 export function canInstall(game: Game, job: DownloadJob | undefined, platform: string): boolean {
   return !game.install && !job && !isLocal(game) && availableHere(game, platform)
@@ -95,7 +106,7 @@ export function canLocate(game: Game, job: DownloadJob | undefined, platform: st
 /** Verify / update / move are only safe while nothing else touches the files. */
 export function canModify(game: Game, job: DownloadJob | undefined): boolean {
   const s = useStore.getState()
-  return !!game.install && !game.install.unavailable && !job && !game.running && !s.moving[game.key] && !s.launching[game.key]
+  return !!game.install && !game.install.unavailable && !job && !game.running && !s.moving[game.key] && !s.launching[game.key] && !clientManaged(game)
 }
 
 export function canVerify(game: Game, job: DownloadJob | undefined): boolean {
@@ -139,6 +150,7 @@ export function runPrimary(game: Game, job: DownloadJob | undefined, kind: Prima
       confirmStop(game)
       return Promise.resolve()
     case 'install':
+      if (clientManaged(game) || game.thirdPartyManagedApp) return act(() => v.games.install(game.key), `Opening ${game.provider === 'steam' ? 'Steam' : game.provider === 'gog' ? 'GOG Galaxy' : 'the official launcher'} to install ${game.title}`)
       useStore.getState().setInstallKey(game.key)
       return Promise.resolve()
     case 'update':
@@ -202,6 +214,10 @@ export function confirmStop(game: Game): void {
 
 export function confirmUninstall(game: Game): void {
   if (isLocal(game)) return confirmRemoveLocal(game)
+  if (clientManaged(game)) {
+    const client = game.provider === 'steam' ? 'Steam' : 'GOG'
+    return void act(() => window.gamekins.games.uninstall(game.key), `${client} will ask to confirm uninstalling ${game.title}`)
+  }
   useStore.getState().setConfirm({
     title: `Uninstall ${game.title}?`,
     message: `This deletes all of the game's files from\n${game.install?.path}\n\nSaves stored in the cloud or in your user folder are not affected.`,
@@ -242,12 +258,21 @@ export function confirmCancelJob(job: DownloadJob, title = job.title): void {
 }
 
 /** The game's store page, or an Epic store search when the catalog has no product slug. */
-export function storeUrl(game: Pick<Game, 'title' | 'storeUrl'>): string {
+export function storeUrl(game: Pick<Game, 'title' | 'storeUrl'> & Partial<Pick<Game, 'provider' | 'appName'>>): string {
   if (game.storeUrl) return game.storeUrl
+  if (game.provider === 'steam' && game.appName) return `https://store.steampowered.com/app/${game.appName}/`
+  if (game.provider === 'gog') return `https://www.gog.com/en/games?query=${encodeURIComponent(game.title)}`
   return `https://store.epicgames.com/en-US/browse?q=${encodeURIComponent(game.title)}&sortBy=relevancy&sortDir=DESC&count=40`
 }
 
 export const SUPPORT_URL = 'https://www.epicgames.com/help'
+
+/** The store's help site for a game. */
+export function supportUrl(game: Pick<Game, 'provider' | 'appName'>): string {
+  if (game.provider === 'steam') return `https://help.steampowered.com/en/wizard/HelpWithGame/?appid=${game.appName}`
+  if (game.provider === 'gog') return 'https://support.gog.com/'
+  return SUPPORT_URL
+}
 
 export function toggleFavorite(game: Game): Promise<void> {
   const favorite = !game.prefs.favorite

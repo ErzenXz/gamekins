@@ -1,7 +1,9 @@
 // Types shared between the main process, preload and renderer.
 
 /** Every store/launcher we can talk to. Add new ids here as providers are written. */
-export type ProviderId = 'epic' | 'local'
+export type ProviderId = 'epic' | 'steam' | 'gog' | 'local'
+/** Stores with accounts (everything but local, non-store games). */
+export type StoreId = Exclude<ProviderId, 'local'>
 
 export type Platform = 'Windows' | 'Mac'
 
@@ -37,7 +39,7 @@ export interface InstalledInfo {
   platform: Platform
   sizeBytes: number
   /** Who put the game on disk. Imported installs are still fully managed by us. */
-  source: 'gamekins' | 'epic-launcher' | 'local'
+  source: 'gamekins' | 'epic-launcher' | 'steam' | 'gog' | 'local'
   installedAt: number
   unavailable?: boolean
   workingDirectory?: string
@@ -175,6 +177,8 @@ export interface Settings {
   launchAtLogin: boolean
   /** GPU rendering for the UI. Off saves memory and leaves graphics memory to games; applies after a restart. */
   hardwareAcceleration: boolean
+  /** How friends see you: online, away, or appear offline. */
+  friendsStatus: MyStatus
 }
 
 export interface FreeGame {
@@ -282,4 +286,76 @@ export interface GameDetails {
   title: string
   steam?: SteamInfo
   hltb?: HltbInfo
+}
+
+// ───────────── Friends & chat (Epic social) ─────────────
+
+export type PresenceStatus = 'online' | 'away' | 'offline'
+/** What we show to friends; 'offline' means appear offline (no live presence either way). */
+export type MyStatus = 'online' | 'away' | 'offline'
+
+export interface Friend {
+  /** Unique across stores: "${store}:${accountId}" once merged by the hub. */
+  id: string
+  /** Which store this friendship lives on (set by the hub). */
+  provider?: StoreId
+  /** The store's own account id (set by the hub). */
+  accountId?: string
+  displayName: string
+  status: 'playing' | 'online' | 'away' | 'offline'
+  /** "Playing Rocket League", "Battle Royale Lobby - 1 / 4"… */
+  activity?: string
+  /** Epic app/game they're in (from their presence resource), e.g. "Fortnite". */
+  app?: string
+  lastOnline?: number
+  favorite?: boolean
+  /** Epoch ms when the friendship started. */
+  since?: number
+}
+
+export interface FriendRequest {
+  /** "${store}:${accountId}" once merged by the hub. */
+  id: string
+  provider?: StoreId
+  accountId?: string
+  displayName: string
+  direction: 'incoming' | 'outgoing'
+  at?: number
+}
+
+export interface ChatMessage {
+  id: string
+  /** 'me' or the friend's account id. */
+  from: string
+  text: string
+  at: number
+}
+
+/** One store's friends network, as shown in the panel's header and settings. */
+export interface SocialNetwork {
+  provider: StoreId
+  name: string
+  connection: 'off' | 'connecting' | 'online' | 'error'
+  me?: { id: string; displayName: string }
+  /** Messages can be sent from Gamekins (otherwise "Chat in <store>" opens its client). */
+  canChat: boolean
+  /** Friend requests by name can be sent from Gamekins. */
+  canAddFriends: boolean
+  error?: string
+}
+
+export interface SocialState {
+  /** Signed in to a provider with friends. */
+  available: boolean
+  /** Every connected store's network (set by the hub). */
+  networks?: SocialNetwork[]
+  /** Live presence/chat connection. */
+  connection: 'off' | 'connecting' | 'online' | 'error'
+  me?: { id: string; displayName: string }
+  myStatus: MyStatus
+  friends: Friend[]
+  requests: FriendRequest[]
+  unread: Record<string, number>
+  loading: boolean
+  error?: string
 }

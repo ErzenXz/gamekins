@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Account, AppInfo, DownloadJob, FreeGame, Game, LibraryProgress, Settings, Toast } from '@shared/types'
+import type { Account, AppInfo, DownloadJob, FreeGame, Game, LibraryProgress, ProviderId, Settings, Toast } from '@shared/types'
 import { jobIndex, shareEntities, shareSnapshot } from './lib/entityIndex'
 
 export type Route =
@@ -69,6 +69,8 @@ interface State {
   gridSize: number
   /** Library home grid sort order (persisted). */
   librarySort: LibrarySort
+  /** Library: show one store's games, or all of them. */
+  storeFilter: ProviderId | 'all'
 
   // ── Library UI additions ──
   /** "Add a non-Epic game" dialog (mounted by the shell, driven by this flag). */
@@ -129,6 +131,7 @@ interface State {
   setFilter(f: LibraryFilter): void
   setGridSize(px: number): void
   setLibrarySort(s: LibrarySort): void
+  setStoreFilter(s: ProviderId | 'all'): void
   refresh(): Promise<void>
   saveSettings(patch: Partial<Settings>): Promise<void>
 }
@@ -197,6 +200,7 @@ export const useStore = create<State>((set, get) => ({
   filter: 'all',
   gridSize: readGridSize(),
   librarySort: readSort(),
+  storeFilter: 'all',
   addGameOpen: false,
   propertiesTab: null,
   launching: {},
@@ -343,6 +347,7 @@ export const useStore = create<State>((set, get) => ({
       /* storage unavailable */
     }
   },
+  setStoreFilter: (storeFilter) => set({ storeFilter }),
   setLibrarySort(librarySort) {
     set({ librarySort })
     try {
@@ -442,6 +447,8 @@ function subscribe(): void {
   v.on.toast((t) => useStore.getState().toast(t))
   v.on.navigate((r) => {
     const s = useStore.getState()
+    // A chat notification was clicked: open that conversation.
+    if (r.view.startsWith('friends:')) return void import('./lib/social').then((m) => m.useSocial.getState().openChat(r.view.slice('friends:'.length)))
     if (r.view === 'game' && r.gameKey) s.navigate({ view: 'library', gameKey: r.gameKey })
     else if (r.view === 'store' || r.view === 'downloads' || r.view === 'settings') s.navigate({ view: r.view })
     else s.navigate({ view: 'library' })

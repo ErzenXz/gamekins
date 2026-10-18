@@ -36,7 +36,7 @@
 .props .mono,
 .idlg .mono {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 @keyframes lib-shimmer {
@@ -91,7 +91,7 @@
   background: var(--surface-3);
   box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text);
-  font: 550 13.5px/1 var(--lib-font);
+  font: var(--fw-medium) var(--fs-base) / 1 var(--lib-font);
   white-space: nowrap;
   transition:
     background-color var(--t-fast) ease-out,
@@ -137,7 +137,7 @@
   height: 28px;
   padding: 0 11px;
   border-radius: var(--r-sm);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 .modal-footer .lbtn {
   min-width: 96px;
@@ -153,7 +153,7 @@
   border-radius: var(--r-md);
   background: var(--bg-sunken);
   color: var(--text);
-  font: 400 13.5px var(--lib-font);
+  font: var(--fw-regular) var(--fs-base) var(--lib-font);
   transition:
     border-color var(--t-fast) ease-out,
     box-shadow var(--t-fast) ease-out;
@@ -172,14 +172,14 @@
 }
 .ltext.mono {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
 }
 .ldialog-label {
   display: block;
   margin-bottom: 7px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -191,7 +191,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  font: 400 13px var(--lib-font);
+  font: var(--fw-regular) var(--fs-base) var(--lib-font);
   color: var(--text);
   cursor: pointer;
 }
@@ -321,14 +321,14 @@
   min-width: 0;
 }
 .opt-title {
-  font-size: 14px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   line-height: 19px;
   color: var(--text);
 }
 .opt-hint {
   margin-top: 3px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 18px;
   color: var(--text-3);
 }
@@ -389,7 +389,7 @@
 .title-card span {
   position: relative;
   font-size: clamp(11px, 10cqi, 26px);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   line-height: 1.15;
   color: #fff;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
@@ -430,12 +430,12 @@
   background: var(--surface-4);
   box-shadow: inset 0 0 0 1px var(--border);
   font-size: clamp(14px, 20cqi, 48px);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: #fff;
 }
 .local-tile-name {
   font-size: clamp(10px, 9cqi, 18px);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   line-height: 1.2;
   color: var(--lib-text-2);
   overflow-wrap: anywhere;
@@ -500,7 +500,7 @@
   margin: 10px 14px 0;
   padding: 9px 12px;
   border-radius: var(--r-lg);
-  font-size: 13px;
+  font-size: var(--fs-base);
   line-height: 18px;
   color: var(--lib-text);
   animation: lib-fade 0.2s ease-out;
@@ -511,7 +511,7 @@
 }
 .lib-notice b {
   color: #fff;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 .lib-notice.warn {
   background: var(--warn-soft);
@@ -554,8 +554,8 @@
   height: 36px;
   padding: 0 12px;
   border-radius: var(--r-md);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
   color: var(--text-2);
   transition:
     background-color var(--t-fast) ease-out,
@@ -647,7 +647,7 @@
   padding: 0 52px 0 33px;
   border: 0;
   background: transparent;
-  font: 400 13px var(--lib-font);
+  font: var(--fw-regular) var(--fs-base) var(--lib-font);
   color: #fff;
   user-select: text;
 }
@@ -681,7 +681,7 @@
   border: 0;
   border-radius: var(--r-xs);
   background: rgba(255, 255, 255, 0.06);
-  font: 600 10px/18px var(--lib-font);
+  font: var(--fw-semibold) var(--fs-2xs) / 18px var(--lib-font);
   color: var(--text-4);
   pointer-events: none;
   transition: opacity var(--t-fast);
@@ -809,7 +809,7 @@
   min-height: 32px;
   padding: 6px 12px 6px 8px;
   border-radius: var(--r-sm);
-  font: 400 13px var(--lib-font);
+  font: var(--fw-regular) var(--fs-base) var(--lib-font);
   color: var(--lib-text);
   text-align: left;
   white-space: nowrap;
@@ -832,7 +832,7 @@
 }
 .ldd-hint {
   margin-left: 18px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
   font-variant-numeric: tabular-nums;
 }
@@ -854,10 +854,10 @@
   flex: 1;
 }
 .side-type-label {
-  font-size: 11.5px;
-  font-weight: 650;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -916,9 +916,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -927,8 +927,8 @@
   padding: 0 6px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   line-height: 16px;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -949,7 +949,7 @@
   align-items: center;
   padding: 0 8px 0 6px;
   border-radius: var(--r-sm);
-  font-size: 13px;
+  font-size: var(--fs-base);
   line-height: 20px;
   color: var(--text-3);
   cursor: pointer;
@@ -1016,8 +1016,8 @@
   height: 20px;
   border-radius: var(--r-xs);
   background: var(--surface-3);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   color: var(--text);
 }
 .side-icon.ringed img,
@@ -1047,7 +1047,7 @@
   color: var(--text-4);
 }
 .sfx {
-  font-weight: 400;
+  font-weight: var(--fw-regular);
 }
 .sfx.dl {
   color: var(--accent-text);
@@ -1069,13 +1069,13 @@
   align-items: center;
   gap: 10px;
   padding: 30px 16px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   text-align: center;
   color: var(--lib-text-3);
 }
 .side-empty button {
   color: var(--accent-text);
-  font-size: 13px;
+  font-size: var(--fs-base);
 }
 .side-empty button:hover {
   text-decoration: underline;
@@ -1132,8 +1132,8 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  font: 650 12.5px/24px var(--lib-font);
-  letter-spacing: 0.09em;
+  font: var(--fw-semibold) var(--fs-sm) / 24px var(--lib-font);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
   white-space: nowrap;
@@ -1149,8 +1149,9 @@ button.shelf-title:hover {
   padding: 0 7px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 18px;
   color: var(--text-3);
@@ -1219,8 +1220,9 @@ button.shelf-title:hover {
   height: 18px;
   margin-bottom: 6px;
   padding-left: 2px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  line-height: 18px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -1270,9 +1272,9 @@ button.shelf-title:hover {
 .event-tag {
   padding: 0 7px;
   border-radius: var(--r-xs);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   line-height: 18px;
 }
@@ -1291,9 +1293,9 @@ button.shelf-title:hover {
 .event-title {
   flex-basis: 100%;
   margin-top: 2px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
@@ -1303,7 +1305,7 @@ button.shelf-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
 }
 
@@ -1314,12 +1316,12 @@ button.shelf-title:hover {
   flex-direction: column;
 }
 .recent-label {
-  height: 14px;
-  margin-bottom: 8px;
+  height: 18px;
+  margin-bottom: 6px;
   padding-left: 2px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 14px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  line-height: 18px;
   color: var(--text-3);
   white-space: nowrap;
 }
@@ -1420,9 +1422,9 @@ button.shelf-title:hover {
   z-index: 1;
   padding: 3px 10px;
   border-radius: var(--r-pill);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   background: var(--surface-4);
   color: #fff;
@@ -1438,17 +1440,17 @@ button.shelf-title:hover {
   flex-direction: column;
   gap: 1px;
   margin: 0 0 15px 78px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.07em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
   white-space: nowrap;
   min-width: 0;
 }
 .featured-text b {
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   text-transform: none;
   letter-spacing: 0;
   color: #fff;
@@ -1458,7 +1460,6 @@ button.shelf-title:hover {
 }
 .featured.small .featured-text {
   margin: 0 0 8px 52px;
-  font-size: 10px;
 }
 
 /* ───────── Capsule (LibraryItemBox) ─────────
@@ -1613,9 +1614,9 @@ button.shelf-title:hover {
   padding: 0 8px;
   border-radius: var(--r-pill);
   background: var(--accent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   line-height: 18px;
   color: #fff;
@@ -1684,11 +1685,11 @@ button.shelf-title:hover {
 }
 .grid-group-label {
   margin: 12px 0 2px;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-3);
 }
 .grid-group-label span {
   color: var(--text-4);
@@ -1726,11 +1727,11 @@ button.shelf-title:hover {
   flex: none;
 }
 .sortby-label {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--text-4);
+  color: var(--text-3);
 }
 .sortby .ldd-btn {
   gap: 6px;
@@ -1739,8 +1740,8 @@ button.shelf-title:hover {
   border-radius: var(--r-md);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 12.5px;
-  font-weight: 550;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text);
   transition: background-color var(--t-fast);
 }
@@ -1802,7 +1803,7 @@ button.shelf-title:hover {
   align-items: center;
   gap: 12px;
   padding: 48px 20px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--text-3);
   text-align: center;
 }
@@ -1811,16 +1812,16 @@ button.shelf-title:hover {
 }
 .lh-hint {
   margin: 0 24px 24px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-4);
 }
 .lh-hint b {
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   color: var(--text-3);
 }
 .lh-link {
   color: var(--accent-text);
-  font-size: 13px;
+  font-size: var(--fs-base);
 }
 .lh-link:hover {
   text-decoration: underline;
@@ -1837,14 +1838,14 @@ button.shelf-title:hover {
   animation: lib-fade-up 0.3s ease-out;
 }
 .load-title {
-  font-size: 18px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .load-sub {
   margin: 6px 0 16px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -1898,17 +1899,17 @@ button.shelf-title:hover {
 }
 .lib-empty h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
   color: #fff;
 }
 .lib-empty p {
   max-width: 440px;
   margin: 0 0 14px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--text-3);
-  line-height: 1.55;
+  line-height: var(--lh-body);
 }
 .lib-empty-actions {
   display: flex;
@@ -1989,8 +1990,8 @@ button.shelf-title:hover {
   min-width: 0;
 }
 .dlc-title {
-  font-size: 13.5px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2002,7 +2003,7 @@ button.shelf-title:hover {
   flex-wrap: wrap;
   gap: 4px 6px;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-2);
 }
 .dlc-sub .ok {
@@ -2045,7 +2046,7 @@ button.shelf-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--ok);
 }
 .dlc-uninstall {
@@ -2069,8 +2070,8 @@ button.shelf-title:hover {
   gap: 5px;
   padding: 0 10px;
   border-radius: var(--r-pill);
-  font-size: 11.5px;
-  font-weight: 550;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   line-height: 24px;
   color: var(--text-3);
   background: var(--surface-3);
@@ -2115,7 +2116,7 @@ button.shelf-title:hover {
   min-height: 32px;
   padding: 6px 10px;
   border-radius: var(--r-sm);
-  font-size: 13px;
+  font-size: var(--fs-base);
   line-height: 18px;
   color: var(--text);
   text-align: left;
@@ -2168,9 +2169,9 @@ button.shelf-title:hover {
   margin-bottom: 4px;
   padding: 8px 14px;
   border-radius: var(--r-md);
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: #fff;
 }
@@ -2244,8 +2245,8 @@ button.shelf-title:hover {
   height: 36px;
   padding: 0 12px;
   border-radius: var(--r-pill);
-  font-size: 13.5px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   text-align: left;
   white-space: nowrap;
@@ -2278,8 +2279,8 @@ button.shelf-title:hover {
   padding: 0 7px;
   border-radius: var(--r-pill);
   background: var(--surface-3);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   line-height: 18px;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -2305,16 +2306,16 @@ button.shelf-title:hover {
 }
 .props-h {
   margin: 2px 0 12px;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   line-height: 26px;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .props-sub {
   margin: -6px 0 14px;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
   color: var(--text-3);
 }
 .props-field,
@@ -2339,7 +2340,7 @@ button.shelf-title:hover {
 }
 .props-hint {
   margin: 8px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 18px;
   color: var(--text-3);
 }
@@ -2374,9 +2375,9 @@ button.shelf-title:hover {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 .props-ver span {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -2385,9 +2386,10 @@ button.shelf-title:hover {
   align-items: center;
   gap: 5px;
   min-width: 0;
-  font-size: 14px;
-  font-weight: 550;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: #fff;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 .props-ver b.dim {
@@ -2401,7 +2403,7 @@ button.shelf-title:hover {
 }
 .props-foot {
   margin: 10px 2px 0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
 }
 .props-actions {
@@ -2419,8 +2421,8 @@ button.shelf-title:hover {
   border-radius: var(--r-lg);
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px rgba(61, 155, 255, 0.25);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
   color: var(--text);
 }
 .props-size {
@@ -2428,11 +2430,11 @@ button.shelf-title:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   color: var(--text-2);
 }
 .props-size b {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .props-path {
@@ -2451,7 +2453,7 @@ button.shelf-title:hover {
 }
 .props-moving {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--accent-text);
 }
 .props-moving svg {
@@ -2522,12 +2524,12 @@ button.shelf-title:hover {
   gap: 2px;
 }
 .art-head b {
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .art-head span {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--text-4);
 }
 /* Checkerboard behind transparent art. */
@@ -2584,7 +2586,7 @@ button.shelf-title:hover {
   border-radius: var(--r-pill);
   background: rgba(7, 9, 13, 0.72);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 24px;
   color: var(--text-2);
   text-align: center;
@@ -2637,15 +2639,16 @@ button.shelf-title:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .idlg-app-size {
   min-width: 68px;
   text-align: right;
-  font-size: 13.5px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
@@ -2665,28 +2668,28 @@ button.shelf-title:hover {
   gap: 8px;
   margin-top: 10px;
 }
+/* Labels may wrap in narrow cells; values stay on one shared baseline. */
 .idlg-stat {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
-  padding: 10px 14px;
+  padding: 12px;
   border-radius: var(--r-md);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 .idlg-stat > span {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  line-height: 14px;
   text-transform: uppercase;
   color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .idlg-stat > b {
-  font-size: 15px;
-  font-weight: 600;
+  margin-top: auto;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: #fff;
   font-variant-numeric: tabular-nums;
 }
@@ -2695,9 +2698,9 @@ button.shelf-title:hover {
 }
 .idlg-label {
   padding: 18px 0 7px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   line-height: 16px;
   text-transform: uppercase;
   color: var(--text-3);
@@ -2713,7 +2716,7 @@ button.shelf-title:hover {
   border-radius: var(--r-md);
   background: var(--bg-sunken);
   box-shadow: inset 0 0 0 1px var(--border-strong);
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   color: #fff;
 }
 .idlg-folder.bad {
@@ -2743,7 +2746,7 @@ button.shelf-title:hover {
   flex: none;
   min-width: 64px;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -2752,12 +2755,12 @@ button.shelf-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-weight: 650;
+  font-weight: var(--fw-semibold);
   color: var(--warn);
 }
 .idlg-final {
   margin: 7px 2px 0;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--text-4);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2784,7 +2787,7 @@ button.shelf-title:hover {
   align-items: center;
   gap: 8px;
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-3);
 }
 .idlg-warn {
@@ -2792,7 +2795,7 @@ button.shelf-title:hover {
   align-items: center;
   gap: 6px;
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--warn);
 }
 .idlg-shortcuts {
@@ -2809,7 +2812,7 @@ button.shelf-title:hover {
   border-radius: var(--r-md);
   background: var(--danger-soft);
   box-shadow: inset 0 0 0 1px rgba(255, 93, 82, 0.28);
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--danger);
 }
 .idlg-error > span {
@@ -2827,7 +2830,7 @@ button.shelf-title:hover {
   border-radius: var(--r-lg);
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px rgba(61, 155, 255, 0.25);
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-2);
 }
 .idlg-note {
@@ -2844,21 +2847,21 @@ button.shelf-title:hover {
   color: var(--warn);
 }
 .idlg-thirdparty b {
-  font-size: 14.5px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .idlg-thirdparty p {
   margin: 6px 0 0;
-  line-height: 1.5;
+  line-height: var(--lh-body);
 }
 .idlg-msg {
   margin: 16px 0 0;
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--text-2);
 }
 .idlg-locate {
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--accent-text);
   transition: color var(--t-fast) ease-out;
 }
@@ -2882,7 +2885,7 @@ button.shelf-title:hover {
 }
 .agd-text {
   margin: 0 0 12px !important;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   line-height: 21px;
   color: var(--text-2);
 }
@@ -2912,7 +2915,7 @@ button.shelf-title:hover {
   padding: 0 32px 0 33px;
   border: 0;
   background: transparent;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   color: var(--text);
   user-select: text;
 }
@@ -2972,9 +2975,9 @@ button.shelf-title:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
   text-align: left;
@@ -3062,8 +3065,8 @@ button.shelf-title:hover {
   height: 24px;
   border-radius: var(--r-sm);
   background: var(--surface-3);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
   color: var(--text);
 }
 .agd-name {
@@ -3072,8 +3075,8 @@ button.shelf-title:hover {
   gap: 8px;
   min-width: 0;
   padding-right: 10px;
-  font-size: 13px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: var(--text);
   overflow: hidden;
   white-space: nowrap;
@@ -3084,18 +3087,18 @@ button.shelf-title:hover {
   padding: 0 7px;
   border-radius: var(--r-pill);
   background: var(--ok-soft);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-style: normal;
-  font-weight: 650;
+  font-weight: var(--fw-bold);
   line-height: 18px;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--ok);
 }
 .agd-path {
   min-width: 0;
   padding-right: 10px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
   white-space: nowrap;
   overflow: hidden;
@@ -3110,14 +3113,14 @@ button.shelf-title:hover {
   height: 100%;
   min-height: 140px;
   padding: 20px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-3);
   text-align: center;
 }
 .agd-status {
   min-height: 18px;
   margin-top: 8px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
   font-variant-numeric: tabular-nums;
 }
@@ -3134,14 +3137,14 @@ button.shelf-title:hover {
 }
 .cprompt-text {
   margin: 0 0 16px !important;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   line-height: 21px;
   color: var(--text-2);
 }
 .cprompt-error {
   min-height: 18px;
   margin-top: 7px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--danger);
 }
 /* ───────── Sign in ─────────
@@ -3233,10 +3236,10 @@ button.shelf-title:hover {
 }
 .signin-card h1 {
   margin: clamp(10px, 2cqh, 18px) 0 clamp(8px, 1.4cqh, 12px);
-  font-size: clamp(24px, 3.2cqw, 36px);
-  font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
+  font-size: clamp(var(--fs-xl), 3.2cqw, 36px);
+  font-weight: var(--fw-heavy);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tighter);
   color: #fff;
 }
 .signin-card h1 span {
@@ -3248,8 +3251,8 @@ button.shelf-title:hover {
 .signin-lead {
   max-width: 440px;
   margin: 0 0 clamp(14px, 3cqh, 26px);
-  font-size: clamp(13px, 1.5cqw, 15px);
-  line-height: 1.55;
+  font-size: clamp(var(--fs-base), 1.5cqw, var(--fs-md));
+  line-height: var(--lh-body);
   color: var(--text-2);
 }
 .signin-btn {
@@ -3260,8 +3263,8 @@ button.shelf-title:hover {
   height: clamp(42px, 7cqh, 50px);
   padding: 0 30px;
   border-radius: var(--r-lg);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
   color: #fff;
   background: var(--install);
   box-shadow:
@@ -3279,8 +3282,8 @@ button.shelf-title:hover {
 .signin-fine {
   max-width: 420px;
   margin: clamp(10px, 2cqh, 16px) 0 0;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
   color: var(--text-4);
 }
 .signin-fine svg {
@@ -3292,10 +3295,12 @@ button.shelf-title:hover {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+/* Icon above the text so the copy gets the tile's full width (fewer, even lines). */
 .signin-feature {
   display: flex;
-  gap: 12px;
-  padding: clamp(9px, 1.6cqh, 13px);
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(10px, 1.6cqh, 14px);
   border-radius: var(--r-lg);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -3312,12 +3317,15 @@ button.shelf-title:hover {
 }
 .signin-feature b {
   display: block;
-  font-size: 13px;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .signin-feature div > span {
-  font-size: 12px;
-  line-height: 1.4;
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
   color: var(--text-3);
 }
 .signin-soon {
@@ -3325,15 +3333,16 @@ button.shelf-title:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
-  letter-spacing: 0.07em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--text-4);
+  color: var(--text-3);
 }
 .signin-soon-chip {
   padding: 3px 10px;
   border-radius: var(--r-pill);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   letter-spacing: 0;
   text-transform: none;
   color: var(--text-2);
@@ -3376,6 +3385,7 @@ button.shelf-title:hover {
     display: none;
   }
   .signin-feature {
+    flex-direction: row;
     align-items: center;
   }
   .signin-feature-icon {
@@ -3424,8 +3434,8 @@ button.shelf-title:hover {
   align-items: center;
   gap: 6px;
   margin-top: 8px;
-  font-size: 12px;
-  color: var(--accent-soft);
+  font-size: var(--fs-sm);
+  color: var(--accent-text);
 }
 .props-moving-bar {
   flex-basis: 100%;

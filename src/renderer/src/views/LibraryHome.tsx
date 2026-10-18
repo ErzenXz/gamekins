@@ -30,9 +30,11 @@ export function LibraryHome(): React.JSX.Element {
   const search = useStore((s) => s.search)
   const filter = useStore((s) => s.filter)
   const sort = useStore((s) => s.librarySort)
+  const store = useStore((s) => s.storeFilter)
   const { setFilter, setSearch, setLibraryPage } = useStore.getState()
 
-  const visible = useMemo(() => all.filter((g) => !g.prefs.hidden), [all])
+  // Shelves follow the store filter too (Recent, Favorites, collections).
+  const visible = useMemo(() => all.filter((g) => !g.prefs.hidden && (store === 'all' || g.provider === store)), [all, store])
   const favorites = useMemo(() => visible.filter((g) => g.prefs.favorite), [visible])
   const searching = search.trim().length > 0
 
@@ -40,7 +42,7 @@ export function LibraryHome(): React.JSX.Element {
     <div className="lh scroll">
       {!searching && (
         <>
-          <FreeGamesShelf />
+          {(store === 'all' || store === 'epic') && <FreeGamesShelf />}
           <div className="lh-inner">
             <RecentShelf games={visible} width={width} />
             {favorites.length > 0 && (

@@ -37,6 +37,7 @@ import {
   canVerify,
   confirmUninstall,
   createShortcut,
+  installedBy,
   isLocal,
   jobPhrase,
   jobProgress,
@@ -48,7 +49,7 @@ import {
   pickArtwork,
   runPrimary,
   storeUrl,
-  SUPPORT_URL,
+  supportUrl,
   toggleFavorite
 } from '../lib/gameActions'
 import { act, useStore } from '../store'
@@ -198,7 +199,7 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
               >
                 DLC
               </button>
-              <button onClick={() => act(() => window.gamekins.app.openExternal(SUPPORT_URL))}>Support</button>
+              <button onClick={() => act(() => window.gamekins.app.openExternal(supportUrl(game)))}>Support</button>
               <button onClick={() => s.openProperties(game.key)}>Properties</button>
             </>
           )}
@@ -409,7 +410,7 @@ function Stats({ game }: { game: Game }): React.JSX.Element {
       {!local && game.install?.version && (
         <Stat
           icon={<Tag size={26} strokeWidth={1.5} />}
-          label="Version"
+          label={game.provider === 'steam' ? 'Build' : 'Version'}
           value={game.updateAvailable && game.latestVersion ? `${game.install.version} → ${game.latestVersion}` : game.install.version}
           tone={game.updateAvailable ? 'blue' : undefined}
         />
@@ -546,8 +547,8 @@ function Activity({
       icon: local ? <Link2 size={16} /> : <Package size={16} />,
       title: local
         ? 'Added to your library'
-        : inst.source === 'epic-launcher'
-          ? `Imported from the Epic Games Launcher${inst.version ? ` (version ${inst.version})` : ''}`
+        : inst.source === 'epic-launcher' || inst.source === 'steam' || inst.source === 'gog'
+          ? `Installed with ${installedBy(inst.source)}${inst.version && inst.source !== 'steam' ? ` (version ${inst.version})` : ''}`
           : inst.version
             ? `Updated to version ${inst.version}`
             : 'Installed',
@@ -624,8 +625,8 @@ function Activity({
           <div>
             <b>Managed by {game.thirdPartyManagedApp}</b>
             <span>
-              Gamekins hands this game to the Epic Games Launcher, which installs and starts it through{' '}
-              {game.thirdPartyManagedApp}.
+              Gamekins hands this game to the {game.provider === 'epic' ? 'Epic Games Launcher' : 'store\'s own app'}, which installs and starts
+              it through {game.thirdPartyManagedApp}.
             </span>
           </div>
         </div>
@@ -760,7 +761,7 @@ function InfoCard({ game }: { game: Game }): React.JSX.Element {
             />
             <Row
               label="Installed by"
-              value={inst ? (inst.source === 'epic-launcher' ? 'Epic Games Launcher (imported)' : 'Gamekins') : undefined}
+              value={inst ? installedBy(inst.source) : undefined}
             />
             <Row label="Offline play" value={game.canRunOffline ? 'Supported' : 'Needs sign-in'} />
             {!inst && <Row label="Status" value="Not installed" />}

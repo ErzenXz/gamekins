@@ -1,13 +1,10 @@
 import '../styles/store.css'
 import { ChevronLeft, ChevronRight, ExternalLink, Heart, Home, Lock, RotateCw, Search, ShoppingCart, WifiOff, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { STORE_HOME, STORE_LINKS, storeSearchUrl } from '../components/shell/storeLinks'
+import { siteOf, STORE_SITES, type StoreSite } from '../components/shell/storeLinks'
+import { StoreBadge } from '../components/library/StoreBadge'
 import { useStore } from '../store'
-import { handledStoreRequest, rememberStoreRequest, rememberStoreURL, storeURL } from '../components/shell/storeSession'
-
-const TABS = STORE_LINKS.filter((l) => l.label !== 'Wishlist' && l.label !== 'Cart')
-const WISHLIST = STORE_LINKS.find((l) => l.label === 'Wishlist')!
-const CART = STORE_LINKS.find((l) => l.label === 'Cart')!
+import { handledStoreRequest, rememberStoreRequest, rememberStoreSite, rememberStoreURL, storeSite, storeURL } from '../components/shell/storeSession'
 
 /** The subset of Electron's <webview> element we use. */
 interface WebviewElement extends HTMLElement {
@@ -58,9 +55,17 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
   const request = useStore((s) => s.storeRequest)
   const [initial] = useState(() => {
     const request = useStore.getState().storeRequest
-    if (request && request.n > handledStoreRequest) { rememberStoreRequest(request.n); rememberStoreURL(request.url); return request.url }
+    if (request && request.n > handledStoreRequest) {
+      rememberStoreRequest(request.n)
+      rememberStoreURL(request.url)
+      rememberStoreSite(siteOf(request.url))
+      return request.url
+    }
     return storeURL()
   })
+  // One store page at a time (each store is its own renderer process): switching swaps it.
+  const [site, setSite] = useState<StoreSite>(() => siteOf(initial) === storeSite() ? storeSite() : siteOf(initial))
+  const config = STORE_SITES[site]
   const handled = useRef(handledStoreRequest)
   const [guest, setGuest] = useState(0)
   const [guestURL, setGuestURL] = useState(initial)
@@ -87,6 +92,8 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
   }
 
   function go(url: string): void {
+    const target = siteOf(url)
+    if (target !== site) return switchSite(target, url)
     rememberStoreURL(url)
     setFailed(null)
     const el = ref.current
@@ -141,7 +148,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
       const f = e as FailEvent
       // -3 = aborted (a new navigation replaced this one): not an error.
       if (f.errorCode === -3 || f.isMainFrame === false) return
-      setFailed({ url: f.validatedURL || el.getAttribute('src') || STORE_HOME, text: f.errorDescription || 'The page could not be loaded.' })
+      setFailed({ url: f.validatedURL || el.getAttribute('src') || STORE_SITES[siteOf(el.getAttribute('src') || '')].home, text: f.errorDescription || 'The page could not be loaded.' })
       setNav((n) => ({ ...n, loading: false }))
     }
     const navigated = (e: Event): void => {
@@ -182,6 +189,17 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
     return () => document.removeEventListener('visibilitychange', mute)
   }, [visible, guest])
 
+  function switchSite(next: StoreSite, url = storeURL(next)): void {
+    rememberStoreSite(next)
+    rememberStoreURL(url)
+    ready.current = false
+    setFailed(null)
+    setSite(next)
+    setGuestURL(url)
+    setNav({ back: false, forward: false, url, loading: true })
+    setGuest((n) => n + 1)
+  }
+
   const reload = (): void => {
     if (failed && !ready.current) {
       rememberStoreURL(failed.url)
@@ -206,7 +224,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
   const search = (e: React.FormEvent): void => {
     e.preventDefault()
     const q = query.trim()
-    if (q) go(storeSearchUrl(q))
+    if (q) go(config.search(q))
   }
 
   const path = pathOf(nav.url)
@@ -240,7 +258,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
             <RotateCw size={15} />
           </button>
         )}
-        <button className="sb-btn" onClick={() => go(STORE_HOME)} title="Store home">
+        <button className="sb-btn" onClick={() => go(config.home)} title={`${config.name} home`}>
           <Home size={15} />
         </button>
         <div className="store-url" title={shown}>
@@ -257,8 +275,23 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
 
       <div className="store-navbar">
         <nav className="store-nav">
+          <div className="store-sites" role="tablist" aria-label="Store">
+            {(Object.keys(STORE_SITES) as StoreSite[]).map((id) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={site === id}
+                className={`store-site ${site === id ? 'on' : ''}`}
+                title={STORE_SITES[id].name}
+                onClick={() => site !== id && switchSite(id)}
+              >
+                <StoreBadge store={id} size={16} />
+                <span>{STORE_SITES[id].name}</span>
+              </button>
+            ))}
+          </div>
           <div className="store-tabs">
-            {TABS.map((l) => (
+            {config.tabs.map((l) => (
               <button key={l.label} className={`store-tab ${l.match.test(path) ? 'active' : ''}`} onClick={() => go(l.url)}>
                 {l.label}
               </button>
@@ -268,7 +301,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search the store"
+              placeholder={`Search ${config.name}`}
               spellCheck={false}
               aria-label="Search the store"
             />
@@ -277,10 +310,10 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
             </button>
           </form>
           <div className="store-quick">
-            <button className={`store-pill ${WISHLIST.match.test(path) ? 'active' : ''}`} onClick={() => go(WISHLIST.url)}>
+            <button className={`store-pill ${config.wishlist.match.test(path) ? 'active' : ''}`} onClick={() => go(config.wishlist.url)}>
               <Heart size={12} /> Wishlist
             </button>
-            <button className={`store-pill cart ${CART.match.test(path) ? 'active' : ''}`} onClick={() => go(CART.url)}>
+            <button className={`store-pill cart ${config.cart.match.test(path) ? 'active' : ''}`} onClick={() => go(config.cart.url)}>
               <ShoppingCart size={12} /> Cart
             </button>
           </div>
@@ -292,11 +325,11 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
           <div />
         </div>
         <webview
-          key={guest}
+          key={`${site}-${guest}`}
           ref={ref as unknown as React.Ref<HTMLWebViewElement>}
           className="store-webview"
           src={guestURL}
-          partition="persist:epic"
+          partition={config.partition}
           // Electron only checks that the attribute is present; React warns on a bare boolean.
           allowpopups={'true' as unknown as boolean}
         />
@@ -322,7 +355,7 @@ export function StoreView({ visible }: { visible: boolean }): React.JSX.Element 
         {inert && (
           <div className="store-overlay">
             <ShoppingCart size={40} strokeWidth={1.4} />
-            <div className="store-overlay-title">Epic Games Store</div>
+            <div className="store-overlay-title">{config.name} store</div>
             <p>
               The store page loads here inside the Gamekins app.
               <br />

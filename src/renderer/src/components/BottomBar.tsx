@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { DownloadJob } from '@shared/types'
 import { img } from '../lib/format'
 import { jobProgress } from '../lib/gameActions'
+import { unreadTotal, useSocial } from '../lib/social'
 import { useStore } from '../store'
 import { Dropdown } from './shell/Dropdown'
 import { STORE_HOME } from './shell/storeLinks'
@@ -70,6 +71,11 @@ export function BottomBar(): React.JSX.Element {
 
   const presence = !account ? (sessionExpired ? 'Session expired' : 'Signed out') : online ? 'Online' : 'No connection'
   const presenceClass = !account ? 'signed-out' : online ? 'online' : 'offline'
+  // Friends & Chat (Steam's bottom-right button): online count and unread messages.
+  const friendsOnline = useSocial((s) => s.state?.friends.filter((f) => f.status !== 'offline').length ?? 0)
+  const unread = useSocial((s) => unreadTotal(s.state))
+  const myStatus = useSocial((s) => s.state?.myStatus)
+  const friendsOpen = useSocial((s) => s.open)
 
   return (
     <footer className="bottombar">
@@ -135,15 +141,24 @@ export function BottomBar(): React.JSX.Element {
 
       <div className="bb-right">
         <button
-          className={`bb-presence ${presenceClass}`}
-          onClick={() => (account ? st().navigate({ view: 'settings', section: 'account' }) : void st().signIn('epic'))}
+          className={`bb-presence ${presenceClass} ${account ? 'friends' : ''} ${friendsOpen ? 'open' : ''} ${myStatus === 'away' ? 'away' : myStatus === 'offline' ? 'invisible' : ''}`}
+          onClick={() => (account ? useSocial.getState().toggle() : void st().signIn('epic'))}
           title={
             account
-              ? `Signed in to Epic Games as ${account.displayName}${online ? '' : ' — this PC appears to be offline'}`
+              ? `Friends & chat · signed in as ${account.displayName}${online ? '' : ' (this PC appears to be offline)'}`
               : 'Sign in to Epic Games'
           }
+          aria-pressed={account ? friendsOpen : undefined}
         >
-          <span>{account ? `${account.displayName} · ${presence}` : presence}</span>
+          {account ? (
+            <>
+              <span>Friends & Chat</span>
+              {friendsOnline > 0 && <span className="bb-count">{friendsOnline} online</span>}
+              {unread > 0 && <span className="bb-unread">{unread}</span>}
+            </>
+          ) : (
+            <span>{presence}</span>
+          )}
           <i className="bb-dot" />
         </button>
       </div>

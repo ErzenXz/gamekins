@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>A fast, beautiful, Steam-style launcher for your Epic Games library.</b><br>
-  Your games, without the bad launcher. More stores are coming.
+  <b>One fast, beautiful launcher for your Epic, Steam and GOG games and friends.</b><br>
+  All your games. One cozy home.
 </p>
 
 <p align="center">
@@ -17,10 +17,13 @@
 
 ## Why
 
-The official Epic Games launcher is slow and awkward. Gamekins gives your Epic library the client it deserves: a library, downloads manager and store that feel like Steam. It installs, updates and launches your games itself, so the Epic launcher isn't needed.
+Your games are scattered across launchers, and some of them are slow and awkward. Gamekins puts every game and every friend in one place, with a library, store and friends list that feel like Steam. Epic games are installed, updated and launched by Gamekins itself, so the Epic launcher isn't needed; Steam and GOG games are handed to their own clients.
 
 ## Features
 
+- **One library for every store.** Epic, Steam and GOG games side by side, with store badges and a store filter. Installed Steam games show up even before you sign in.
+- **One friends list.** Epic and Steam (and GOG) friends together: who's online, what they're playing, friend requests, and chat with Epic friends right in Gamekins (Steam chat opens in Steam).
+- **Every store in one tab.** Switch between the Epic, Steam and GOG stores; each shares its sign-in with the app.
 - **Steam-style library.**
   - **Sidebar:** Favorites, collections, Running and Updates sections, type-ahead search and full keyboard control.
   - **Home:** "Free on Epic this week", recent games, and a cover-art grid with size and sort options.
@@ -89,9 +92,9 @@ branding/      logo, icon, banner
 
 ## Status
 
-Early but very usable. Not done yet: cloud saves, achievements, friends, and choosing optional content packs on first install. Logs are in `%APPDATA%\Gamekins\logs\gamekins.log`.
+Early but very usable. Not done yet: cloud saves, achievements, chat with Steam/GOG friends, Gamekins-native Steam/GOG downloads (their clients install those today), and choosing optional content packs on first install. Logs are in `%APPDATA%\Gamekins\logs\gamekins.log`.
 
-Gamekins uses the same public launcher client credentials as the open-source projects [Legendary](https://github.com/derrod/legendary) and [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher). It is not affiliated with Epic Games, Inc. or Valve Corporation. "Epic Games" and "Steam" are trademarks of their owners.
+Gamekins uses the same public launcher client credentials as the open-source projects [Legendary](https://github.com/derrod/legendary) and [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher). It is not affiliated with Epic Games, Inc., Valve Corporation or GOG sp. z o.o. "Epic Games", "Steam" and "GOG" are trademarks of their owners.
 
 ## License
 

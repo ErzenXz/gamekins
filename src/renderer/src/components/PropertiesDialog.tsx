@@ -32,8 +32,7 @@ import {
   locateInstall,
   pickArtwork,
   removeFromCollection,
-  resetArtwork
-} from '../lib/gameActions'
+  resetArtwork, installedBy } from '../lib/gameActions'
 import { act, errorMessage, jobFor, type PropertiesTab, useStore } from '../store'
 import { libraryIndex } from '../lib/entityIndex'
 import { Checkbox, OptionRow, Toggle } from './library/controls'
@@ -388,7 +387,7 @@ function Files({ game }: { game: Game }): React.JSX.Element {
           {inst.path}
         </div>
         <p className="props-hint">
-          {inst.source === 'epic-launcher' ? 'Imported from the Epic Games Launcher' : 'Installed by Gamekins'}
+          {`Installed by ${installedBy(inst.source)}`}
           {inst.installedAt ? ` · ${shortDate(inst.installedAt)}` : ''}
           {inst.version ? ` · version ${inst.version}` : ''}
         </p>

@@ -62,7 +62,7 @@
   background: var(--danger-soft);
   box-shadow: inset 0 -1px 0 rgba(255, 93, 82, 0.28);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-base);
 }
 .boot-errors-text {
   flex: 1;
@@ -95,8 +95,8 @@
   -webkit-app-region: no-drag;
 }
 .crash-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   color: #fff;
 }
 .crash-text {
@@ -172,9 +172,9 @@
   height: 34px;
   padding: 0 8px 0 6px;
   border-radius: var(--r-md);
-  font-size: 14px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: var(--text);
   transition: background-color var(--t-fast) ease-out;
 }
@@ -237,9 +237,9 @@
   height: 34px;
   padding: 0 14px;
   border-radius: var(--r-md);
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.07em;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-2);
   white-space: nowrap;
@@ -279,8 +279,9 @@
   border-radius: var(--r-pill);
   background: var(--surface-4);
   color: #fff;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 18px;
   text-align: center;
@@ -308,8 +309,8 @@
   gap: 8px;
   height: 32px;
   border-radius: var(--r-pill);
-  font-size: 13px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   transition:
     background-color var(--t-fast) ease-out,
@@ -346,8 +347,8 @@
   border-radius: 50%;
   background: var(--brand);
   color: #fff;
-  font-weight: 700;
-  font-size: 11px;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-xs);
 }
 .tb-account.online .tb-avatar::after {
   content: '';
@@ -416,7 +417,7 @@
   min-height: 32px;
   padding: 6px 10px;
   border-radius: var(--r-sm);
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text);
   text-align: left;
   white-space: nowrap;
@@ -439,7 +440,7 @@
   width: 10px;
   margin-left: -2px;
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 .dd-icon {
   display: grid;
@@ -458,7 +459,7 @@
 }
 .dd-shortcut {
   margin-left: 24px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
 }
 .dd-item:hover .dd-shortcut,
@@ -472,10 +473,10 @@
 }
 .dd-heading {
   padding: 8px 10px 4px;
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-label);
   color: var(--text-4);
   white-space: nowrap;
   overflow: hidden;
@@ -483,7 +484,7 @@
 }
 .dd-heading.accent {
   padding-top: 6px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   text-transform: none;
   letter-spacing: 0;
   color: #fff;
@@ -527,8 +528,8 @@
   height: 28px;
   padding: 0 10px 0 8px;
   border-radius: var(--r-md);
-  font-size: 12.5px;
-  font-weight: 550;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text-3);
   transition:
     background-color var(--t-fast),
@@ -566,7 +567,7 @@
   height: 30px;
   padding: 0 12px 0 6px;
   border-radius: var(--r-pill);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
   transition:
     background-color var(--t-fast),
@@ -626,8 +627,8 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 11.5px;
-  font-weight: 550;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   color: var(--accent-text);
 }
 .bb-downloads:hover .bb-dl-line {
@@ -658,7 +659,7 @@
   height: 28px;
   padding: 0 10px;
   border-radius: var(--r-md);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
   transition:
     background-color var(--t-fast),
@@ -769,20 +770,20 @@
   height: 16px;
 }
 .toast-title {
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   color: #fff;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-label);
 }
 .toast-time {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   color: var(--text-4);
 }
 .toast-msg {
   margin-top: 3px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   line-height: 18px;
   color: var(--text-2);
   display: -webkit-box;
@@ -820,7 +821,7 @@
 /* ═════════════════════════ Dialog extras ═════════════════════════ */
 .confirm-text {
   margin: 0 0 8px !important;
-  font-size: 14.5px;
+  font-size: var(--fs-base);
   line-height: 22px;
   color: var(--text-2);
 }
@@ -840,18 +841,18 @@
 }
 .about-name {
   margin-top: 14px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
   color: #fff;
 }
 .about-version {
   margin-top: 4px;
   color: var(--accent-text);
-  font-size: 13px;
+  font-size: var(--fs-base);
 }
 .about-blurb {
   margin-top: 14px !important;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
 }

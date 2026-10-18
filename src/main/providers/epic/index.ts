@@ -161,6 +161,14 @@ export class EpicProvider implements GameProvider {
     return next.access_token
   }
 
+  /** Credentials for the friends/presence services (a fresh token, refreshed as needed). */
+  async socialAuth(): Promise<{ accountId: string; displayName: string; token: string } | null> {
+    const s = this.session
+    if (!s) return null
+    const token = await this.accessToken()
+    return { accountId: s.account_id, displayName: s.displayName, token }
+  }
+
   /** Called when the session dies so the UI can ask the user to sign in again. */
   onSessionExpired: (() => void) | null = null
 

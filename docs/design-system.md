@@ -25,7 +25,58 @@ Cards use `background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--borde
 
 `--text` (primary), `--text-2` (secondary), `--text-3` (labels, hints), `--text-4` (disabled, faint). `#fff` for titles and hovered text.
 
-Section labels (Steam's uppercase vibe): `font-size: 11–12.5px; font-weight: 650; letter-spacing: 0.08–0.09em; text-transform: uppercase; color: var(--text-2 or --text-3)`. Body text 13–14px. Titles 600–800 weight with `letter-spacing: -0.01em` to `-0.02em`.
+## Typography
+
+One type system for every page. All sizes, weights, tracking and line heights are tokens in `base.css`; never write a raw `px` font size, a raw weight or a raw `em` letter-spacing. Pick the **role** first, then copy its recipe, so the same role looks identical on every page.
+
+### Scale
+
+| Token | Size | | Token | Value |
+|---|---|---|---|---|
+| `--fs-2xs` | 10.5px | | `--fw-regular` | 400 |
+| `--fs-xs` | 11.5px | | `--fw-medium` | 550 |
+| `--fs-sm` | 12.5px | | `--fw-semibold` | 650 |
+| `--fs-base` | 13.5px (body default) | | `--fw-bold` | 750 |
+| `--fs-md` | 15px | | `--fw-heavy` | 800 (display only) |
+| `--fs-lg` | 18px | | | |
+| `--fs-xl` | 22px | | `--tracking-label` | 0.08em (all small caps) |
+| `--fs-2xl` | 28px | | `--tracking-caps` | 0.06em (big caps: nav, Play) |
+| `--fs-hero` | clamp(28px, 3.4cqi, 48px) | | `--tracking-snug` / `-tight` / `-tighter` | -0.01 / -0.015 / -0.02em |
+
+Line heights: `--lh-tight` 1.1 (display/page titles), `--lh-snug` 1.3 (card titles, wrapped labels), `--lh-body` 1.5 (body default, paragraphs, hints), `--lh-relaxed` 1.65 (long descriptions, legal). Fixed `px` line heights are fine where they size a box (pills, rows, 20px section labels).
+
+`b`/`strong` default to `--fw-semibold` (base.css), not the browser's 700.
+
+### Roles
+
+| Role | Recipe | Used by |
+|---|---|---|
+| Display | `--fs-hero`, heavy, `--tracking-tighter`, `--lh-tight` | Game page title (welcome headline uses its own clamp from `--fs-xl`) |
+| Page title | `--fs-2xl`, bold, `--tracking-tighter`, 34px line | Settings `.st-title`, Collections header, Downloads hero name |
+| Headline | `--fs-xl`, bold, `--tracking-tight` | Active download title, empty library, store overlay, crash/about |
+| Panel / dialog title | `--fs-lg`, semibold, `--tracking-snug` | `.modal-title`, `.props-h`, info panel, empty/loading titles, account name |
+| Card title | `--fs-md`, semibold, `--tracking-snug` | Free-game cards, queue rows, highlights, collection tiles, drive cards, install header |
+| Stat value | `--fs-md`, semibold, tabular-nums | Game page stats, download meters, HLTB hours, install sizes, versions |
+| Row title | `--fs-base`, medium | Settings/option rows (`.st-label`, `.opt-title`), DLC, storage game names |
+| Body | `--fs-base`, regular | Menus, lists, inputs, notices, dialog copy (`--lh-body`), descriptions (`--lh-relaxed`) |
+| Secondary | `--fs-sm`, regular, `--text-3` | Hints, meta lines, captions over cards ("Today", "Free until…") use medium |
+| Caption | `--fs-xs`, `--text-4` | File paths, legal, fine print |
+| **Section label** | `--fs-sm`, semibold, uppercase, `--tracking-label`, `--text-2`, 20px line (shelves 24px), 2px inset, **10px to content** | Shelf titles, game page `.gp-sec-title`, downloads `.dls-section-title`, settings `.st-sub` |
+| Label | `--fs-xs`, semibold, uppercase, `--tracking-label`, `--text-3` | Sidebar group names, settings nav title, field labels, menu headings, table headers, toast titles, "Sort by" |
+| Micro label | `--fs-2xs`, semibold, uppercase, `--tracking-label`, `--text-3` | Labels stacked over a stat value (game page stats, download meters, HLTB, install/props cells) |
+| Badge | `--fs-2xs`, bold, uppercase, `--tracking-label`, pill | `FREE NOW`, `PAUSED`, `GAME CONTENT`, `COMING SOON`, `RUNNING`, `ADDED` |
+| Status word | `--fs-xs`, semibold, uppercase, `--tracking-label`, tinted | `DOWNLOADING`, `QUEUED`, `ERROR`, game page download label |
+| Counter | `--fs-2xs`, semibold, tabular-nums, pill | Counts next to labels (sidebar groups, shelves, props tabs, collections), nav badge (bold) |
+| Nav | `--fs-base`, semibold, uppercase, `--tracking-caps` | Top tabs |
+| Buttons | `--fs-base` medium; `.small` `--fs-sm`; `.btn-lg` `--fs-md`; caps actions bold with `--tracking-caps` (Play/Pause) | |
+
+Any number that changes while you look at it (speeds, sizes, percentages, ETAs, counts) gets `font-variant-numeric: tabular-nums` (or `.tabular`).
+
+### Spacing that goes with type
+
+- Page gutters: 18px inside the main pane (library home, game page, downloads); shelves add a 4px inset for hover room. Settings is a two-pane page: 20px top, 32px sides, page title centred on the same line as the Collections title.
+- Section label to its content: 10px. Between sections: 26px.
+- Card padding steps: 12 / 14 / 16 / 18 / 24px. Compact tiles 12px, rows 12–14px, panels 16–18px, hero cards 24px.
 
 ## Accent and status
 

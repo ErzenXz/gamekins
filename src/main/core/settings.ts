@@ -24,7 +24,8 @@ export const settingsStore = new JsonStore<Settings>('settings', {
   downloadsDuringGameplay: false,
   closeToTray: true,
   launchAtLogin: false,
-  hardwareAcceleration: true
+  hardwareAcceleration: true,
+  friendsStatus: 'online'
 })
 
 export const settings = (): Settings => settingsStore.data

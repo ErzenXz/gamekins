@@ -11,15 +11,15 @@
 }
 .coll-page .shelf-title {
   gap: 10px;
-  font-size: 24px;
-  font-weight: 750;
-  line-height: 32px;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: 34px;
+  letter-spacing: var(--tracking-tighter);
   text-transform: none;
   color: #fff;
 }
 .coll-page .shelf-title .shelf-count {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 20px;
   padding: 0 8px;
 }
@@ -38,7 +38,7 @@
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-  padding: 10px 10px 14px;
+  padding: 12px 12px 14px;
   border-radius: var(--r-lg);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -176,9 +176,9 @@
   transform: translateX(8%) scale(0.86) rotate(9deg);
 }
 .coll-empty {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-4);
 }
@@ -188,10 +188,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 0 4px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  padding: 0 2px;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: var(--text);
   white-space: nowrap;
 }
@@ -206,8 +206,8 @@
   padding: 0 7px;
   border-radius: var(--r-pill);
   background: var(--surface-3);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   line-height: 18px;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -235,8 +235,8 @@
   border-radius: var(--r-pill);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--text-2);
   transition:
     background-color var(--t-fast) ease-out,

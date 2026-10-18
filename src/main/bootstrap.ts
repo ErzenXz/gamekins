@@ -8,7 +8,9 @@ import {
   type MenuItemConstructorOptions,
   nativeTheme,
   net,
-  session
+  Notification,
+  session,
+  shell
 } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -19,7 +21,7 @@ import { openExternalSafe, openPathChecked } from './core/external'
 import { validateSender, validateArguments } from './core/ipcValidation'
 import { pathKey } from './providers/epic/fsBoundary'
 import { EVENTS } from '@shared/api'
-import type { Account, ArtworkKind, CollectionEdit, GamePrefs, ProviderId, Settings, Toast } from '@shared/types'
+import type { Account, ArtworkKind, CollectionEdit, Game, GamePrefs, ProviderId, Settings, StoreId, Toast } from '@shared/types'
 import { downloads, freeBytes } from './core/downloads'
 import { library } from './core/library'
 import { settings, settingsStore } from './core/settings'
@@ -34,15 +36,45 @@ import {
   storageInfo
 } from './core/extras'
 import { createTray } from './core/tray'
-import { localProvider, providerInfo, providers, provider } from './providers'
+import { gogProvider, localProvider, providerInfo, providers, provider, steamProvider } from './providers'
+import { SteamSocial } from './providers/steam/social'
+import { GogSocial } from './providers/gog/social'
 
 const epicProvider = provider('epic') as EpicProvider
+// One friends list across stores; each signed-in store contributes its network.
+const social = new SocialHub()
+social.register(new EpicSocial(() => epicProvider.socialAuth()))
+social.register(new GogSocial(() => gogProvider.socialAuth()))
+social.register(new SteamSocial((o) => steamProvider.socialAuth(o)))
 import { listPrograms } from './providers/local'
 import { EPIC_PARTITION, type EpicProvider } from './providers/epic'
 import { useFetch } from './providers/epic/api'
+import { EpicSocial } from './providers/epic/social'
+import { SocialHub } from './core/socialHub'
 
 const isMac = process.platform === 'darwin'
-const STORE_HOSTS = ['epicgames.com', 'unrealengine.com', 'fab.com']
+/** Stores whose own client installs, updates and uninstalls their games. */
+const CLIENT_MANAGED = new Set<ProviderId>(['steam', 'gog'])
+/**
+ * Stores that can be browsed in the Store tab. Each lives in its own partition, shared with
+ * that store's sign-in window, and may only navigate within its own domains.
+ */
+interface StoreSite {
+  id: 'epic' | 'steam' | 'gog'
+  partition: string
+  hosts: string[]
+  home: string
+}
+const STORE_SITES: StoreSite[] = [
+  { id: 'epic', partition: EPIC_PARTITION, hosts: ['epicgames.com', 'unrealengine.com', 'fab.com'], home: 'https://store.epicgames.com' },
+  { id: 'steam', partition: 'persist:steam', hosts: ['steampowered.com', 'steamcommunity.com'], home: 'https://store.steampowered.com' },
+  { id: 'gog', partition: 'persist:gog', hosts: ['gog.com'], home: 'https://www.gog.com' }
+]
+const siteForPartition = (partition: string | undefined): StoreSite | undefined => STORE_SITES.find((s) => s.partition === partition)
+const siteForContents = (contents: Electron.WebContents): StoreSite =>
+  STORE_SITES.find((s) => session.fromPartition(s.partition) === contents.session) ?? STORE_SITES[0]
+/** Steam store buttons ("Install", "Play") hand off to the Steam client; nothing else is allowed. */
+const STEAM_LINK = /^steam:\/\/(install|run|rungameid|store)\/\d{1,10}\/?$/
 const REFRESH_EVERY_MS = 30 * 60_000
 // --hidden: launched at login; the window isn't even created until it's opened from the tray.
 const launchedAtLogin = process.argv.includes('--hidden')
@@ -161,22 +193,30 @@ function guardWebviews(): void {
       prefs.contextIsolation = true
       prefs.sandbox = true
       prefs.spellcheck = false
-      prefs.partition = EPIC_PARTITION
+      const site = siteForPartition(params.partition) ?? STORE_SITES[0]
+      prefs.partition = site.partition
       prefs.webSecurity = true
-      params.partition = EPIC_PARTITION
-      if (!isStoreUrl(params.src)) event.preventDefault()
+      params.partition = site.partition
+      if (!isStoreUrl(params.src, site)) event.preventDefault()
     })
 
     if (contents.getType() !== 'webview') return
     contents.setUserAgent(contents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Our own store bar replaces Epic's two header rows (and their "Download the launcher" button).
+    const site = siteForContents(contents)
     contents.on('dom-ready', () => {
-      if (isStoreUrl(contents.getURL()) && new URL(contents.getURL()).hostname === 'store.epicgames.com') void contents.insertCSS(STORE_CSS)
+      if (site.id === 'epic' && isStoreUrl(contents.getURL(), site) && new URL(contents.getURL()).hostname === 'store.epicgames.com') void contents.insertCSS(STORE_CSS)
+      // Steam's 'Install Steam' button makes no sense inside a launcher that already talks to Steam.
+      if (site.id === 'steam' && isStoreUrl(contents.getURL(), site)) void contents.insertCSS('.header_installsteam_btn { display: none !important; }')
     })
 
     const intercept = (url: string): boolean => {
-      if (url.startsWith('com.epicgames.launcher://')) {
+      if (site.id === 'epic' && url.startsWith('com.epicgames.launcher://')) {
         handleLauncherLink(url)
+        return true
+      }
+      if (site.id === 'steam' && url.startsWith('steam://')) {
+        if (STEAM_LINK.test(url)) void confirmSteamLink(url)
         return true
       }
       return false
@@ -211,28 +251,55 @@ function guardWebviews(): void {
       Menu.buildFromTemplate(items).popup()
     })
     const guard = (e: Electron.Event, url: string): void => {
-      if (intercept(url) || !isStoreUrl(url)) e.preventDefault()
+      if (intercept(url) || !isStoreUrl(url, site)) e.preventDefault()
     }
     contents.on('will-navigate', guard)
     contents.on('will-redirect', guard)
     contents.on('will-frame-navigate', (e) => guard(e, e.url))
     contents.on('did-navigate-in-page', (_e, url) => {
-      if (!isStoreUrl(url)) { contents.stop(); void contents.loadURL('https://store.epicgames.com').catch(console.warn) }
+      if (!isStoreUrl(url, site)) { contents.stop(); void contents.loadURL(site.home).catch(console.warn) }
     })
     contents.setWindowOpenHandler(({ url }) => {
       if (intercept(url)) return { action: 'deny' }
       // Epic opens checkout and some auth flows as popups; keep store pages in the view.
-      if (isStoreUrl(url)) void contents.loadURL(url).catch((err) => console.warn('[store]', err))
+      if (isStoreUrl(url, site)) void contents.loadURL(url).catch((err) => console.warn('[store]', err))
       else void openExternalSafe(url).catch((err) => console.warn('[external]', err))
       return { action: 'deny' }
     })
   })
 }
 
-function isStoreUrl(url: string): boolean {
+/**
+ * A Steam store page wants to hand off to the Steam client ("Install", "Play"). Page scripts,
+ * redirects and frames can trigger navigations too, so the user always confirms first.
+ */
+let steamPrompt = false
+async function confirmSteamLink(url: string): Promise<void> {
+  if (steamPrompt || !win || win.isDestroyed()) return
+  steamPrompt = true
+  try {
+    const [, action, appid] = url.match(/^steam:\/\/(\w+)\/(\d+)/) ?? []
+    const verb = action === 'install' ? 'install' : action === 'store' ? 'open the store page for' : 'start'
+    const title = library.listAll().find((g) => g.key === `steam:${appid}`)?.title ?? `app ${appid}`
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: ['Open Steam', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Open in Steam',
+      message: `Ask Steam to ${verb} ${title}?`,
+      detail: 'The Steam store page asked to hand this over to the Steam app.'
+    })
+    if (response === 0) await shell.openExternal(url)
+  } finally {
+    steamPrompt = false
+  }
+}
+
+function isStoreUrl(url: string, site: StoreSite = STORE_SITES[0]): boolean {
   try {
     const { protocol, hostname } = new URL(url)
-    return protocol === 'https:' && STORE_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))
+    return protocol === 'https:' && site.hosts.some((h) => hostname === h || hostname.endsWith(`.${h}`))
   } catch {
     return false
   }
@@ -336,13 +403,16 @@ function registerIpc(): void {
     const account = await provider(id).login(win!)
     send(EVENTS.accounts, accounts())
     void refreshLibrary()
+    if (id !== 'local') void social.start(id)
     return account
   })
   handle('accounts:logout', async (id: ProviderId) => {
+    if (id !== 'local') social.stop(id)
     try { await provider(id).logout() }
     finally {
       library.forgetProvider(id)
       send(EVENTS.accounts, accounts())
+      if (provider(id).alwaysOn) void refreshLibrary()
     }
   })
 
@@ -375,8 +445,8 @@ function registerIpc(): void {
     const game = library.providerGame(key)
     if (!game) throw new Error('Unknown game')
     const p = provider(game.provider)
-    if (game.thirdPartyManagedApp && p.installViaOfficial) {
-      // EA / Ubisoft titles are delivered by their own launcher; let the official client broker that.
+    if ((game.thirdPartyManagedApp || CLIENT_MANAGED.has(game.provider)) && p.installViaOfficial) {
+      // Steam / GOG games, and EA / Ubisoft titles, are delivered by their own client.
       const release = operations.acquire(key, 'install via official launcher')
       try { return await p.installViaOfficial(game) } finally { release() }
     }
@@ -390,9 +460,15 @@ function registerIpc(): void {
     // A repair against an empty "existing" install hashes what's there and fetches the rest.
     downloads.enqueue(key, 'repair', folder)
   })
-  handle('games:update', (key: string) => {
+  handle('games:update', async (key: string) => {
     const info = library.installInfo(key)
     if (!info) throw new Error('Game is not installed')
+    const game = library.providerGame(key)
+    const p = game && provider(game.provider)
+    if (game && p && CLIENT_MANAGED.has(game.provider)) {
+      if (!p.installViaOfficial) throw new Error(`${p.name} keeps this game up to date`)
+      return p.installViaOfficial(game)
+    }
     downloads.enqueue(key, 'update', info.path)
   })
   handle('games:repair', (key: string) => {
@@ -413,6 +489,12 @@ function registerIpc(): void {
       return library.removeGame(key)
     }
     if (!game || !info) return
+    if (CLIENT_MANAGED.has(game.provider)) {
+      // Their client asks and removes the files; the next library scan drops the record.
+      await provider(game.provider).uninstall(game, info)
+      setTimeout(() => void refreshLibrary(), 15_000)
+      return
+    }
     await provider(game.provider).uninstall(game, info, library.listAll().filter((g) => g.key !== key && g.install && pathKey(g.install.path) === pathKey(info.path)).map((g) => ({ appName: g.appName, install: g.install! })))
     library.setInstalled(key, null)
     } finally { release() }
@@ -460,7 +542,23 @@ function registerIpc(): void {
     if (patch.importEpicLauncherInstalls !== undefined) void refreshLibrary()
     if (patch.launchAtLogin !== undefined) applyLoginItem()
     if (patch.downloadsDuringGameplay !== undefined || patch.bandwidthLimitMBps !== undefined) downloads.kick()
+    if (patch.friendsStatus) social.setStatus(patch.friendsStatus)
     return settings()
+  })
+
+  handle('social:state', () => social.state())
+  handle('social:refresh', () => social.refresh())
+  handle('social:chat', (friendId: string) => social.chat(friendId))
+  handle('social:send', (friendId: string, text: string) => social.sendMessage(friendId, text))
+  handle('social:add', (store: StoreId, displayName: string) => social.addFriend(store, displayName))
+  handle('social:accept', (friendId: string) => social.accept(friendId))
+  handle('social:remove', (friendId: string) => social.remove(friendId))
+  handle('social:markRead', (friendId: string) => social.markRead(friendId))
+  handle('social:openExternal', async (friendId: string, kind: 'chat' | 'profile') => {
+    const url = social.externalLink(friendId, kind)
+    if (!url) throw new Error('Not available for this friend')
+    if (url.startsWith('steam://')) await shell.openExternal(url)
+    else await openExternalSafe(url)
   })
 }
 
@@ -484,11 +582,39 @@ function registerIpc(): void {
     useFetch((input, init) => net.fetch(input as string, init))
     await Promise.all(providers.map((p) => p.init()))
     epicProvider.onSessionExpired = () => {
+      social.stop('epic')
       send(EVENTS.accounts, accounts())
       toast({ kind: 'error', message: 'Your Epic Games session expired. Sign in again to keep your library up to date.' })
     }
 
-    library.on('changed', (games) => send(EVENTS.library, games))
+    steamProvider.onSessionExpired = () => {
+      social.stop('steam')
+      send(EVENTS.accounts, accounts())
+      toast({ kind: 'error', message: 'Your Steam sign-in expired. Sign in again to see all your Steam games and friends.' })
+    }
+    gogProvider.onSessionExpired = () => {
+      social.stop('gog')
+      send(EVENTS.accounts, accounts())
+      toast({ kind: 'error', message: 'Your GOG session expired. Sign in again to keep your GOG library up to date.' })
+    }
+
+    library.on('changed', (games: Game[]) => {
+      send(EVENTS.library, games)
+      // Friends see what you're playing through Gamekins.
+      social.setActivity(games.find((g) => g.running)?.title ?? null)
+    })
+    social.on('changed', (state) => send(EVENTS.social, state))
+    social.on('message', (m) => {
+      send(EVENTS.socialMessage, m)
+      if (win && !win.isDestroyed() && win.isFocused()) return
+      if (!Notification.isSupported()) return
+      const name = social.state().friends.find((f) => f.id === m.friendId)?.displayName ?? 'A friend'
+      const note = new Notification({ title: name, body: m.message.text.slice(0, 180), silent: false })
+      note.on('click', () => showWindow('friends:' + m.friendId))
+      note.show()
+    })
+    social.setStatus(settings().friendsStatus)
+    for (const p of providers) if (p.id !== 'local' && p.account()) void social.start(p.id)
     library.on('progress', (p) => send(EVENTS.libraryProgress, p))
     downloads.on('changed', (jobs) => send(EVENTS.downloads, jobs))
 
@@ -505,9 +631,11 @@ function registerIpc(): void {
     await library.migrateArtwork()
     await recoverRelocations()
     registerIpc()
-    const epicSession = session.fromPartition(EPIC_PARTITION)
-    epicSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
-    epicSession.setPermissionCheckHandler(() => false)
+    for (const site of STORE_SITES) {
+      const storeSession = session.fromPartition(site.partition)
+      storeSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
+      storeSession.setPermissionCheckHandler(() => false)
+    }
     guardWebviews()
     if (!launchedAtLogin) createWindow()
     createTray({
@@ -537,6 +665,7 @@ function registerIpc(): void {
 
   app.on('before-quit', () => {
     quitting = true
+    social.stopAll()
     library.flush()
     localProvider.flush()
     downloads.flush()

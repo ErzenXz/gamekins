@@ -13,7 +13,10 @@ import type {
   ArtworkKind,
   LocalProgram,
   ProviderId,
+  ChatMessage,
   Settings,
+  SocialState,
+  StoreId,
   StorageDrive,
   Toast
 } from './types'
@@ -74,6 +77,21 @@ export interface GamekinsApi {
     move(id: string, delta: number): Promise<void>
     clearFinished(): Promise<void>
   }
+  /** Epic friends, presence and chat. */
+  social: {
+    state(): Promise<SocialState>
+    refresh(): Promise<void>
+    chat(friendId: string): Promise<ChatMessage[]>
+    send(friendId: string, text: string): Promise<ChatMessage>
+    /** Send a friend request by Epic display name; resolves to the matched name. */
+    add(store: StoreId, displayName: string): Promise<string>
+    accept(friendId: string): Promise<void>
+    /** Decline, cancel or unfriend. */
+    remove(friendId: string): Promise<void>
+    markRead(friendId: string): Promise<void>
+    /** Chat in the store's own app (Steam) or open the friend's profile page. */
+    openExternal(friendId: string, kind: 'chat' | 'profile'): Promise<void>
+  }
   settings: {
     get(): Promise<Settings>
     set(patch: Partial<Settings>): Promise<Settings>
@@ -86,6 +104,8 @@ export interface GamekinsApi {
     toast(cb: (toast: Toast) => void): () => void
     /** Main asks the UI to navigate somewhere (tray menu, launcher deep links from the store). */
     navigate(cb: (route: { view: string; gameKey?: string }) => void): () => void
+    social(cb: (state: SocialState) => void): () => void
+    socialMessage(cb: (m: { friendId: string; message: ChatMessage }) => void): () => void
   }
 }
 
@@ -96,5 +116,7 @@ export const EVENTS = {
   downloads: 'evt:downloads',
   accounts: 'evt:accounts',
   toast: 'evt:toast',
-  navigate: 'evt:navigate'
+  navigate: 'evt:navigate',
+  social: 'evt:social',
+  socialMessage: 'evt:socialMessage'
 } as const

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
-import { join } from 'node:path'
+import { join, parse } from 'node:path'
 import { operations } from './operations'
 import { pathKey } from '../providers/epic/fsBoundary'
 import { existsSync } from 'node:fs'
@@ -209,9 +209,17 @@ class Library extends EventEmitter {
               const mine = d.games[key]
               // Adopt launcher installs we don't know about and keep adopted ones in sync. Once Gamekins has
               // installed/updated a game itself (source "gamekins") our record wins over the launcher's.
-              if (!mine || mine.source === 'epic-launcher' || mine.source === 'local') {
+              if (!mine || mine.source === 'epic-launcher' || mine.source === 'local' || mine.source === 'steam' || mine.source === 'gog') {
                 d.games[key] = { ...info, prereqsInstalled: mine?.prereqsInstalled }
               }
+            }
+            // Steam and GOG install and uninstall their own games: a game their client no longer
+            // lists is gone (not a disconnected drive).
+            for (const [key, info] of Object.entries(d.games)) {
+              if (!key.startsWith(`${p.id}:`) || (info.source !== 'steam' && info.source !== 'gog')) continue
+              // A disconnected drive isn't an uninstall: keep it (shown as "Drive not connected").
+              if (!existsSync(parse(info.path).root)) continue
+              if (!external.has(key.slice(p.id.length + 1)) && !operations.blocked(key)) delete d.games[key]
             }
           })
         } catch (err) {
@@ -302,7 +310,7 @@ class Library extends EventEmitter {
   /** Pull just the always-on providers (cheap; used after adding a non-Epic game). */
   async refreshLocal(): Promise<void> {
     for (const p of providers) {
-      if (!p.alwaysOn) continue
+      if (p.id !== 'local') continue
       const games = await p.fetchLibrary()
       const installs = await p.scanExternalInstalls()
       this.cache.update((d) => {

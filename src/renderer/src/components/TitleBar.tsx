@@ -1,11 +1,14 @@
-import { ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react'
+import '../styles/friends-chrome.css'
+import { ChevronLeft, ChevronRight, TriangleAlert, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { unreadTotal, useSocial } from '../lib/social'
+import type { Account } from '@shared/types'
 import { type Route, useStore } from '../store'
 import { Modal } from './Modal'
 import { confirmSignOut } from './shell/account'
 import { Dropdown, type MenuItem } from './shell/Dropdown'
 import { isMac, modKey } from './shell/format'
-import { STORE_LINKS } from './shell/storeLinks'
+import { STORE_LINKS, STORE_SITES } from './shell/storeLinks'
 import { GamekinsMark } from './GamekinsMark'
 
 const RUNNING = ['preparing', 'verifying', 'downloading', 'finalizing']
@@ -17,6 +20,7 @@ type MenuId = 'gamekins' | 'account'
 type NavId = 'store' | 'library' | 'downloads'
 
 const go = (r: Route): void => useStore.getState().navigate(r)
+const storeName = (p: Account['provider']): string => ({ epic: 'Epic Games', steam: 'Steam', gog: 'GOG', local: 'Gamekins' })[p]
 const openLibrary = (page: 'home' | 'collections'): void => {
   const s = useStore.getState()
   s.navigate({ view: 'library' })
@@ -29,7 +33,10 @@ export function TitleBar(): React.JSX.Element {
   const section = useStore((s) => (s.route.view === 'settings' ? s.route.section : undefined))
   const canBack = useStore((s) => s.back.length > 0)
   const canForward = useStore((s) => s.forward.length > 0)
-  const account = useStore((s) => s.accounts[0])
+  const accounts = useStore((s) => s.accounts)
+  const storeInfos = useStore((s) => s.info?.providers)
+  // The pill shows Epic first (the store with chat), then whichever store is connected.
+  const account = accounts.find((a) => a.provider === 'epic') ?? accounts[0]
   const sessionExpired = useStore((s) => s.sessionExpired)
   const signingIn = useStore((s) => s.signingIn)
   const refreshing = useStore((s) => s.refreshing)
@@ -37,6 +44,8 @@ export function TitleBar(): React.JSX.Element {
   const liveCount = useStore((s) => s.jobs.filter((j) => j.state !== 'done' && j.state !== 'cancelled').length)
   const downloading = useStore((s) => s.jobs.some((j) => RUNNING.includes(j.state)))
 
+  const friendsOpen = useSocial((st) => st.open)
+  const friendsUnread = useSocial((st) => unreadTotal(st.state))
   const [open, setOpen] = useState<{ id: MenuId; keyboard: boolean } | null>(null)
   const [about, setAbout] = useState(false)
   const [focused, setFocused] = useState(() => document.hasFocus())
@@ -79,20 +88,23 @@ export function TitleBar(): React.JSX.Element {
         : { label: signingIn ? 'Signing in…' : 'Sign in to Epic Games…', disabled: signingIn, onSelect: signIn },
       { label: isMac() ? 'Quit Gamekins' : 'Exit', shortcut: isMac() ? '⌘+Q' : undefined, onSelect: exit }
     ],
-    account: account
-      ? [
-          { heading: account.displayName, accent: true },
-          { label: 'View account details', onSelect: () => go({ view: 'settings', section: 'account' }) },
-          { label: 'Epic account page', onSelect: () => void window.gamekins.app.openExternal(EPIC_ACCOUNT) },
-          { label: 'Settings', onSelect: () => go({ view: 'settings' }) },
-          { separator: true },
-          { label: 'Sign out of account…', onSelect: signOut }
-        ]
-      : [
-          ...(sessionExpired ? [{ heading: 'Your Epic session expired' }] : []),
-          { label: signingIn ? 'Signing in…' : 'Sign in to Epic Games…', disabled: signingIn, onSelect: signIn },
-          { label: 'Account settings', onSelect: () => go({ view: 'settings', section: 'account' }) }
-        ]
+    account: [
+      ...(sessionExpired && !accounts.some((a) => a.provider === 'epic') ? [{ heading: 'Your Epic session expired' }] : []),
+      ...accounts.map((a) => ({ heading: `${a.displayName} · ${storeName(a.provider)}`, accent: true })),
+      ...(storeInfos ?? [{ id: 'epic', name: 'Epic Games', available: true }])
+        .filter((p) => p.available && !accounts.some((a) => a.provider === p.id))
+        .map((p) => ({
+          label: signingIn ? 'Signing in…' : `Sign in to ${p.name}…`,
+          disabled: signingIn,
+          onSelect: () => void s().signIn(p.id as Account['provider'])
+        })),
+      { separator: true },
+      { label: 'Connected stores & account', onSelect: () => go({ view: 'settings', section: 'account' }) },
+      ...(accounts.some((a) => a.provider === 'epic') ? [{ label: 'Epic account page', onSelect: () => void window.gamekins.app.openExternal(EPIC_ACCOUNT) }] : []),
+      { label: 'Settings', onSelect: () => go({ view: 'settings' }) },
+      ...(accounts.length ? [{ separator: true } as MenuItem] : []),
+      ...accounts.map((a) => ({ label: `Sign out of ${storeName(a.provider)}…`, onSelect: () => confirmSignOut(a.provider, storeName(a.provider)) }))
+    ]
   }
 
   useEffect(() => {
@@ -208,7 +220,13 @@ export function TitleBar(): React.JSX.Element {
             active={activeTab === 'store'}
             title={`Store (${mod}+1)`}
             onClick={() => go({ view: 'store' })}
-            items={STORE_LINKS.map((l) => ({ label: l.label, onSelect: () => go({ view: 'store', url: l.url }) }))}
+            items={[
+              { label: 'Epic Games Store', onSelect: () => go({ view: 'store', url: STORE_SITES.epic.home }) },
+              { label: 'Steam Store', onSelect: () => go({ view: 'store', url: STORE_SITES.steam.home }) },
+              { label: 'GOG Store', onSelect: () => go({ view: 'store', url: STORE_SITES.gog.home }) },
+              { separator: true },
+              ...STORE_LINKS.filter((l) => l.label !== 'Discover').map((l) => ({ label: `Epic: ${l.label}`, onSelect: () => go({ view: 'store', url: l.url }) }))
+            ]}
           />
           <NavTab
             id="library"
@@ -237,6 +255,17 @@ export function TitleBar(): React.JSX.Element {
             <button className="tb-pill tb-alert" onClick={signIn} title="Your Epic Games session expired. Sign in again." disabled={signingIn}>
               <TriangleAlert size={14} />
               <span>Session expired</span>
+            </button>
+          )}
+          {account && (
+            <button
+              className={`tb-friends ${friendsOpen ? 'on' : ''}`}
+              title="Friends & chat"
+              aria-pressed={friendsOpen}
+              onClick={() => useSocial.getState().toggle()}
+            >
+              <Users size={17} />
+              {friendsUnread > 0 && <span className="tb-friends-badge">{friendsUnread > 9 ? '9+' : friendsUnread}</span>}
             </button>
           )}
           <div className="tb-menu-wrap">

@@ -90,10 +90,9 @@
   border-radius: var(--r-pill);
   background: rgba(7, 9, 13, 0.62);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   line-height: 24px;
-  letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.82);
   white-space: nowrap;
   transition: background-color var(--t-fast);
@@ -107,7 +106,7 @@ button.gp-tag:hover {
 }
 .gp-logo-area {
   position: absolute;
-  inset: 16px 28px 22px;
+  inset: 16px 32px 22px; /* title lines up optically with the Play button below */
   z-index: 2;
   display: flex;
   align-items: flex-end;
@@ -124,8 +123,8 @@ button.gp-tag:hover {
 .gp-title {
   max-width: 70%;
   margin: 0 0 4px;
-  font: 800 clamp(26px, 3.4cqi, 48px) / 1.08 var(--lib-font);
-  letter-spacing: -0.02em;
+  font: var(--fw-heavy) var(--fs-hero) / var(--lh-tight) var(--lib-font);
+  letter-spacing: var(--tracking-tighter);
   color: #fff;
   text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
   display: -webkit-box;
@@ -181,13 +180,13 @@ button.gp-tag:hover {
   display: grid;
   place-items: center;
   background: var(--surface-3);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
 }
 .gp-mini span {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .gp-bar.stuck .gp-mini {
@@ -210,8 +209,8 @@ button.gp-tag:hover {
   padding: 0 22px 0 18px;
   border-radius: var(--r-lg);
   color: #fff;
-  font: 700 15px/1 var(--lib-font);
-  letter-spacing: 0.08em;
+  font: var(--fw-bold) var(--fs-md) / 1 var(--lib-font);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   white-space: nowrap;
   transition: transform var(--t-fast) ease-out;
@@ -289,7 +288,7 @@ button.gp-tag:hover {
   padding: 8px 10px;
   border-radius: var(--r-sm);
   text-align: left;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text);
 }
 .gp-play-menu button:hover {
@@ -341,19 +340,20 @@ button.gp-tag:hover {
   min-width: 0;
 }
 .gp-stat-label {
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   line-height: 16px;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-3);
   white-space: nowrap;
 }
 .gp-stat-value {
   max-width: 170px;
-  font-size: 13.5px;
-  font-weight: 550;
-  line-height: 18px;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -405,16 +405,17 @@ button.gp-tag:hover {
   background: var(--surface-3);
 }
 .gp-dl-label {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: #fff;
   white-space: nowrap;
 }
 .gp-dl-detail {
   max-width: 320px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -495,8 +496,8 @@ button.gp-tag:hover {
   border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 13px;
-  font-weight: 550;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   white-space: nowrap;
   transition:
@@ -542,15 +543,15 @@ button.gp-tag:hover {
 }
 .gp-infopanel h3 {
   margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .gp-infopanel p {
   margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: var(--fs-base);
+  line-height: var(--lh-relaxed);
   color: var(--text-2);
   display: -webkit-box;
   -webkit-line-clamp: 5;
@@ -563,14 +564,14 @@ button.gp-tag:hover {
   flex-wrap: wrap;
   gap: 6px 22px;
   margin-bottom: 12px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-2);
 }
 .gp-infopanel-facts b {
   margin-right: 6px;
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-4);
 }
@@ -626,15 +627,16 @@ button.gp-tag:hover {
   gap: 10px;
   margin: 0 0 10px;
   padding-left: 2px;
-  font-size: 12.5px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: 20px;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-2);
 }
 .gp-sec-title span {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   letter-spacing: 0;
   text-transform: none;
   color: var(--text-4);
@@ -648,7 +650,7 @@ button.gp-tag:hover {
 .gp-panel-link {
   display: block;
   margin: 10px 0 0 auto;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-3);
 }
 .gp-panel-link:hover {
@@ -662,7 +664,7 @@ button.gp-tag:hover {
   border-radius: var(--r-lg);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-2);
 }
 .gp-highlight > div:last-child {
@@ -672,8 +674,9 @@ button.gp-tag:hover {
   min-width: 0;
 }
 .gp-highlight b {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-snug);
   color: #fff;
 }
 .gp-highlight-icon {
@@ -696,7 +699,7 @@ button.gp-tag:hover {
   border-radius: var(--r-lg);
   background: var(--surface-1);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 13px;
+  font-size: var(--fs-base);
 }
 .gp-note > svg {
   flex: none;
@@ -710,12 +713,12 @@ button.gp-tag:hover {
   gap: 2px;
 }
 .gp-note b {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: #fff;
 }
 .gp-note span {
   color: var(--text-2);
-  line-height: 1.45;
+  line-height: var(--lh-body);
 }
 .gp-note.blue {
   background: var(--accent-soft);
@@ -761,18 +764,18 @@ button.gp-tag:hover {
   min-width: 0;
 }
 .gp-event-text b {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
   color: var(--text);
 }
 .gp-event-text span {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-4);
 }
 .gp-about p {
   margin: 0;
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: var(--fs-base);
+  line-height: var(--lh-relaxed);
   color: var(--text-2);
   white-space: pre-line;
   user-select: text;
@@ -795,19 +798,19 @@ button.gp-tag:hover {
 }
 .gp-row-label {
   flex: none;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-3);
 }
 .gp-row-value {
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text);
   text-align: right;
   overflow-wrap: anywhere;
 }
 .gp-path {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--accent-text);
   text-align: right;
   overflow-wrap: anywhere;
@@ -840,7 +843,7 @@ button.gp-tag:hover {
   width: 100%;
   padding: 8px 10px;
   border-radius: var(--r-md);
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text-2);
   text-align: left;
   transition:

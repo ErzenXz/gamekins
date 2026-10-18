@@ -4,7 +4,7 @@ import { library } from './library'
 import { downloads } from './downloads'
 import { array, boolean, fields, number, object, oneOf, optional, path, prefsSchema, settingsSchema, text, type Validator } from './validation'
 
-const empty = ['app:info', 'app:quit', 'app:listPrograms', 'app:storage', 'accounts:list', 'library:get', 'library:refresh', 'library:freeGames', 'downloads:list', 'downloads:clearFinished', 'settings:get']
+const empty = ['app:info', 'app:quit', 'app:listPrograms', 'app:storage', 'accounts:list', 'library:get', 'library:refresh', 'library:freeGames', 'downloads:list', 'downloads:clearFinished', 'settings:get', 'social:state', 'social:refresh']
 const schemas: Record<string, Validator[]> = Object.fromEntries(empty.map((name) => [name, []]))
 Object.assign(schemas, {
   'app:openExternal': [text], 'app:pickDirectory': [optional(path)],
@@ -13,7 +13,7 @@ Object.assign(schemas, {
       name: text, extensions: array((e) => typeof e === 'string' && /^(\*|[a-zA-Z0-9]{1,16})$/.test(e), 30)
     }), 30))
   }))],
-  'accounts:login': [oneOf('epic')], 'accounts:logout': [oneOf('epic')],
+  'accounts:login': [oneOf('epic', 'steam', 'gog')], 'accounts:logout': [oneOf('epic', 'steam', 'gog')],
   'games:plan': [text, optional(path)], 'games:install': [text, optional(path)],
   'games:importFolder': [text, path], 'games:moveInstall': [text, path],
   'games:addLocal': [array(path, 500)],
@@ -26,8 +26,16 @@ Object.assign(schemas, {
     replacement: optional((n) => text(n) && (n as string).trim().length > 0 && (n as string).length <= 60)
   }) && (object(v) && (v.operation !== 'rename' || typeof v.replacement === 'string'))],
   'settings:set': [(v: unknown) => object(v) && Object.entries(v).every(([k, value]) => Object.hasOwn(settingsSchema, k) && settingsSchema[k as keyof typeof settingsSchema](value))],
-  'downloads:move': [text, (v: unknown) => number(Math.abs(v as number)) && (v === -1 || v === 1)]
+  'downloads:move': [text, (v: unknown) => number(Math.abs(v as number)) && (v === -1 || v === 1)],
+  'social:send': [accountId, (v: unknown) => typeof v === 'string' && v.trim().length > 0 && v.length <= 2000],
+  'social:add': [oneOf('epic', 'steam', 'gog'), (v: unknown) => typeof v === 'string' && v.trim().length > 0 && v.length <= 64]
 })
+// Friends are "<store>:<account id>" (Epic: 32 hex, Steam: 17-digit SteamID64, GOG: numeric).
+function accountId(v: unknown): boolean {
+  return typeof v === 'string' && /^(epic:[0-9a-f]{32}|steam:\d{1,20}|gog:\d{1,24})$/i.test(v)
+}
+for (const name of ['chat', 'accept', 'remove', 'markRead']) schemas[`social:${name}`] = [accountId]
+schemas['social:openExternal'] = [accountId, oneOf('chat', 'profile')]
 for (const name of ['update', 'repair', 'uninstall', 'launch', 'stop', 'openFolder', 'createShortcut']) schemas[`games:${name}`] = [text]
 for (const name of ['pause', 'resume', 'cancel']) schemas[`downloads:${name}`] = [text]
 
@@ -42,9 +50,11 @@ export function validateArguments(channel: string, args: unknown[]): void {
   if (channel.startsWith('games:') && !['games:addLocal', 'games:editCollections'].includes(channel)) {
     const game = library.providerGame(args[0] as string)
     if (!game) throw new Error('Unknown game')
-    const managed = ['games:plan', 'games:importFolder', 'games:update', 'games:repair', 'games:moveInstall']
+    // Steam/GOG updates go to their client (handled by games:update itself).
+    const managed = ['games:plan', 'games:importFolder', 'games:repair', 'games:moveInstall']
+    if (channel === 'games:update' && game.provider !== 'epic' && game.provider !== 'steam' && game.provider !== 'gog') throw new Error('This operation is not supported for this game')
     if (managed.includes(channel) && (game.provider !== 'epic' || game.thirdPartyManagedApp)) throw new Error('This operation is not supported for this game')
-    if (channel === 'games:install' && game.provider !== 'epic') throw new Error('Local games cannot be installed by Gamekins')
+    if (channel === 'games:install' && game.provider === 'local') throw new Error('Local games cannot be installed by Gamekins')
     if (['games:launch', 'games:stop', 'games:moveInstall'].includes(channel) && game.dlcOf) throw new Error('Use the base game for this operation')
   }
   if (channel.startsWith('downloads:') && !['downloads:list', 'downloads:clearFinished'].includes(channel) && !downloads.jobs.some((job) => job.id === args[0])) throw new Error('Unknown download')

@@ -86,6 +86,17 @@ const api: GamekinsApi = {
     move: invoke('downloads:move'),
     clearFinished: invoke('downloads:clearFinished')
   },
+  social: {
+    state: invoke('social:state'),
+    refresh: invoke('social:refresh'),
+    chat: invoke('social:chat'),
+    send: invoke('social:send'),
+    add: invoke('social:add'),
+    accept: invoke('social:accept'),
+    remove: invoke('social:remove'),
+    markRead: invoke('social:markRead'),
+    openExternal: invoke('social:openExternal')
+  },
   settings: {
     get: invoke('settings:get'),
     set: invoke('settings:set')
@@ -96,7 +107,9 @@ const api: GamekinsApi = {
     downloads: subscribe(EVENTS.downloads),
     accounts: subscribe(EVENTS.accounts),
     toast: subscribe(EVENTS.toast),
-    navigate: subscribeBuffered(EVENTS.navigate)
+    navigate: subscribeBuffered(EVENTS.navigate),
+    social: subscribe(EVENTS.social),
+    socialMessage: subscribe(EVENTS.socialMessage)
   }
 } as GamekinsApi
 

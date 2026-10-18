@@ -3,7 +3,7 @@
 // Simulates a live download so progress UI can be checked without a real account.
 
 import type { GamekinsApi } from '@shared/api'
-import type { Account, DownloadJob, FreeGame, Game, GamePrefs, Settings } from '@shared/types'
+import type { Account, ChatMessage, DownloadJob, Friend, FreeGame, Game, GamePrefs, Settings, SocialState } from '@shared/types'
 import sample from './devMockData.json'
 
 type Listener<T> = (v: T) => void
@@ -109,6 +109,12 @@ export function installDevMock(): void {
       return n < base.length ? g : { ...g, key: `epic:many${n}`, appName: `many${n}`, title: `${g.title} ${Math.floor(n / base.length) + 1}`, dlc: [], prefs: {}, running: false }
     })
   }
+  // A few titles come from Steam and GOG so the unified library can be previewed.
+  games = games.map((g, i) => {
+    if (g.provider !== 'epic' || g.running) return g
+    const store = i % 5 === 2 ? 'steam' : i % 7 === 5 ? 'gog' : null
+    return store ? { ...g, provider: store, key: `${store}:${g.appName}` } : g
+  })
   const allGames = games
   if (flag === 'loading' || flag === 'signedout' || flag === 'empty') games = []
 
@@ -163,7 +169,8 @@ export function installDevMock(): void {
     downloadsDuringGameplay: false,
     closeToTray: true,
     launchAtLogin: false,
-    hardwareAcceleration: true
+    hardwareAcceleration: true,
+    friendsStatus: 'online'
   }
   let accounts: Account[] = flag === 'signedout' ? [] : [{ provider: 'epic', id: 'me', displayName: 'PlayerOne' }]
 
@@ -176,7 +183,52 @@ export function installDevMock(): void {
     current: i < 2
   }))
 
+  // Fake friends (no real accounts) so the Friends panel can be previewed.
+  const fid = (n: number): string => 'epic:' + n.toString(16).padStart(32, '0')
+  const sid = (n: number): string => 'steam:' + String(76561198000000000 + n)
+  const mins = (m: number): number => now - m * 60_000
+  let social: SocialState = {
+    available: flag !== 'signedout',
+    connection: 'online',
+    me: { id: fid(999), displayName: 'PlayerOne' },
+    networks: [
+      { provider: 'epic', name: 'Epic Games', connection: 'online', canChat: true, canAddFriends: true, me: { id: fid(999), displayName: 'PlayerOne' } },
+      { provider: 'steam', name: 'Steam', connection: 'online', canChat: false, canAddFriends: false, me: { id: sid(999), displayName: 'PlayerOne' } }
+    ],
+    myStatus: 'online',
+    loading: false,
+    unread: { [fid(2)]: 2 },
+    friends: ([
+      { id: fid(1), displayName: 'NovaFox', status: 'playing', activity: 'Battle Royale - 12 left', app: 'Fortnite' },
+      { id: fid(2), displayName: 'pixel_ghost', status: 'playing', activity: 'Playing Rocket League', app: 'Rocket League' },
+      { id: fid(3), displayName: 'Mara', status: 'online' },
+      { id: fid(4), displayName: 'TurboTaco', status: 'away', activity: 'Battle Royale Lobby - 1 / 4', app: 'Fortnite' },
+      { id: fid(5), displayName: 'Kestrel', status: 'online', app: 'Fall Guys', activity: 'In Fall Guys' },
+      { id: fid(6), displayName: 'Bramble', status: 'offline', lastOnline: mins(42) },
+      { id: fid(7), displayName: 'Quill', status: 'offline', lastOnline: mins(60 * 5) },
+      { id: fid(8), displayName: 'Ottoman_Owl', status: 'offline', lastOnline: mins(60 * 30) },
+      { id: fid(9), displayName: 'Zephyr', status: 'offline', lastOnline: mins(60 * 24 * 9) },
+      { id: sid(1), provider: 'steam', displayName: 'gordon', status: 'playing', activity: 'Playing Counter-Strike 2', app: 'Counter-Strike 2' },
+      { id: sid(2), provider: 'steam', displayName: 'Alyx_V', status: 'online' },
+      { id: sid(3), provider: 'steam', displayName: 'chell', status: 'offline', lastOnline: mins(60 * 3) }
+    ] as Friend[]).map((x) => ({ ...x, provider: x.provider ?? 'epic' })),
+    requests: [
+      { id: fid(20), displayName: 'SunnyRiver', direction: 'incoming', at: mins(90) },
+      { id: fid(21), displayName: 'Lumen', direction: 'outgoing', at: mins(60 * 30) }
+    ]
+  }
+  const chats: Record<string, ChatMessage[]> = {
+    [fid(2)]: [
+      { id: 'c1', from: fid(2), text: 'you on tonight?', at: mins(14) },
+      { id: 'c2', from: 'me', text: 'yeah after dinner', at: mins(12) },
+      { id: 'c3', from: fid(2), text: 'nice, queue up ranked 2v2 when you can', at: mins(3) },
+      { id: 'c4', from: fid(2), text: 'bring your A game', at: mins(2) }
+    ]
+  }
+
   const listeners = {
+    social: new Set<Listener<SocialState>>(),
+    socialMessage: new Set<Listener<{ friendId: string; message: ChatMessage }>>(),
     library: new Set<Listener<Game[]>>(),
     downloads: new Set<Listener<DownloadJob[]>>(),
     accounts: new Set<Listener<Account[]>>()
@@ -460,9 +512,50 @@ export function installDevMock(): void {
     },
     settings: {
       get: async () => settings,
-      set: async (patch) => (settings = { ...settings, ...patch })
+      set: async (patch) => {
+        settings = { ...settings, ...patch }
+        if (patch.friendsStatus) {
+          social = { ...social, myStatus: patch.friendsStatus }
+          listeners.social.forEach((l) => l(social))
+        }
+        return settings
+      }
+    },
+    social: {
+      state: async () => social,
+      refresh: async () => undefined,
+      chat: async (id) => chats[id] ?? [],
+      send: async (id, text) => {
+        const message: ChatMessage = { id: String(Math.random()), from: 'me', text, at: Date.now() }
+        chats[id] = [...(chats[id] ?? []), message]
+        setTimeout(() => {
+          const reply: ChatMessage = { id: String(Math.random()), from: id, text: 'sounds good 👍', at: Date.now() }
+          chats[id] = [...chats[id], reply]
+          listeners.socialMessage.forEach((l) => l({ friendId: id, message: reply }))
+        }, 1500)
+        return message
+      },
+      add: async (_store, name) => name,
+      openExternal: async () => undefined,
+      accept: async (id) => {
+        const r = social.requests.find((x) => x.id === id)
+        social = { ...social, requests: social.requests.filter((x) => x.id !== id), friends: r ? [...social.friends, { id, displayName: r.displayName, status: 'online' }] : social.friends }
+        listeners.social.forEach((l) => l(social))
+      },
+      remove: async (id) => {
+        social = { ...social, requests: social.requests.filter((x) => x.id !== id), friends: social.friends.filter((x) => x.id !== id) }
+        listeners.social.forEach((l) => l(social))
+      },
+      markRead: async (id) => {
+        const unread = { ...social.unread }
+        delete unread[id]
+        social = { ...social, unread }
+        listeners.social.forEach((l) => l(social))
+      }
     },
     on: {
+      social: sub(listeners.social),
+      socialMessage: sub(listeners.socialMessage),
       library: sub(listeners.library),
       libraryProgress: (cb) => {
         if (flag !== 'loading') return () => undefined

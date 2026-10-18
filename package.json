@@ -15,7 +15,7 @@
     "dist:store": "electron-vite build && electron-builder --win appx",
     "dist:mac": "electron-vite build && electron-builder --mac dmg",
     "dev:web": "vite --config vite.web.config.ts",
-    "test": "node --test src/main/providers/epic/integrity.test.cjs"
+    "test": "node --test src/main/providers/epic/integrity.test.cjs src/main/providers/epic/social.test.cjs src/main/core/socialHub.test.cjs src/main/providers/gog/gog.test.cjs src/main/providers/steam/steam.test.cjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
