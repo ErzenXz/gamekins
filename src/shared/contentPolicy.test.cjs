@@ -8,11 +8,12 @@ const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
 
 const root = path.resolve(__dirname, '..')
+const distributionModule = path.join(root, 'shared', 'distribution.ts')
 const localArt = `gamekins-art://image/${'a'.repeat(64)}.png`
 
 function loadSource(file, { store = true, stubs = {} } = {}, cache = new Map()) {
   file = path.resolve(file)
-  if (file.endsWith('/shared/distribution.ts')) return { STORE_DISTRIBUTION: store }
+  if (file === distributionModule) return { STORE_DISTRIBUTION: store }
   if (cache.has(file)) return cache.get(file).exports
   const module = new Module(file)
   cache.set(file, module)
