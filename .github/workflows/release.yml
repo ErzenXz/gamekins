@@ -1,0 +1,105 @@
+name: Prepare desktop release artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Signed release or explicitly unsigned validation artifacts
+        type: choice
+        options: [validation, release]
+        default: validation
+      include_store:
+        description: Also build Microsoft Store package (requires Partner Center identity variables)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  desktop:
+    name: ${{ matrix.target }} (${{ inputs.mode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: mac
+            os: macos-latest
+          - target: win
+            os: windows-latest
+          - target: linux
+            os: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    environment: desktop-release
+    env:
+      CSC_LINK: ${{ matrix.target == 'mac' && secrets.MAC_CSC_LINK || '' }}
+      WIN_CSC_LINK: ${{ matrix.target == 'win' && secrets.WINDOWS_CSC_LINK || '' }}
+      CSC_KEY_PASSWORD: ${{ matrix.target == 'mac' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+      WIN_CSC_KEY_PASSWORD: ${{ matrix.target == 'win' && secrets.WINDOWS_CSC_KEY_PASSWORD || '' }}
+      APPLE_ID: ${{ matrix.target == 'mac' && secrets.APPLE_ID || '' }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.target == 'mac' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+      APPLE_TEAM_ID: ${{ matrix.target == 'mac' && secrets.APPLE_TEAM_ID || '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Validate release credentials before installing
+        shell: bash
+        run: node scripts/release.cjs ${{ matrix.target }} --check ${{ inputs.mode == 'validation' && '--unsigned' || '' }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Package for review
+        shell: bash
+        run: node scripts/release.cjs ${{ matrix.target }} ${{ inputs.mode == 'validation' && '--unsigned' || '' }} ${{ matrix.target == 'mac' && inputs.mode == 'validation' && '--arch=arm64' || '' }}
+      - run: node scripts/release-checksums.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Gamekins-${{ matrix.target }}-${{ inputs.mode }}-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+            dist/SHA256SUMS
+  store:
+    if: ${{ inputs.include_store }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    environment: desktop-release
+    env:
+      WINDOWS_STORE_IDENTITY_NAME: ${{ vars.WINDOWS_STORE_IDENTITY_NAME }}
+      WINDOWS_STORE_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER }}
+      WINDOWS_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Validate Partner Center identity before installing
+        run: node scripts/release.cjs store --check
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Build Store submission package (Microsoft signs on submission)
+        shell: bash
+        run: node scripts/release.cjs store ${{ inputs.mode == 'validation' && '--unsigned' || '' }}
+      - run: node scripts/release-checksums.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Gamekins-store-${{ inputs.mode }}-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            dist/*.appx
+            dist/SHA256SUMS

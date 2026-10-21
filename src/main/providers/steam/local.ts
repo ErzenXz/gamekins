@@ -104,7 +104,7 @@ export async function findSteamRoot(): Promise<string | null> {
   } else if (process.platform === 'darwin') {
     candidates.push(join(homedir(), 'Library', 'Application Support', 'Steam'))
   } else {
-    candidates.push(join(homedir(), '.steam', 'steam'), join(homedir(), '.local', 'share', 'Steam'))
+    candidates.push(join(homedir(), '.steam', 'steam'), join(homedir(), '.local', 'share', 'Steam'), join(homedir(), '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam'))
   }
   for (const c of candidates) {
     if (c && existsSync(join(c, 'steamapps'))) return resolve(c)
@@ -123,6 +123,11 @@ export async function findSteamExe(root: string | null): Promise<string | null> 
   }
   if (process.platform === 'darwin') {
     for (const app of ['/Applications/Steam.app', join(homedir(), 'Applications', 'Steam.app')]) if (existsSync(app)) return app
+  }
+  if (process.platform === 'linux') {
+    for (const exe of ['/usr/bin/steam', '/usr/local/bin/steam', ...(root ? [join(root, 'steam.sh')] : [])]) {
+      if (existsSync(exe)) return exe
+    }
   }
   return null
 }

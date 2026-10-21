@@ -18,7 +18,7 @@ export interface Primary {
   label: string
 }
 
-const OS_NAME: Record<string, string> = { win32: 'Windows', darwin: 'macOS' }
+const OS_NAME: Record<string, string> = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }
 
 export function jobProgress(j: DownloadJob): number {
   if (j.state === 'verifying') return j.totalVerifyBytes ? j.verifiedBytes / j.totalVerifyBytes : 0
@@ -76,8 +76,12 @@ export const isLocal = (g: Pick<Game, 'provider'>): boolean => g.provider === 'l
 
 /** Whether this game has a build for the OS we're running on. */
 export function availableHere(game: Game, platform: string): boolean {
+  // Steam handles native/Proton compatibility itself. Epic has no Linux builds,
+  // and Galaxy has no Linux client; neither can install or launch here yet.
+  if (platform === 'linux' && (game.provider === 'epic' || game.provider === 'gog')) return false
   if (isLocal(game) || game.thirdPartyManagedApp || !game.platforms.length) return true
-  return game.platforms.includes(platform === 'darwin' ? 'Mac' : 'Windows')
+  if (platform === 'linux' && game.provider === 'steam') return true
+  return game.platforms.includes(platform === 'darwin' ? 'Mac' : platform === 'linux' ? 'Linux' : 'Windows')
 }
 
 /** Who put the files on disk, for "Installed by" labels. */
@@ -128,12 +132,12 @@ export function primaryAction(
     return { kind: 'pause', label: 'Pause' }
   }
   if (game.install?.unavailable) return { kind: 'unavailable', label: 'Drive not connected' }
+  if (!availableHere(game, platform)) {
+    return { kind: 'unavailable', label: `Not on ${OS_NAME[platform] ?? platform}` }
+  }
   if (game.install) {
     if (game.updateAvailable && !isLocal(game)) return { kind: 'update', label: 'Update' }
     return { kind: 'play', label: 'Play' }
-  }
-  if (!availableHere(game, platform)) {
-    return { kind: 'unavailable', label: `Not on ${OS_NAME[platform] ?? platform}` }
   }
   return { kind: 'install', label: 'Install' }
 }

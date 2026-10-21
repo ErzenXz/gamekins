@@ -1,0 +1,21 @@
+# Only reviewed native tooling may execute install scripts.
+allowBuilds:
+  electron: true
+  esbuild: true
+  app-builder-bin: false
+  dmg-license: false
+  electron-winstaller: false
+strictDepBuilds: true
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
+verifyStoreIntegrity: true
+strictPeerDependencies: true
+saveExact: true
+# Legacy tooling predates provenance. Keep trust checks for all releases from
+# the last year; older artifacts remain integrity-pinned in the lockfile.
+trustPolicyIgnoreAfter: 525600
+# Security fixes for the compatible 4.x dependency of electron-builder's downloader.
+overrides:
+  http-cache-semantics@^4.0.0: 4.3.0

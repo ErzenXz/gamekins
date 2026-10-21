@@ -262,6 +262,12 @@ class Library extends EventEmitter {
     this.changed()
   }
 
+  /** Installation commits must reach disk before their recovery marker is removed. */
+  commitInstalled(key: string, info: InstalledInfo): void {
+    this.setInstalled(key, info)
+    if (!this.installed.flush()) throw new Error('Could not save the installed game; resume the download to finish recovery')
+  }
+
   /** After a folder move: repoint every install (game + its DLC) that lived in `from`. */
   relocate(from: string, to: string): void {
     this.installed.update((d) => {

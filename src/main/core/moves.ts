@@ -8,6 +8,7 @@ import { operations } from './operations'
 import { beginRelocation, finishRelocation } from './relocations'
 import { provider } from '../providers'
 import { FsBoundary, pathKey } from '../providers/epic/fsBoundary'
+import { assertNoPendingInstallCommit } from '../providers/epic/installer'
 
 export async function moveInstall(key: string, baseDir: string): Promise<void> {
   const release = operations.acquire(key, 'move')
@@ -18,6 +19,7 @@ export async function moveInstall(key: string, baseDir: string): Promise<void> {
     const info = library.installInfo(key)
     if (game?.provider !== 'epic') throw new Error('Only Epic installations can be moved')
     if (!info || info.unavailable) throw new Error('Game is not available on disk')
+    await assertNoPendingInstallCommit(info.path)
     if (downloads.jobs.some((j) => ['queued', 'paused', 'preparing', 'verifying', 'downloading', 'finalizing'].includes(j.state) && operations.groupFor(j.parentKey ?? j.gameKey) === operations.groupFor(key))) throw new Error('Wait for group downloads to finish')
     const originalPath = info.path
     const source = await realpath(originalPath)
@@ -54,7 +56,6 @@ export async function moveInstall(key: string, baseDir: string): Promise<void> {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
       staging = join(dirname(target), '.' + basename(target) + '.moving-' + randomUUID())
-      await mkdir(staging)
       await cp(source, staging, { recursive: true, errorOnExist: true, force: false })
       await rename(staging, target)
       staging = undefined

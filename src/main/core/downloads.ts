@@ -6,7 +6,7 @@ import { lstat, mkdir, readFile, readdir, rm, statfs, writeFile } from 'node:fs/
 import { dirname, join } from 'node:path'
 import type { DownloadJob, DownloadKind, ProviderId } from '@shared/types'
 import { provider } from '../providers'
-import { discardPartial } from '../providers/epic/installer'
+import { assertNoPendingInstallCommit, discardPartial } from '../providers/epic/installer'
 import { FsBoundary, pathKey } from '../providers/epic/fsBoundary'
 import { library } from './library'
 import { settings } from './settings'
@@ -269,6 +269,8 @@ class Downloads extends EventEmitter {
   async cancel(id: string): Promise<void> {
     const job = this.jobs.find((j) => j.id === id)
     if (!job || job.state === 'done' || this.stoppingPaths.has(pathKey(job.installPath))) return
+    // A failed commit must remain resumable, including an owned fresh-install folder.
+    if (job.providerId === 'epic') await assertNoPendingInstallCommit(job.installPath)
     const path = pathKey(job.installPath)
     const active = this.active?.job === job ? this.active : null
     const release = active?.release ?? operations.acquire(job.parentKey ?? job.gameKey, 'cancel download')
@@ -280,8 +282,10 @@ class Downloads extends EventEmitter {
     }
     job.state = 'cancelled'
     this.emitNow()
+    let cleanupFailed = false
     try {
       await active?.promise
+      if (job.providerId === 'epic') await assertNoPendingInstallCommit(job.installPath)
       const game = library.providerGame(job.gameKey)
       if (game && !game.dlcOf && !job.parentKey && job.kind === 'install' && job.createdFolder &&
           !library.installInfo(job.gameKey) && game.provider === job.providerId && game.appName === job.appName) {
@@ -299,8 +303,11 @@ class Downloads extends EventEmitter {
       }
     } catch (err) {
       console.warn('[downloads] partial cleanup failed', err)
+      cleanupFailed = true
+      job.state = 'error'
+      job.error = (err as Error).message
     } finally {
-      this.store.data.jobs = this.jobs.filter((j) => j !== job)
+      if (!cleanupFailed) this.store.data.jobs = this.jobs.filter((j) => j !== job)
       this.stoppingPaths.delete(path)
       this.cancellationLeases.delete(job.id)
       release()
@@ -403,7 +410,7 @@ class Downloads extends EventEmitter {
         kind: job.kind,
         installPath: job.installPath,
         existing: library.installInfo(job.gameKey),
-        onCommitted: (info) => library.setInstalled(job.gameKey, info),
+        onCommitted: (info) => library.commitInstalled(job.gameKey, info),
         throttleWithSignal: (bytes, workerSignal) => this.throttle.take(bytes, AbortSignal.any([signal, workerSignal])),
         throttle: (bytes) => this.throttle.take(bytes, signal)
       })

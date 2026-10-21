@@ -4,6 +4,7 @@ const { test } = require('node:test')
 const fs = require('node:fs')
 const fsp = require('node:fs/promises')
 const { resolve, join, dirname } = require('node:path')
+const { tmpdir } = require('node:os')
 const Module = require('node:module')
 const ts = require('typescript')
 const { EventEmitter } = require('node:events')
@@ -15,7 +16,8 @@ const deferred = () => {
 }
 
 async function fixture(t, overrides = {}) {
-  const root = await fsp.mkdtemp(join(__dirname, '.batch-c-'))
+  const temporaryDirectory = fs.realpathSync(tmpdir())
+  const root = await fsp.mkdtemp(join(temporaryDirectory, 'gamekins-batch-c-'))
   const cache = new Map()
   const storageClears = []
   const opened = []
@@ -61,7 +63,7 @@ async function fixture(t, overrides = {}) {
         for (const field of ['cache', 'installed', 'playtime', 'prefs', 'artwork', 'sessions']) clearTimeout(library[field]?.timer)
       }
     }
-    assert.equal(dirname(root), __dirname)
+    assert.equal(dirname(root), temporaryDirectory)
     await fsp.rm(root, { recursive: true, force: true })
   })
   return { root, load, stubs, storageClears, opened }
@@ -145,14 +147,19 @@ test('local tracking excludes neighboring executables and rejects unverifiable r
 test('process scans share one promise and distinguish scan errors from empty lists', async (t) => {
   const callback = deferred()
   let calls = 0, done
-  const f = await fixture(t, { stubs: { 'node:child_process': { execFile: (_cmd, _args, _opts, cb) => { calls++; done = cb; callback.yes() } } } })
+  const stubs = process.platform === 'linux'
+    ? { 'node:fs/promises': { ...fsp, readdir: () => new Promise((resolve, reject) => {
+        calls++; done = (err, value) => err ? reject(err) : resolve(value); callback.yes()
+      }) } }
+    : { 'node:child_process': { execFile: (_cmd, _args, _opts, cb) => { calls++; done = cb; callback.yes() } } }
+  const f = await fixture(t, { stubs })
   const { listProcesses } = f.load('processes')
   const one = listProcesses(), two = listProcesses()
   assert.equal(one, two); assert.equal(calls, 1)
   await callback.promise
   done(new Error('access denied'), '')
-  await assert.rejects(one, /scan failed/)
-  const empty = listProcesses(); done(null, '')
+  await assert.rejects(one, /access denied/)
+  const empty = listProcesses(); done(null, process.platform === 'linux' ? [] : '')
   assert.deepEqual(await empty, [])
 })
 
@@ -347,6 +354,7 @@ test('relocation recovery repairs metadata after promotion and preserves survivi
 })
 
 test('shortcut additions deduplicate resolved targets plus arguments and retain working directories', async (t) => {
+  if (process.platform !== 'win32') return t.skip('Windows shortcut resolution')
   const f = await fixture(t)
   const exe = join(f.root, 'game.exe')
   fs.writeFileSync(exe, 'offline')

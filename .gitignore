@@ -5,3 +5,11 @@ dist
 .DS_Store
 .claude/
 *.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.p8
+*.cer
+coverage/

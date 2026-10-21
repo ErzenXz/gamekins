@@ -2,10 +2,11 @@
 const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const fs = require('node:fs/promises')
-const { readFileSync } = require('node:fs')
+const { readFileSync, realpathSync } = require('node:fs')
 const { createHash } = require('node:crypto')
 const { EventEmitter } = require('node:events')
 const { dirname, join, resolve } = require('node:path')
+const { tmpdir } = require('node:os')
 const Module = require('node:module')
 const ts = require('typescript')
 const { deflateSync } = require('node:zlib')
@@ -57,17 +58,18 @@ function chunk(n, payload = Buffer.alloc(1024 * 1024, n), compressed = false, ve
 }
 
 async function fixture(t, options = {}) {
-  const root = await fs.mkdtemp(join(__dirname, '.integrity-'))
+  const temporaryDirectory = realpathSync(tmpdir())
+  const root = await fs.mkdtemp(join(temporaryDirectory, 'gamekins-integrity-'))
   t.after(async () => {
-    assert.equal(dirname(root), __dirname)
-    assert.ok(root.startsWith(join(__dirname, '.integrity-')))
+    assert.equal(dirname(root), temporaryDirectory)
+    assert.ok(root.startsWith(join(temporaryDirectory, 'gamekins-integrity-')))
     await fs.rm(root, { recursive: true, force: true })
   })
   const games = new Map()
   const installs = new Map()
   const library = Object.assign(new EventEmitter(), {
     get: (key) => games.get(key), providerGame: (key) => games.get(key), installInfo: (key) => installs.get(key),
-    setInstalled: (key, info) => installs.set(key, info), anyRunning: () => false, isRunning: () => false,
+    setInstalled: (key, info) => installs.set(key, info), commitInstalled: (key, info) => installs.set(key, info), anyRunning: () => false, isRunning: () => false,
     listAll: () => [...games.values()], prefsFor: () => ({})
   })
   const settings = { downloadsDuringGameplay: true, bandwidthLimitMBps: 0, autoUpdate: true }
@@ -161,17 +163,17 @@ test('repair and unknown-manifest updates preserve originals when finalization i
   }
 })
 
-test('resume is bound to manifest bytes and validates final/staged sizes', async (t) => {
+test('resume is bound to manifest bytes and validates final/staged content', async (t) => {
   const f = await fixture(t)
   const json = manifest([['game.bin', [1]]])
   const digest = sha(Buffer.from(JSON.stringify(json))).toString('hex')
   await fs.mkdir(join(f.root, '.gamekins'))
   await fs.writeFile(join(f.root, '.gamekins', 'resume-TestApp.log'), `${digest}\tgame.bin\tfinal\n`)
-  for (const bytes of [null, Buffer.alloc(1), Buffer.alloc(4, 1)]) {
+  for (const bytes of [null, Buffer.alloc(1), Buffer.alloc(4, 2), Buffer.alloc(4, 1)]) {
     if (bytes) await fs.writeFile(join(f.root, 'game.bin'), bytes)
     const task = f.installTask(json)
     await task.prepare(new AbortController().signal)
-    assert.equal(task.toWrite.length, bytes?.length === 4 ? 0 : 1)
+    assert.equal(task.toWrite.length, bytes?.equals(Buffer.alloc(4, 1)) ? 0 : 1)
   }
   const changed = { ...json, LaunchCommand: 'changed manifest, same version' }
   const task = f.installTask(changed)
@@ -181,6 +183,32 @@ test('resume is bound to manifest bytes and validates final/staged sizes', async
   const staged = f.installTask(json)
   await staged.prepare(new AbortController().signal)
   assert.equal(staged.toWrite.length, 1)
+  for (const value of [2, 1]) {
+    await fs.writeFile(join(f.root, 'game.bin.gamekins-tmp'), Buffer.alloc(4, value))
+    const task = f.installTask(json)
+    await task.prepare(new AbortController().signal)
+    assert.equal(task.toWrite.length, value === 1 ? 0 : 1)
+  }
+})
+
+test('same-size corruption after resume preparation is repaired before promotion', async (t) => {
+  const f = await fixture(t)
+  const json = manifest([['game.bin', [1]]])
+  await fs.writeFile(join(f.root, 'game.bin'), Buffer.alloc(4, 1))
+  await fs.mkdir(join(f.root, '.gamekins'))
+  const digest = sha(Buffer.from(JSON.stringify(json))).toString('hex')
+  await fs.writeFile(join(f.root, '.gamekins', 'resume-TestApp.log'), `${digest}\tgame.bin\tfinal\n`)
+  const task = f.installTask(json)
+  await task.prepare(new AbortController().signal)
+  let changed = false
+  await task.run(new AbortController().signal, (progress) => {
+    if (progress.phase === 'finalizing' && !changed) {
+      require('node:fs').writeFileSync(join(f.root, 'game.bin'), Buffer.alloc(4, 2))
+      changed = true
+    }
+  })
+  assert.equal(changed, true)
+  assert.deepEqual(await fs.readFile(join(f.root, 'game.bin')), Buffer.alloc(4, 1))
 })
 
 test('missing completed staging files are rewritten before atomic manifest save', async (t) => {
@@ -219,6 +247,87 @@ test('a completed final file that becomes truncated is rebuilt through staging',
   }))
   assert.equal(await fs.readFile(join(f.root, 'game.bin'), 'utf8'), 'x')
   assert.deepEqual(await fs.readFile(join(f.root, 'game.bin.gamekins-tmp')), Buffer.alloc(4, 1))
+})
+
+test('commit journal recovers promotion, deletion, manifest and installed-state interruptions offline', async (t) => {
+  for (const interruption of ['promotion', 'deletion', 'manifest', 'installed-state']) {
+    await t.test(interruption, async (t) => {
+      let interrupted = false
+      const crash = () => { interrupted = true; throw new Error('simulated crash') }
+      const f = await fixture(t, { fs: {
+        rename: async (from, to) => {
+          await fs.rename(from, to)
+          if (!interrupted && ((interruption === 'promotion' && from.endsWith('.gamekins-tmp')) ||
+              (interruption === 'manifest' && to.endsWith('saved.manifest')))) crash()
+        },
+        rm: async (path, options) => {
+          await fs.rm(path, options)
+          if (!interrupted && interruption === 'deletion' && path.endsWith('obsolete.bin')) crash()
+        }
+      } })
+      for (const name of ['a.bin', 'b.bin', 'obsolete.bin']) await fs.writeFile(join(f.root, name), Buffer.alloc(4, 2))
+      const old = manifest([['a.bin', [2]], ['b.bin', [2]], ['obsolete.bin', [2]]], 2)
+      const next = { ...manifest([['a.bin', [1]], ['b.bin', [1]]]), BuildVersionString: 'new-version' }
+      const req = { kind: 'update', jobId: 'recover-job', existing: { path: f.root, version: 'old-version' },
+        onCommitted: () => { if (!interrupted && interruption === 'installed-state') crash() } }
+      const deps = { loadInstalledManifest: async () => Buffer.from(JSON.stringify(old)) }
+      const task = f.installTask(next, req, deps)
+      await task.prepare(new AbortController().signal)
+      await assert.rejects(task.run(new AbortController().signal, () => {}), /simulated crash/)
+      const journal = join(f.root, '.gamekins', 'commit-TestApp.json')
+      assert.equal(interrupted, true)
+      assert.equal((await fs.stat(journal)).isFile(), true)
+      await assert.rejects(f.installer.assertNoPendingInstallCommit(f.root), /recovery required/)
+      await assert.rejects(f.installer.discardPartial(f.root, 'TestApp', 'recover-job'), /recovery required/)
+      let committed
+      const recovered = f.installTask(next, { ...req, onCommitted: (info) => { committed = info } }, {
+        api: { manifestInfo: async () => { throw new Error('recovery must be offline') } }
+      })
+      const totals = await recovered.prepare(new AbortController().signal)
+      assert.equal(totals.totalDownloadBytes, 0)
+      const info = await recovered.run(new AbortController().signal, () => {})
+      assert.equal(info.version, 'new-version')
+      assert.equal(committed.version, 'new-version')
+      for (const name of ['a.bin', 'b.bin']) assert.deepEqual(await fs.readFile(join(f.root, name)), Buffer.alloc(4, 1))
+      await assert.rejects(fs.stat(join(f.root, 'obsolete.bin')), { code: 'ENOENT' })
+      assert.equal(await fs.readFile(join(f.root, 'saved.manifest'), 'utf8'), JSON.stringify(next))
+      await assert.rejects(fs.stat(journal), { code: 'ENOENT' })
+      await f.installer.assertNoPendingInstallCommit(f.root)
+    })
+  }
+})
+
+test('cancellation after the first promotion completes the durable commit', async (t) => {
+  const controller = new AbortController()
+  let promotions = 0
+  const f = await fixture(t, { fs: { rename: async (from, to) => {
+    await fs.rename(from, to)
+    if (from.endsWith('.gamekins-tmp') && ++promotions === 1) controller.abort()
+  } } })
+  for (const name of ['a.bin', 'b.bin']) await fs.writeFile(join(f.root, name), Buffer.alloc(4, 2))
+  let committed = false
+  const task = f.installTask(manifest([['a.bin', [1]], ['b.bin', [1]]]), {
+    kind: 'repair', onCommitted: () => { committed = true }
+  })
+  await task.prepare(controller.signal)
+  await task.run(controller.signal, () => {})
+  assert.equal(controller.signal.aborted, true)
+  assert.equal(committed, true)
+  assert.equal(promotions, 2)
+  for (const name of ['a.bin', 'b.bin']) assert.deepEqual(await fs.readFile(join(f.root, name)), Buffer.alloc(4, 1))
+  await f.installer.assertNoPendingInstallCommit(f.root)
+})
+
+test('commit recovery rejects escaping journal paths and guards the entire shared installation', async (t) => {
+  const f = await fixture(t)
+  const next = manifest([['a.bin', [1]]])
+  const bytes = Buffer.from(JSON.stringify(next))
+  await fs.mkdir(join(f.root, '.gamekins'))
+  const journal = { schema: 1, appName: 'TestApp', jobId: '', manifest: bytes.toString('base64'),
+    manifestHash: sha(bytes).toString('hex'), files: ['a.bin'], staged: [], deletions: ['../outside'] }
+  await fs.writeFile(join(f.root, '.gamekins', 'commit-TestApp.json'), JSON.stringify(journal))
+  await assert.rejects(f.installTask(next).prepare(new AbortController().signal), /unsafe manifest path/)
+  await assert.rejects(f.installer.assertNoPendingInstallCommit(f.root, 'OtherDlc'), /recovery required/)
 })
 
 test('scoped discard leaves other apps and unrelated suffix files untouched', async (t) => {
@@ -494,8 +603,16 @@ test('cancel awaits writes; recursively removes only its owned non-DLC folder', 
     await started.promise
     if (scenario === 'missing metadata') f.games.clear()
     let cancelled = false
+    const cancelling = new Promise((resolve) => {
+      const changed = () => {
+        if (job.state !== 'cancelled') return
+        queue.off('changed', changed)
+        resolve()
+      }
+      queue.on('changed', changed)
+    })
     const cancel = queue.cancel(job.id).then(() => { cancelled = true })
-    await new Promise((r) => setImmediate(r))
+    await cancelling
     assert.equal(cancelled, false)
     assert.equal(job.state, 'cancelled')
     finish.resolve()

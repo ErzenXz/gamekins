@@ -7,10 +7,24 @@ const { libraryIndex, jobIndex, shareEntities } = require(root + '/lib/entityInd
 const { visibleRows, visibleItems } = require(root + '/components/library/virtualWindow.ts')
 const { applyLibrary, bootstrap, useStore } = require(root + '/store.ts')
 const { addToCollection, renameCollection, removeFromCollection, confirmDeleteCollection } = require(root + '/lib/gameActions.ts')
+const { availableHere, primaryAction, canInstall } = require(root + '/lib/gameActions.ts')
 
 const game = (key, overrides = {}) => ({ key, title: key, images: {}, prefs: {}, dlc: [], platforms: ['Windows'], playtimeSeconds: 0, ...overrides })
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 const tick = () => new Promise((resolve) => setImmediate(resolve))
+
+test('Linux actions do not advertise unsupported Epic/GOG installs or cached Windows launches', () => {
+  for (const provider of ['epic', 'gog']) {
+    const title = game(provider, { provider })
+    assert.equal(availableHere(title, 'linux'), false)
+    assert.equal(canInstall(title, undefined, 'linux'), false)
+    assert.equal(primaryAction({ ...title, install: { path: '/games/game.exe' } }, undefined, 'linux').kind, 'unavailable')
+  }
+  assert.equal(availableHere(game('steam', { provider: 'steam' }), 'linux'), true)
+  assert.equal(availableHere(game('local', { provider: 'local', platforms: ['Linux'] }), 'linux'), true)
+  assert.equal(availableHere(game('mac', { provider: 'epic', platforms: ['Mac'] }), 'darwin'), true)
+  assert.equal(availableHere(game('win', { provider: 'epic', platforms: ['Windows'] }), 'darwin'), false)
+})
 // Simulate the main-owned collection transaction rather than the old per-game patch API.
 function collectionApi(initial, before = async () => {}) {
   let games = structuredClone(initial)

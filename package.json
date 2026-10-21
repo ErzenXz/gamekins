@@ -11,34 +11,45 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "dist:win": "electron-vite build && electron-builder --win nsis",
-    "dist:store": "electron-vite build && electron-builder --win appx",
-    "dist:mac": "electron-vite build && electron-builder --mac dmg",
+    "dist:win": "node scripts/release.cjs win",
+    "dist:store": "node scripts/release.cjs store",
+    "dist:mac": "node scripts/release.cjs mac",
     "dev:web": "vite --config vite.web.config.ts",
-    "test": "node --test src/main/providers/epic/integrity.test.cjs src/main/providers/epic/social.test.cjs src/main/core/socialHub.test.cjs src/main/providers/gog/gog.test.cjs src/main/providers/steam/steam.test.cjs"
+    "test": "node --test src/main/providers/epic/integrity.test.cjs src/main/providers/epic/social.test.cjs src/main/core/socialHub.test.cjs src/main/providers/gog/gog.test.cjs src/main/providers/steam/steam.test.cjs",
+    "dist:linux": "node scripts/release.cjs linux",
+    "test:renderer": "node --test src/renderer/tests/batch-d.test.cjs",
+    "test:release": "node --test scripts/release.test.cjs",
+    "check": "pnpm typecheck && pnpm test && pnpm test:renderer && pnpm test:credentials && pnpm test:platform && pnpm test:release",
+    "test:credentials": "node --test src/main/core/credentials.test.cjs",
+    "test:platform": "node --test src/main/core/platform.test.cjs"
   },
   "devDependencies": {
-    "@types/node": "^24.19.1",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^44.5.1",
-    "electron-builder": "^26.15.3",
-    "electron-vite": "^5.0.0",
-    "typescript": "5.9",
-    "vite": "^7.3.6"
+    "@types/node": "24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.3.0",
-    "lucide-react": "^1.51.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "zustand": "^5.0.15"
+    "@fontsource-variable/inter": "5.3.0",
+    "lucide-react": "1.51.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zustand": "5.0.15"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/ErzenXz/gamekins.git"
   },
   "homepage": "https://github.com/ErzenXz/gamekins",
-  "private": true
+  "private": true,
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=12.14.0 <13"
+  }
 }

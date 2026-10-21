@@ -5,7 +5,7 @@ export type ProviderId = 'epic' | 'steam' | 'gog' | 'local'
 /** Stores with accounts (everything but local, non-store games). */
 export type StoreId = Exclude<ProviderId, 'local'>
 
-export type Platform = 'Windows' | 'Mac'
+export type Platform = 'Windows' | 'Mac' | 'Linux'
 
 export interface ProviderInfo {
   id: string

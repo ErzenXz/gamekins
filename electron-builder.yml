@@ -10,47 +10,46 @@ files:
   - package.json
 asarUnpack:
   - resources/**
-# Desktop shortcuts launch games via gamekins://launch/<game>
 protocols:
   - name: Gamekins
     schemes: [gamekins]
-
-# ── Windows ──────────────────────────────────────────────
+# Publishing is a separate, manual action after artifact review.
+publish: null
 win:
   icon: build/icon.png
   target: [nsis]
+  forceCodeSigning: true
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
-  artifactName: ${productName}-Setup-${version}.${ext}
-
-# Microsoft Store package (npm run dist:store).
-# Fill these from Partner Center → your app → Product identity.
+  artifactName: ${productName}-${version}-windows-${arch}-setup.${ext}
+# Partner Center identity is supplied by scripts/release-config.cjs.
 appx:
-  identityName: REPLACE.WithPartnerCenterIdentityName
-  publisher: CN=REPLACE-WITH-PARTNER-CENTER-PUBLISHER-ID
-  publisherDisplayName: REPLACE with your publisher display name
   displayName: Gamekins
   applicationId: Gamekins
   backgroundColor: '#171a21'
   languages: [en-US]
-  artifactName: ${productName}-${version}.${ext}
-
-# ── macOS ────────────────────────────────────────────────
-# Distributed as a signed + notarized DMG. The Mac App Store's sandbox forbids
-# installing to arbitrary folders and launching downloaded executables, so a
-# launcher can't ship there.
+  artifactName: ${productName}-${version}-windows-${arch}-store.${ext}
 mac:
   icon: build/icon.png
   category: public.app-category.games
   target:
     - target: dmg
       arch: [universal]
+  forceCodeSigning: true
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
 dmg:
-  artifactName: ${productName}-${version}-mac.${ext}
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+linux:
+  icon: build/icon.png
+  executableName: gamekins
+  category: Game
+  synopsis: A launcher for your PC game libraries
+  maintainer: ErzenXz <ErzenXz@users.noreply.github.com>
+  target: [AppImage, deb]
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}

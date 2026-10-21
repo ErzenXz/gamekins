@@ -444,12 +444,13 @@ function StartupSection({ settings, platform }: { settings: Settings; platform: 
   return (
     <>
     <Group>
-      <Toggle
+      {platform !== 'linux' && <Toggle
         settings={settings}
         k="launchAtLogin"
         label={`Run Gamekins when ${mac ? 'you log in' : 'Windows starts'}`}
         hint="Start in the background so updates are ready before you are."
-      />
+      />}
+      {platform === 'linux' && <Row label="Start at login" hint="Use your desktop environment’s Startup Applications settings to add Gamekins." />}
       {mac ? (
         <Row
           label="Closing the window"
@@ -477,7 +478,7 @@ function StartupSection({ settings, platform }: { settings: Settings; platform: 
 }
 
 function AboutSection({ version, platform }: { version: string; platform: string }): React.JSX.Element {
-  const os = platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : platform
+  const os = platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : platform === 'linux' ? 'Linux' : platform
   return (
     <>
       <div className="st-about">
