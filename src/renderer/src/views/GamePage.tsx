@@ -53,10 +53,12 @@ import {
   toggleFavorite
 } from '../lib/gameActions'
 import { act, useStore } from '../store'
+import { sanitizeGameForDistribution } from '../../../shared/contentPolicy'
 
 const INFO_KEY = 'gamekins.gamepage.info'
 
 export function GamePage({ game }: { game: Game }): React.JSX.Element {
+  game = sanitizeGameForDistribution(game)
   const job = useTileJob(game.key)
   const primary = usePrimary(game, job)
   const platform = usePlatform()
@@ -135,7 +137,7 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
                 onFail={() => setHeroFailed((f) => [...f, art])}
               />
             ) : local && game.images.thumb ? (
-              <img className="gp-hero-icon" src={game.images.thumb} alt="" draggable={false} />
+              <img className="gp-hero-icon" src={img(game.images.thumb, 64)} alt="" draggable={false} />
             ) : null}
           </div>
           <HeroTags game={game} />
@@ -148,7 +150,7 @@ export function GamePage({ game }: { game: Game }): React.JSX.Element {
         <div className="gp-bar" ref={bar}>
           <div className="gp-mini">
             {game.images.thumb || game.images.tall ? (
-              <img src={game.images.thumb?.startsWith('data:') ? game.images.thumb : img(game.images.thumb ?? game.images.tall, 64)} alt="" />
+              <img src={img(game.images.thumb ?? game.images.tall, 64)} alt="" />
             ) : (
               <span className="gp-mini-letter">{game.title.slice(0, 1)}</span>
             )}

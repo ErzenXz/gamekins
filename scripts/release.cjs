@@ -3,7 +3,7 @@
 const { spawnSync } = require('node:child_process')
 const { statSync } = require('node:fs')
 const { join } = require('node:path')
-const { targets, releaseConfig, pnpmInvocation } = require('./release-policy.cjs')
+const { targets, releaseConfig, pnpmInvocation, releaseEnvironment } = require('./release-policy.cjs')
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { stdio: 'inherit', ...options })
@@ -37,11 +37,7 @@ try {
     process.exit(0)
   }
   if (process.platform !== targets[target].host) throw new Error(`Build ${target} on ${targets[target].host}; use its native CI runner.`)
-  const env = { ...process.env, GAMEKINS_RELEASE_TARGET: target, GAMEKINS_UNSIGNED: unsigned ? '1' : '0' }
-  if (unsigned || target === 'store') {
-    env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
-    for (const key of ['CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD', 'CSC_NAME']) delete env[key]
-  }
+  const env = releaseEnvironment(target, unsigned)
   const buildStarted = Date.now()
   pnpm(['exec', 'electron-vite', 'build'], env)
   pnpm(['exec', 'electron-builder', '--config', 'scripts/release-config.cjs', ...(flags.includes('--dir') ? [targets[target].builder[0], '--dir'] : targets[target].builder), `--${arch}`, '--publish', 'never'], env)

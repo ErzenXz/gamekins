@@ -19,9 +19,10 @@
     "dist:linux": "node scripts/release.cjs linux",
     "test:renderer": "node --test src/renderer/tests/batch-d.test.cjs",
     "test:release": "node --test scripts/release.test.cjs",
-    "check": "pnpm typecheck && pnpm test && pnpm test:renderer && pnpm test:credentials && pnpm test:platform && pnpm test:release",
+    "check": "pnpm typecheck && pnpm test && pnpm test:renderer && pnpm test:credentials && pnpm test:platform && pnpm test:release && pnpm test:content",
     "test:credentials": "node --test src/main/core/credentials.test.cjs",
-    "test:platform": "node --test src/main/core/platform.test.cjs"
+    "test:platform": "node --test src/main/core/platform.test.cjs",
+    "test:content": "node --test src/shared/contentPolicy.test.cjs src/main/core/external.test.cjs src/renderer/tests/social-safety.test.cjs src/main/core/authWindowSafety.test.cjs"
   },
   "devDependencies": {
     "@types/node": "24.19.1",

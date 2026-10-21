@@ -64,6 +64,8 @@ To regenerate the icons from `branding/`, run `pnpm exec electron scripts/make-i
 
 See the [desktop release guide](docs/RELEASING.md) for signing, Partner Center identity, Linux support, CI and the native acceptance checklist. Packaging never publishes automatically.
 
+The Microsoft Store edition preserves core game management while opening storefronts externally, withholding unclassified online media, and handling chat in provider clients. It includes local friend restrictions and reporting links. See the [community guidelines](docs/COMMUNITY.md).
+
 Linux supports Steam handoffs and local native executables. Epic installation and launch require a compatibility runner, which is not bundled; GOG offers browsing and manual downloads.
 
 ## Architecture

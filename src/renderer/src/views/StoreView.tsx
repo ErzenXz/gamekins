@@ -5,6 +5,8 @@ import { siteOf, STORE_SITES, type StoreSite } from '../components/shell/storeLi
 import { StoreBadge } from '../components/library/StoreBadge'
 import { useStore } from '../store'
 import { handledStoreRequest, rememberStoreRequest, rememberStoreSite, rememberStoreURL, storeSite, storeURL } from '../components/shell/storeSession'
+import { STORE_DISTRIBUTION } from '../../../shared/distribution'
+import { externalStoreRequest } from '../../../shared/contentPolicy'
 
 /** The subset of Electron's <webview> element we use. */
 interface WebviewElement extends HTMLElement {
@@ -48,6 +50,58 @@ function displayUrl(url: string): string {
  * so before that we only ever set the `src` attribute (safe at any time).
  */
 export function StoreView({ visible }: { visible: boolean }): React.JSX.Element {
+  return STORE_DISTRIBUTION ? <StoreDistributionView /> : <EmbeddedStoreView visible={visible} />
+}
+
+const EXTERNAL_STORES = [
+  { name: 'Epic Games', home: 'https://store.epicgames.com/', support: 'https://safety.epicgames.com/policies/reporting-misconduct', controls: 'https://safety.epicgames.com/en-US/parental-controls' },
+  { name: 'Steam', home: 'https://store.steampowered.com/', support: 'https://help.steampowered.com/en/faqs/view/4DE7-17AA-0E8B-C1AD', controls: 'https://store.steampowered.com/account/familymanagement/' },
+  { name: 'GOG', home: 'https://www.gog.com/', support: 'https://support.gog.com/hc/en-us/articles/16033687971613-Infringing-Content-and-Copyright-Policy-effective-from-17-February-2024', controls: 'https://support.gog.com/hc/en-us/sections/115000136785-Policies' }
+]
+
+/** Catalogs remain with their providers; this view contains no embedded web content. */
+export function StoreDistributionView(): React.JSX.Element {
+  const request = useStore((state) => state.storeRequest)
+  const [error, setError] = useState('')
+  const requested = externalStoreRequest(request?.url)
+  const open = (url: string): void => {
+    setError('')
+    void window.gamekins.app.openExternal(url).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'The browser could not be opened.'))
+  }
+  return (
+    <section data-testid="store-distribution-safeguards" aria-labelledby="external-store-title" style={{ padding: '32px', maxWidth: '1040px', margin: '0 auto', overflowY: 'auto', height: '100%' }}>
+      <h1 id="external-store-title">Visit your game stores</h1>
+      <p style={{ lineHeight: 1.7, maxWidth: '760px' }}>
+        Gamekins manages your library, installs and play time. Store catalogs and purchases open in your browser when you choose a link.
+        Catalog images, descriptions, reviews and promotions are withheld in this Microsoft Store edition. You can still choose your own local artwork.
+      </p>
+      <p style={{ lineHeight: 1.7, maxWidth: '760px' }}>
+        These services are provided by Epic Games, Valve and GOG. Their sites can contain mature content and use their own accounts, payments, privacy policies,
+        age checks and parental controls. Review those controls before browsing. Provider support pages explain how to report inappropriate content; Gamekins does not review or moderate their catalogs.
+      </p>
+      {requested && (
+        <div className="gp-panel" style={{ padding: '20px', margin: '20px 0' }}>
+          <h2>Requested store page</h2>
+          <p style={{ overflowWrap: 'anywhere' }}>{new URL(requested).hostname}</p>
+          <button className="btn btn-blue" onClick={() => open(requested)}><ExternalLink size={16} /> Open requested page in browser</button>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(235px, 1fr))', gap: '16px', marginTop: '24px' }}>
+        {EXTERNAL_STORES.map((provider) => (
+          <article key={provider.name} className="gp-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '14px' }}>
+            <h2 style={{ margin: 0 }}>{provider.name}</h2>
+            <button className="btn btn-blue" onClick={() => open(provider.home)}><ExternalLink size={16} /> Open store in browser</button>
+            <button className="btn btn-ghost" onClick={() => open(provider.support)}>Support and content reporting</button>
+            <button className="btn btn-ghost" onClick={() => open(provider.controls)}>{provider.name === 'GOG' ? 'Provider policies' : 'Family and parental controls'}</button>
+          </article>
+        ))}
+      </div>
+      {error && <p role="alert">{error}</p>}
+    </section>
+  )
+}
+
+function EmbeddedStoreView({ visible }: { visible: boolean }): React.JSX.Element {
   const ref = useRef<WebviewElement>(null)
   const ready = useRef(false)
   const visibleNow = useRef(visible)

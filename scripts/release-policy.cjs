@@ -74,4 +74,19 @@ function pnpmInvocation(execPath, nodePath, platform) {
   return { command, prefix: [], shell: platform === 'win32' && /\.(?:cmd|bat)$/i.test(command) }
 }
 
-module.exports = { targets, releaseConfig, pnpmInvocation }
+function releaseEnvironment(target, unsigned, parentEnv = process.env) {
+  if (!targets[target]) throw new Error('Unknown release target')
+  const env = {
+    ...parentEnv,
+    GAMEKINS_RELEASE_TARGET: target,
+    GAMEKINS_UNSIGNED: unsigned ? '1' : '0',
+    GAMEKINS_DISTRIBUTION: target === 'store' ? 'ms-store' : 'direct'
+  }
+  if (unsigned || target === 'store') {
+    env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+    for (const key of ['CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD', 'CSC_NAME']) delete env[key]
+  }
+  return env
+}
+
+module.exports = { targets, releaseConfig, pnpmInvocation, releaseEnvironment }

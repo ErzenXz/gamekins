@@ -492,7 +492,7 @@ const SideRow = memo(
     } else if (updating) suffix = <span className="sfx dl">Update Required</span>
 
     const state = game.running ? 'running' : updating ? 'updating' : game.install ? 'installed' : 'uninstalled'
-    const thumb = game.images.thumb ?? game.images.tall
+    const thumb = img(game.images.thumb ?? game.images.tall, 64)
     const ring = job && job.state !== 'error'
 
     return (
@@ -511,7 +511,7 @@ const SideRow = memo(
       >
         <span className={`side-icon ${ring ? 'ringed' : ''}`}>
           {thumb ? (
-            <img src={thumb.startsWith('data:') ? thumb : img(thumb, 64)} alt="" loading="lazy" decoding="async" draggable={false} />
+            <img src={thumb} alt="" loading="lazy" decoding="async" draggable={false} />
           ) : (
             <span className="side-icon-letter">{game.title.slice(0, 1)}</span>
           )}

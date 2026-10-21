@@ -88,3 +88,46 @@ test('pnpm supports native executables, JavaScript entrypoints, and Windows shim
   assert.deepEqual(pnpmInvocation('C:\\tools\\pnpm.exe', 'C:\\node.exe', 'win32'), { command: 'C:\\tools\\pnpm.exe', prefix: [], shell: false })
   assert.deepEqual(pnpmInvocation(undefined, 'C:\\node.exe', 'win32'), { command: 'pnpm.cmd', prefix: [], shell: true })
 })
+
+test('Store packages enforce their compiled distribution and direct packages cannot inherit Store flags', () => {
+  const { releaseEnvironment } = require('./release-policy.cjs')
+  const hostile = { GAMEKINS_DISTRIBUTION: 'direct', CSC_LINK: 'sensitive', WIN_CSC_LINK: 'sensitive', CSC_NAME: 'sensitive' }
+  const storeEnv = releaseEnvironment('store', false, hostile)
+  assert.equal(storeEnv.GAMEKINS_DISTRIBUTION, 'ms-store')
+  assert.equal(storeEnv.CSC_LINK, undefined)
+  assert.equal(storeEnv.WIN_CSC_LINK, undefined)
+  assert.equal(storeEnv.CSC_NAME, undefined)
+  for (const target of ['mac', 'win', 'linux']) {
+    assert.equal(releaseEnvironment(target, true, { GAMEKINS_DISTRIBUTION: 'ms-store' }).GAMEKINS_DISTRIBUTION, 'direct')
+  }
+})
+
+test('all Vite processes embed immutable Store safeguards and runtime environment cannot disable them', () => {
+  const fs = require('node:fs')
+  const path = require('node:path')
+  const vm = require('node:vm')
+  const ts = require('typescript')
+  const { createRequire } = require('node:module')
+  const viteRequire = createRequire(require.resolve('vite/package.json'))
+  const esbuild = viteRequire('esbuild')
+  const configSource = fs.readFileSync(path.join(__dirname, '../electron.vite.config.ts'), 'utf8')
+  const distributionSource = fs.readFileSync(path.join(__dirname, '../src/shared/distribution.ts'), 'utf8')
+  const configCode = ts.transpileModule(configSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText
+  for (const [flavor, expected] of [['ms-store', true], ['direct', false], [undefined, false]]) {
+    const configModule = { exports: {} }
+    const mockedRequire = id => {
+      if (id === 'electron-vite') return { defineConfig: config => config, externalizeDepsPlugin: () => ({}) }
+      if (id === '@vitejs/plugin-react') return { __esModule: true, default: () => ({}) }
+      return require(id)
+    }
+    vm.runInNewContext(configCode, { module: configModule, exports: configModule.exports, require: mockedRequire, process: { env: { GAMEKINS_DISTRIBUTION: flavor } } })
+    for (const processName of ['main', 'preload', 'renderer']) {
+      const define = configModule.exports.default[processName].define
+      assert.equal(define.__GAMEKINS_STORE__, String(expected), processName)
+      const code = esbuild.transformSync(distributionSource, { loader: 'ts', format: 'cjs', define }).code
+      const module = { exports: {} }
+      vm.runInNewContext(code, { module, exports: module.exports, __GAMEKINS_STORE__: !expected, process: { env: { GAMEKINS_DISTRIBUTION: expected ? 'direct' : 'ms-store' } } })
+      assert.equal(module.exports.STORE_DISTRIBUTION, expected, `${processName}: runtime values cannot override the compiled flavor`)
+    }
+  }
+})

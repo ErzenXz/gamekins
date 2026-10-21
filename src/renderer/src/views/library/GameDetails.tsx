@@ -2,6 +2,8 @@ import '../../styles/game-details.css'
 import { ChevronLeft, ChevronRight, ExternalLink, Film, Gamepad2, Timer, X } from 'lucide-react'
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { GameDetails, HltbInfo, SteamInfo } from '@shared/types'
+import { STORE_DISTRIBUTION } from '../../../../shared/distribution'
+import { safeImageSource } from '../../../../shared/contentPolicy'
 
 // ───────────── data: one fetch per game per session, shared by every component ─────────────
 
@@ -11,6 +13,7 @@ const listeners = new Set<() => void>()
 const notify = (): void => listeners.forEach((l) => l())
 
 function load(key: string, force = false): void {
+  if (STORE_DISTRIBUTION) return
   const cur = cache.get(key)
   if (cur && !force && (cur.status === 'loading' || cur.details)) return
   cache.set(key, { status: 'loading', details: cur?.details ?? null })
@@ -33,7 +36,7 @@ export function useGameDetails(key: string): { details: GameDetails | null; load
     () => cache.get(key)
   )
   const refresh = useCallback(() => load(key, true), [key])
-  return { details: entry?.details ?? null, loading: entry?.status === 'loading', refresh }
+  return STORE_DISTRIBUTION ? { details: null, loading: false, refresh } : { details: entry?.details ?? null, loading: entry?.status === 'loading', refresh }
 }
 
 const open = (url: string): void => void window.gamekins.app.openExternal(url)
@@ -90,6 +93,7 @@ function reviewTone(summary: string): string {
 }
 
 export function ReviewsCard({ steam }: { steam?: SteamInfo }): React.JSX.Element | null {
+  if (STORE_DISTRIBUTION) return null
   if (!steam?.reviews && !steam?.metacritic) return null
   const r = steam.reviews
   const pct = r && r.total ? Math.round((r.positive / r.total) * 100) : undefined
@@ -163,6 +167,7 @@ export function DetailsCard({ steam }: { steam?: SteamInfo }): React.JSX.Element
 
 export function MediaSection({ steam }: { steam?: SteamInfo }): React.JSX.Element | null {
   const [index, setIndex] = useState<number | null>(null)
+  if (STORE_DISTRIBUTION) return null
   const shots = steam?.screenshots ?? []
   if (!steam || (!shots.length && !steam.trailers.length)) return null
   return (
@@ -174,7 +179,7 @@ export function MediaSection({ steam }: { steam?: SteamInfo }): React.JSX.Elemen
       <div className="gd-media">
         {steam.trailers.slice(0, 1).map((t) => (
           <button key={t.thumb} className="gd-shot trailer" onClick={() => open(steam.url)} title={`${t.name} (opens on Steam)`}>
-            <img src={t.thumb} alt="" loading="lazy" decoding="async" draggable={false} />
+            <img src={safeImageSource(t.thumb)} alt="" loading="lazy" decoding="async" draggable={false} />
             <span className="gd-play">
               <Film size={16} /> Trailer
             </span>
@@ -182,7 +187,7 @@ export function MediaSection({ steam }: { steam?: SteamInfo }): React.JSX.Elemen
         ))}
         {shots.map((s, i) => (
           <button key={s.thumb} className="gd-shot" onClick={() => setIndex(i)} title="View screenshot">
-            <img src={s.thumb} alt="" loading="lazy" decoding="async" draggable={false} />
+            <img src={safeImageSource(s.thumb)} alt="" loading="lazy" decoding="async" draggable={false} />
           </button>
         ))}
       </div>
@@ -217,7 +222,7 @@ function Lightbox({
   }, [go, onClose])
   return (
     <div className="gd-lightbox" role="dialog" aria-label="Screenshot viewer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <img key={shots[index].full} src={shots[index].full} alt="" draggable={false} />
+      <img key={shots[index].full} src={safeImageSource(shots[index].full)} alt="" draggable={false} />
       <button className="gd-lb-btn prev" onClick={() => go(-1)} aria-label="Previous screenshot">
         <ChevronLeft size={28} />
       </button>

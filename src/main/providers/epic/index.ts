@@ -1,4 +1,5 @@
 import { decryptSession, encryptSession, sessionEncryptionAvailable } from '../../core/credentials'
+import { authenticationNavigationError, isAllowedAuthenticationUrl, protectAuthenticationWindow } from '../../core/authWindowSafety'
 import { app, BrowserWindow, shell, session as electronSession } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, renameSync, realpathSync } from 'node:fs'
@@ -203,12 +204,14 @@ export class EpicProvider implements GameProvider {
       webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true, spellcheck: false }
     })
     this.loginWindow = win
+    let blockedAuthentication = (): void => { if (!win.isDestroyed()) win.close() }
     // Epic's login rejects obviously-embedded browsers; look like plain Chrome.
     win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Social sign-ins (Google, Apple, Facebook, consoles…) may use popups that report back
     // to the login page, so they must stay in-app and share the session.
     win.webContents.setWindowOpenHandler(({ url }) => {
       if (!url.startsWith('https:')) return { action: 'deny' }
+      if (!isAllowedAuthenticationUrl('epic', url)) { blockedAuthentication(); return { action: 'deny' } }
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -236,6 +239,8 @@ export class EpicProvider implements GameProvider {
         if (err) reject(err)
         else resolvePromise(account!)
       }
+      blockedAuthentication = () => finish(authenticationNavigationError())
+      protectAuthenticationWindow(win, 'epic', (error) => finish(error))
 
       win.webContents.on('did-finish-load', async () => {
         if (settled || exchanging || !win.webContents.getURL().startsWith(LOGIN_REDIRECT_URL.split('?')[0])) return

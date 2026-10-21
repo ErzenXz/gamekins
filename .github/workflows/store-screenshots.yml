@@ -5,6 +5,12 @@ on:
     paths:
       - scripts/store-screenshots.cjs
       - .github/workflows/store-screenshots.yml
+      - electron.vite.config.ts
+      - scripts/release*.cjs
+      - src/shared/**
+      - src/main/**
+      - src/preload/**
+      - src/renderer/**
 permissions:
   contents: read
 concurrency:
@@ -14,6 +20,10 @@ jobs:
   capture:
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      WINDOWS_STORE_IDENTITY_NAME: ${{ vars.WINDOWS_STORE_IDENTITY_NAME }}
+      WINDOWS_STORE_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER }}
+      WINDOWS_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -23,10 +33,12 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - run: node scripts/release.cjs store --check
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - name: Package the real Windows application without a signing certificate
-        run: pnpm dist:win --unsigned --dir
+      - name: Package the exact Microsoft Store edition (Microsoft signs upon submission)
+        run: pnpm dist:store
+      - run: node scripts/release-checksums.cjs
       - name: Capture real application views in a fresh isolated profile
         shell: pwsh
         run: pnpm exec electron scripts/store-screenshots.cjs dist/win-unpacked/resources/app.asar "$env:RUNNER_TEMP/gamekins-listing-screenshots"
@@ -37,3 +49,11 @@ jobs:
           retention-days: 7
           if-no-files-found: error
           path: ${{ runner.temp }}/gamekins-listing-screenshots/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Gamekins-store-screenshot-build-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            dist/*.appx
+            dist/SHA256SUMS

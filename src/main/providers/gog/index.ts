@@ -1,4 +1,5 @@
 import { decryptSession, encryptSession, sessionEncryptionAvailable } from '../../core/credentials'
+import { authenticationNavigationError, isAllowedAuthenticationUrl, protectAuthenticationWindow } from '../../core/authWindowSafety'
 // GOG: sign in with GOG's own page (Galaxy's public OAuth client), owned games from the GOG
 // account, installs made by GOG Galaxy / offline installers, direct DRM-free launching.
 // Installing and updating stay with GOG Galaxy in v1.
@@ -226,10 +227,12 @@ export class GogProvider implements GameProvider {
       webPreferences
     })
     this.loginWindow = win
+    let blockedAuthentication = (): void => { if (!win.isDestroyed()) win.close() }
     win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Social sign-ins (Google, Facebook, Discord…) open popups that report back to GOG's page.
     win.webContents.setWindowOpenHandler(({ url }) => {
       if (!url.startsWith('https:')) return { action: 'deny' }
+      if (!isAllowedAuthenticationUrl('gog', url)) { blockedAuthentication(); return { action: 'deny' } }
       return {
         action: 'allow',
         overrideBrowserWindowOptions: { parent: win, width: 520, height: 700, autoHideMenuBar: true, backgroundColor: '#18181c', webPreferences }
@@ -248,6 +251,8 @@ export class GogProvider implements GameProvider {
         if (err) reject(err)
         else resolvePromise(account!)
       }
+      blockedAuthentication = () => finish(authenticationNavigationError())
+      protectAuthenticationWindow(win, 'gog', (error) => finish(error))
 
       // The user signs in on GOG's own page; we only watch for the redirect that carries the code.
       const onUrl = (event: { preventDefault(): void } | null, url: string): void => {

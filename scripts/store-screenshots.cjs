@@ -1,7 +1,7 @@
 'use strict'
 // Native Electron capture of the packaged application; no mock API or invented games.
 // pnpm exec electron scripts/store-screenshots.cjs path/to/app.asar /absolute/output
-const { app, webContents } = require('electron')
+const { app } = require('electron')
 const fs = require('node:fs')
 const { createHash } = require('node:crypto')
 const { join, resolve, isAbsolute } = require('node:path')
@@ -27,9 +27,12 @@ app.setLoginItemSettings = () => {}
 app.commandLine.appendSwitch('force-device-scale-factor', '1')
 process.env.GAMEKINS_START_HIDDEN = '1'
 delete process.env.ELECTRON_RENDERER_URL
+// This opposing runtime value proves the captured safeguards belong to the package.
+process.env.GAMEKINS_DISTRIBUTION = 'direct'
 const manifest = {
   platform: process.platform,
   version: app.getVersion(),
+  distribution: 'ms-store',
   capturedAt: new Date().toISOString(),
   source: 'Real packaged Gamekins application, isolated signed-out profile. No fixture accounts, games, purchases, or download activity.',
   screenshots: [],
@@ -92,6 +95,13 @@ app.on('browser-window-created', (_event, win) => {
       await waitFor(win, '!!window.gamekins && !document.querySelector(".boot") && !!document.querySelector(".signin")', 'signed-out library')
       const info = await win.webContents.executeJavaScript('window.gamekins.app.info()')
       assert.equal(info.platform, process.platform)
+      assert.equal(info.distribution, 'ms-store', 'Capture must use the compiled Microsoft Store edition')
+      assert.equal(win.webContents.getLastWebPreferences().webviewTag, false, 'Embedded storefront support must be disabled in the packaged main process')
+      const history = await win.webContents.executeJavaScript('window.gamekins.social.chat("epic:00000000000000000000000000000000")')
+      assert.deepEqual(history, [], 'Store package must not return native chat history')
+      const sendError = await win.webContents.executeJavaScript(`window.gamekins.social.send('epic:00000000000000000000000000000000', 'safety probe').then(() => null, error => error.message)`)
+      assert.match(sendError || '', /Native chat is disabled.*Microsoft Store edition/, 'The packaged main-process chat IPC gate must reject sends')
+      manifest.safeguardsVerified = { compiledStoreEdition: true, opposingRuntimeDistribution: 'direct', embeddedWebviews: false, nativeChatHistory: false, nativeChatSending: false }
       assert.equal(await win.webContents.executeJavaScript('typeof window.require'), 'undefined')
       assert.equal(win.webContents.getLastWebPreferences().sandbox, true)
       assert.deepEqual(await win.webContents.executeJavaScript('window.gamekins.accounts.list()'), [])
@@ -114,32 +124,12 @@ app.on('browser-window-created', (_event, win) => {
       await waitFor(win, 'document.querySelector(".st-title")?.textContent === "Interface"', 'interface settings')
       await capture(win, '05-interface-settings.png', 'Customize the appearance and behavior of your Gamekins library.')
 
-      // A Store screenshot is useful only if the actual third-party page has loaded.
-      // Never capture a spinner, challenge, or network-error page as listing artwork.
-      try {
-        await click(win, '.tb-tab', 'Store')
-        await waitFor(win, '!!document.querySelector("webview")', 'Store webview')
-        const until = Date.now() + 35000
-        let ready = false
-        do {
-          const guestId = await win.webContents.executeJavaScript('document.querySelector("webview")?.getWebContentsId()')
-          const guest = guestId && webContents.fromId(guestId)
-          if (guest && !guest.isLoadingMainFrame() && /^https:\/\/store\.epicgames\.com\//.test(guest.getURL())) {
-            const state = await guest.executeJavaScript('({text: document.body.innerText, images: [...document.images].filter(img => img.complete && img.naturalWidth > 100).length})')
-            if (state.text.length > 600 && state.images >= 3 && !/verify you are human|access denied|just a moment|captcha|checking your browser/i.test(state.text)) {
-              ready = true
-              break
-            }
-          }
-          await pause(500)
-        } while (Date.now() < until)
-        if (!ready) throw new Error('Live Store page did not finish loading without a challenge; screenshot omitted.')
-        await capture(win, '06-store.png', 'Browse the real Epic Games Store inside Gamekins.')
-      } catch (error) {
-        manifest.omitted.push({ view: 'Store', reason: error.message })
-        console.warn('Store screenshot omitted:', error.message)
-      }
-      assert.ok(manifest.screenshots.length >= 4)
+      await click(win, '.tb-tab', 'Store')
+      await waitFor(win, '!!document.querySelector("[data-testid=store-distribution-safeguards]")', 'Microsoft Store distribution safeguards')
+      assert.equal(await win.webContents.executeJavaScript('!!document.querySelector("webview")'), false, 'Store package must not embed an unrestricted storefront')
+      assert.equal(await win.webContents.executeJavaScript('[...document.querySelectorAll("button")].some(button => button.title === "Friends & chat")'), false, 'Store package must not expose unrestricted chat')
+      await capture(win, '06-store-safeguards.png', 'The Microsoft Store edition provides game-launcher tools without embedded storefront browsing or unrestricted chat.')
+      assert.equal(manifest.screenshots.length, 6)
       finish()
     } catch (error) { finish(error) }
   })

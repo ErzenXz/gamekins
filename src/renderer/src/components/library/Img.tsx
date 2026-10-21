@@ -1,4 +1,5 @@
 import { memo, useLayoutEffect, useRef, useState } from 'react'
+import { safeImageSource } from '../../../../shared/contentPolicy'
 
 /** Deterministic hue for a title, so fallback cards look intentional and stay stable. */
 function hue(s: string): number {
@@ -39,6 +40,7 @@ interface ImgProps {
  * generated title card when the art is missing or broken.
  */
 export const Img = memo(function Img({ src, title = '', className = '', eager, quietFallback, onFail }: ImgProps) {
+  src = safeImageSource(src)
   const ref = useRef<HTMLImageElement>(null)
   const [loaded, setLoaded] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)

@@ -1,10 +1,13 @@
 import '../../styles/friends.css'
 import { ArrowLeft, Check, ChevronDown, Ellipsis, LoaderCircle, MessageSquare, RefreshCw, Search, SendHorizontal, UserPlus, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Friend, FriendRequest, MyStatus, SocialNetwork, SocialState, StoreId } from '@shared/types'
+import { STORE_DISTRIBUTION } from '../../../../shared/distribution'
 import { StoreBadge } from '../library/StoreBadge'
 import { useSocial } from '../../lib/social'
 import { act, useStore } from '../../store'
+import { COMMUNITY_URL, openProviderConversation, PROVIDER_SAFETY, safetyReportUrl, useSocialSafety, type Restriction } from '../../lib/socialSafety'
 
 const STATUS_LABEL: Record<MyStatus, string> = { online: 'Online', away: 'Away', offline: 'Appear offline' }
 
@@ -69,12 +72,12 @@ export default function FriendsPanel(): React.JSX.Element {
   const friend = chatWith ? state?.friends.find((f) => f.id === chatWith) : undefined
 
   return (
-    <aside className="fr-panel" aria-label="Friends and chat">
+    <aside className="fr-panel" aria-label={STORE_DISTRIBUTION ? 'Friends' : 'Friends and chat'}>
       {!state?.available ? (
         <div className="fr-empty">
           <MessageSquare size={30} />
-          <b>Friends & chat</b>
-          <span>Sign in to Epic Games to see your friends, who's playing, and chat.</span>
+          <b>{STORE_DISTRIBUTION ? 'Friends' : 'Friends & chat'}</b>
+          <span>Sign in to see your friends and who's playing.{!STORE_DISTRIBUTION && ' Epic chat is also available.'}</span>
           <button className="btn btn-blue" onClick={signIn}>
             Sign in with Epic Games
           </button>
@@ -82,11 +85,12 @@ export default function FriendsPanel(): React.JSX.Element {
             <X size={16} />
           </button>
         </div>
-      ) : friend ? (
+      ) : friend && !STORE_DISTRIBUTION ? (
         <Chat friend={friend} state={state} />
       ) : (
         <FriendList state={state} />
       )}
+      <SafetyPanel />
     </aside>
   )
 }
@@ -288,11 +292,13 @@ const FriendRow = memo(function FriendRow({
 }): React.JSX.Element {
   const openChatHere = useSocial((s) => s.openChat)
   const [menu, setMenu] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ top: 60, right: 12 })
   const store = storeOf(f)
   const external = (kind: 'chat' | 'profile'): void => void act(() => window.gamekins.social.openExternal(f.id, kind))
   // Epic chats in Gamekins; Steam chat opens in the Steam client.
   const openChat = (id: string): void => {
-    if (network?.canChat) void openChatHere(id)
+    if (STORE_DISTRIBUTION) void act(() => openProviderConversation(id))
+    else if (network?.canChat) void openChatHere(id)
     else if (store === 'steam') external('chat')
     else if (store !== 'epic') external('profile')
   }
@@ -300,14 +306,14 @@ const FriendRow = memo(function FriendRow({
     setMenu(false)
     useStore.getState().setConfirm({
       title: `Remove ${f.displayName}?`,
-      message: `${f.displayName} will be removed from your Epic Games friends. You can send a new request later.`,
+      message: `${f.displayName} will be removed from your ${network?.name ?? 'provider'} friends. You can send a new request later.`,
       confirmLabel: 'Remove friend',
       danger: true,
       onConfirm: () => act(() => window.gamekins.social.remove(f.id), `Removed ${f.displayName}`)
     })
   }
   return (
-    <div className={`fr-row ${f.status}`} role="button" tabIndex={0} onClick={() => void openChat(f.id)} onKeyDown={(e) => e.key === 'Enter' && void openChat(f.id)}>
+    <div className={`fr-row ${f.status}`} role="button" tabIndex={0} onClick={() => void openChat(f.id)} onKeyDown={(e) => e.target === e.currentTarget && e.key === 'Enter' && void openChat(f.id)}>
       <Avatar id={f.id} name={f.displayName} status={f.status} />
       <div className="fr-row-text">
         <b>
@@ -318,20 +324,28 @@ const FriendRow = memo(function FriendRow({
       </div>
       {unread > 0 && <span className="fr-unread">{unread}</span>}
       <div className="fr-row-menu" onClick={(e) => e.stopPropagation()}>
-        <button className="fr-more" title="More" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+        <button className="fr-more" title="More" aria-haspopup="menu" aria-expanded={menu} onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect()
+          setMenuPosition({ top: Math.max(54, Math.min(rect.bottom + 4, window.innerHeight - 390)), right: Math.max(8, window.innerWidth - rect.right) })
+          setMenu(!menu)
+        }}>
           <Ellipsis size={16} />
         </button>
-        {menu && (
+        {menu && createPortal(
           <>
-            <div className="fr-backdrop" onMouseDown={() => setMenu(false)} />
-            <div className="dd right" role="menu">
-              {network?.canChat ? (
+            <div className="fr-backdrop" style={{ zIndex: 1401 }} onMouseDown={() => setMenu(false)} />
+            <div className="dd fr-friend-menu" style={{ position: 'fixed', ...menuPosition, zIndex: 1402 }} role="menu">
+              {!STORE_DISTRIBUTION && network?.canChat ? (
                 <button className="dd-item" onClick={() => (setMenu(false), openChat(f.id))}>
                   Send a message
                 </button>
               ) : store === 'steam' ? (
                 <button className="dd-item" onClick={() => (setMenu(false), external('chat'))}>
                   Chat in Steam
+                </button>
+              ) : STORE_DISTRIBUTION ? (
+                <button className="dd-item" onClick={() => (setMenu(false), openChat(f.id))}>
+                  {store === 'epic' ? 'Epic chat and safety help' : 'Open GOG profile'}
                 </button>
               ) : null}
               {store !== 'epic' && (
@@ -343,17 +357,55 @@ const FriendRow = memo(function FriendRow({
                 <>
                   <div className="dd-sep" />
                   <button className="dd-item danger" onClick={remove}>
-                    Remove friend…
+                    Remove provider friendship…
                   </button>
                 </>
               )}
+              <SafetyMenuItems friend={f} close={() => setMenu(false)} />
             </div>
-          </>
+          </>, document.body
         )}
       </div>
     </div>
   )
 })
+
+function restrictLocally(friend: Pick<Friend, 'id' | 'displayName'>, restriction: Restriction): void {
+  void act(async () => useSocialSafety.getState().restrict(friend.id, friend.displayName, restriction),
+    restriction === 'blocked' ? 'Blocked in Gamekins on this device' : restriction === 'removed' ? 'Removed from your Gamekins list on this device' : 'Hidden in Gamekins on this device')
+}
+
+function SafetyMenuItems({ friend, close }: { friend: Friend; close(): void }): React.JSX.Element {
+  return <>
+    <div className="dd-sep" />
+    <button className="dd-item" onClick={() => { close(); restrictLocally(friend, 'hidden') }}>Hide in Gamekins</button>
+    <button className="dd-item" onClick={() => { close(); restrictLocally(friend, 'blocked') }}>Block in Gamekins</button>
+    <button className="dd-item" onClick={() => { close(); restrictLocally(friend, 'removed') }}>Remove from Gamekins list</button>
+    <button className="dd-item" onClick={() => { close(); void act(() => window.gamekins.app.openExternal(safetyReportUrl(friend.id, friend.displayName))) }}>Report to Gamekins…</button>
+    <button className="dd-item" onClick={() => { close(); void act(() => window.gamekins.app.openExternal(PROVIDER_SAFETY[storeOf(friend)])) }}>Report or block with provider…</button>
+  </>
+}
+
+function SafetyPanel(): React.JSX.Element {
+  const entries = useSocialSafety((s) => s.entries)
+  return <div className="fr-safety">
+    {STORE_DISTRIBUTION && <p>Use the provider’s client or game for chat. This Store edition does not display or send chat.</p>}
+    <p>Names, presence and other player content come from Epic, Steam or GOG. Gamekins does not pre-screen provider content.</p>
+    <button className="fr-safety-link" onClick={() => void act(() => window.gamekins.app.openExternal(COMMUNITY_URL))}>Community guidelines & reporting</button>
+    <button className="fr-safety-link" onClick={() => void act(() => window.gamekins.app.openExternal('mailto:erzen@quad-labs.com?subject=Gamekins%20safety%20report'))}>Report a safety concern…</button>
+    <details>
+      <summary>Local safety controls{entries.length ? ` (${entries.length})` : ''}</summary>
+      <p>Hide, block and remove apply only to Gamekins on this device. They hide friends, requests and messages here. Use the provider’s controls to block communication or remove a friendship on its network.</p>
+      <div className="fr-safety-entries scroll">
+        {entries.map((entry) => <div key={entry.id} className="fr-safety-entry">
+          <span>{entry.displayName} · {entry.restriction}<small>{entry.id}</small></span>
+          <button className="btn small btn-ghost" onClick={() => void act(async () => useSocialSafety.getState().restore(entry.id), 'Local restriction removed')}>Restore</button>
+        </div>)}
+        {!entries.length && <p>No local restrictions.</p>}
+      </div>
+    </details>
+  </div>
+}
 
 function RequestRow({ request: r, network, badge }: { request: FriendRequest; network?: SocialNetwork; badge: boolean }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
@@ -372,6 +424,7 @@ function RequestRow({ request: r, network, badge }: { request: FriendRequest; ne
         </b>
         <span>{r.direction === 'incoming' ? 'Wants to be your friend' : 'Request sent'}</span>
       </div>
+      <button className="btn small btn-ghost" onClick={() => restrictLocally(r, 'blocked')} title="Hide this request and future messages in Gamekins on this device">Block locally</button>
       {!network?.canAddFriends ? (
         <button className="btn small btn-ghost" onClick={() => void act(() => window.gamekins.social.openExternal(r.id, 'profile'))}>
           Open in {network?.name ?? 'store'}
@@ -491,6 +544,10 @@ function Chat({ friend: f, state }: { friend: Friend; state: SocialState }): Rea
           <X size={16} />
         </button>
       </header>
+      <div className="fr-safety-quick">
+        <button onClick={() => restrictLocally(f, 'blocked')}>Block in Gamekins</button>
+        <button onClick={() => void act(() => window.gamekins.app.openExternal(safetyReportUrl(f.id, f.displayName)))}>Report…</button>
+      </div>
       <div className="fr-msgs scroll" ref={list}>
         {!messages?.length ? (
           <div className="fr-chat-empty">

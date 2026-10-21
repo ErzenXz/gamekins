@@ -238,6 +238,7 @@ export interface AppInfo {
   version: string
   platform: string
   providers: ProviderInfo[]
+  distribution?: 'direct' | 'ms-store'
 }
 
 export type Toast = { kind: 'info' | 'success' | 'error'; message: string }

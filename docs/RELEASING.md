@@ -100,3 +100,13 @@ After packaging, `pnpm exec electron scripts/smoke.cjs dist/mac-arm64/Gamekins.a
 ## Reserved Windows product
 
 Gamekins is reserved as Store ID `9N212TVHJB08` under **Quad Labs Technologies LLC**. Partner Center verified the company account as Active/Authorized and EU DSA compliant on 2026-10-21. The product is **In draft**; it has not been submitted or certified. Exact non-secret identity is recorded in `docs/windows-store.json` and configured as repository variables for CI. The Store CI job creates an AppX after the native checks pass, with no upload or submission to Partner Center. The manual release workflow should use these same repository variables or matching environment variables.
+
+## Microsoft Store content safeguards
+
+`pnpm dist:store` embeds `STORE_DISTRIBUTION` into main, preload and renderer at compile time. A runtime environment variable or saved setting cannot switch it off. Direct packages explicitly build the normal distribution.
+
+The Store edition keeps library/install/launch/repair/play tracking, but opens unrestricted storefronts in the user's browser, disables catalog webviews and native chat IPC/notifications, and withholds remote catalog images, descriptions, reviews, rich details and free-game promotions. User-selected local artwork remains available. Sign-in windows and nested SSO popups permit authentication-only routes; unknown SSO methods fail closed and users can try direct provider sign-in. Live provider login and child-account acceptance still require manual verification.
+
+Friends expose persistent local hide/block/remove/restore controls plus private user-composed reports and official provider reporting guidance. Local restrictions do not block provider accounts. See [community guidelines](COMMUNITY.md) and [privacy policy](PRIVACY.md).
+
+The Windows screenshot workflow builds the exact Store package and verifies the compiled distribution, disabled webviews and chat IPC before capturing actual 1440×900 app views. Review the screenshots and the capture manifest, then replace the draft Store package and listing images together. Ratings must describe this Store edition; other builds retain embedded provider catalogs and native Epic chat. IARC agreement acceptance and final certification submission are separate manual gates.

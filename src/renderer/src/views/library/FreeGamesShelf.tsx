@@ -4,6 +4,7 @@ import { Img } from '../../components/library/Img'
 import { img, shortDate } from '../../lib/format'
 import { useStore } from '../../store'
 import { Shelf } from './Shelf'
+import { STORE_DISTRIBUTION } from '../../../../shared/distribution'
 
 const norm = (t: string): string => t.toLowerCase().replace(/[^a-z0-9]/g, '')
 
@@ -18,7 +19,7 @@ export function FreeGamesShelf(): React.JSX.Element | null {
   const free = useStore((s) => s.freeGames)
   const games = useStore((s) => s.games)
   const owned = useMemo(() => new Set(games.map((g) => norm(g.title))), [games])
-  if (!free.length) return null
+  if (STORE_DISTRIBUTION || !free.length) return null
   const sorted = [...free].sort((a, b) => Number(b.current) - Number(a.current))
 
   return (

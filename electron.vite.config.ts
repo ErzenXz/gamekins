@@ -5,18 +5,26 @@ import react from '@vitejs/plugin-react'
 // Electron 44 ships Chromium 14x / Node 24: no need to down-level anything.
 const CHROME_TARGET = 'chrome140'
 
+// Compiled into every process; a packaged Store build cannot be downgraded at runtime.
+const distributionDefine = {
+  __GAMEKINS_STORE__: JSON.stringify(process.env.GAMEKINS_DISTRIBUTION === 'ms-store')
+}
+
 export default defineConfig({
   main: {
+    define: distributionDefine,
     plugins: [externalizeDepsPlugin()],
     resolve: { alias: { '@shared': resolve('src/shared') } },
     build: { target: 'node22', minify: true, reportCompressedSize: false }
   },
   preload: {
+    define: distributionDefine,
     plugins: [externalizeDepsPlugin()],
     resolve: { alias: { '@shared': resolve('src/shared') } },
     build: { target: 'node22', minify: true, reportCompressedSize: false }
   },
   renderer: {
+    define: distributionDefine,
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),

@@ -1,4 +1,5 @@
 import { decryptSession, encryptSession, sessionEncryptionAvailable } from '../../core/credentials'
+import { authenticationNavigationError, isAllowedAuthenticationUrl, protectAuthenticationWindow } from '../../core/authWindowSafety'
 // Steam: installed games straight from the Steam client's library folders (no sign-in needed),
 // owned games and play time from the Web API once signed in on Steam's own login page.
 // The Steam client installs, updates, uninstalls and starts its games; Gamekins hands those
@@ -251,11 +252,13 @@ export class SteamProvider implements GameProvider {
       webPreferences
     })
     this.loginWindow = win
+    let blockedAuthentication = (): void => { if (!win.isDestroyed()) win.close() }
     win.webContents.setUserAgent(plainChrome(win.webContents.getUserAgent()))
     // Only web pages in this window; steam:// and other app links are not followed.
     win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('https:')) e.preventDefault() })
     win.webContents.setWindowOpenHandler(({ url }) => {
       if (!url.startsWith('https:')) return { action: 'deny' }
+      if (!isAllowedAuthenticationUrl('steam', url)) { blockedAuthentication(); return { action: 'deny' } }
       return { action: 'allow', overrideBrowserWindowOptions: { parent: win, width: 540, height: 700, autoHideMenuBar: true, backgroundColor: '#171a21', webPreferences } }
     })
     win.webContents.on('did-create-window', (child) => child.webContents.setUserAgent(win.webContents.getUserAgent()))
@@ -293,6 +296,13 @@ export class SteamProvider implements GameProvider {
           finish(err as Error)
         }
       }
+      const rejectNavigation = (error: Error): void => {
+        // Steam normally returns to a store/community root after setting its
+        // cookie. Capture the session without allowing that catalog page to load.
+        void check().then(() => { if (!settled && !finishing) finish(error) }).catch((reason: unknown) => finish(reason instanceof Error ? reason : error))
+      }
+      blockedAuthentication = () => rejectNavigation(authenticationNavigationError())
+      protectAuthenticationWindow(win, 'steam', rejectNavigation)
       partition.cookies.on('changed', onCookie)
       win.webContents.on('did-navigate', () => void check())
       win.webContents.on('did-finish-load', () => void check())

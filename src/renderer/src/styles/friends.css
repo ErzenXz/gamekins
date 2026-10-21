@@ -702,3 +702,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.fr-safety {
+  flex: none;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.fr-safety p { margin: 0 0 7px; }
+.fr-safety-link, .fr-safety-quick button {
+  display: inline-block;
+  margin: 0 8px 6px 0;
+  color: var(--accent-text);
+  text-align: left;
+}
+.fr-safety-link:hover, .fr-safety-quick button:hover { text-decoration: underline; }
+.fr-safety summary { cursor: pointer; color: var(--text-2); }
+.fr-safety details[open] summary { margin-bottom: 8px; }
+.fr-safety-entries { max-height: 160px; overflow-y: auto; }
+.fr-safety-entry { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.fr-safety-entry > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fr-safety-entry small { display: block; color: var(--text-4); }
+.fr-safety-quick { padding: 8px 12px 0; font-size: 11px; }
+.fr-friend-menu { min-width: 220px; max-height: calc(100vh - 112px); overflow-y: auto; }
