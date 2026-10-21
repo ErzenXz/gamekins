@@ -112,7 +112,7 @@ app.on('browser-window-created', (_event, win) => {
       await capture(win, '02-downloads.png', 'Keep game installations and updates together in the download queue.')
 
       // Use the same keyboard shortcut handled by the app, without touching renderer state.
-      await win.webContents.executeJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", {key: ",", code: "Comma", ctrlKey: true, bubbles: true}))')
+      await win.webContents.executeJavaScript(`window.dispatchEvent(new KeyboardEvent("keydown", {key: ",", code: "Comma", ctrlKey: ${process.platform !== 'darwin'}, metaKey: ${process.platform === 'darwin'}, bubbles: true}))`)
       await waitFor(win, 'document.querySelector(".st-title")?.textContent === "Account"', 'account settings')
       await capture(win, '03-connected-stores.png', 'Connect supported stores and manage account access from one place.')
 
