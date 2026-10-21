@@ -71,7 +71,7 @@ function AddGameBody(): React.JSX.Element {
   const browse = async (): Promise<void> => {
     setError(null)
     try {
-      const exts = platform === 'darwin' ? ['app'] : ['exe', 'lnk', 'bat', 'cmd', 'url']
+      const exts = platform === 'darwin' ? ['app'] : platform === 'linux' ? ['*'] : ['exe', 'lnk', 'bat', 'cmd', 'url']
       const files = await window.gamekins.app.pickFiles({
         title: 'Choose programs to add',
         filters: [{ name: platform === 'darwin' ? 'Applications' : 'Programs', extensions: exts }],

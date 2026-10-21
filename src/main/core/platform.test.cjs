@@ -48,6 +48,82 @@ test('Linux process snapshots resolve executable paths and retain inaccessible i
   assert.equal(processes.sameProcess(found[0], { ...found[0], created: '9999' }), false)
 })
 
+test('owned install aliases resolve once without filesystem lookups for every PID', () => {
+  const alias = join(tmpdir(), 'steam-alias', 'game')
+  const canonical = join(tmpdir(), 'steam-canonical', 'game')
+  const executable = join(canonical, 'game-bin')
+  const calls = []
+  const processes = load('processes', { 'node:fs': { ...fs, realpathSync: (path) => {
+    calls.push(path)
+    if (path === alias) return canonical
+    if (path === join(alias, 'game-bin')) return executable
+    throw Object.assign(new Error('unavailable'), { code: 'ENOENT' })
+  } } })
+  const procs = [{ pid: 90001, path: executable }, { pid: 90002, path: join(tmpdir(), 'unrelated') },
+    { pid: 90003, path: join(alias, 'game-bin') }]
+  assert.deepEqual(processes.trackedProcesses(procs, [], alias, join(alias, 'game-bin'), false).map((p) => p.pid), [90001, 90003])
+  assert.deepEqual(calls, [alias])
+  calls.length = 0
+  assert.deepEqual(processes.trackedProcesses(procs, [], alias, join(alias, 'game-bin'), true).map((p) => p.pid), [90001, 90003])
+  assert.deepEqual(calls, [join(alias, 'game-bin')])
+})
+
+test('Proton attribution is bounded, game specific, and preserves executable/PID identities', async (t) => {
+  const root = await fsp.mkdtemp(join(tmpdir(), 'gamekins-proton-'))
+  t.after(() => fsp.rm(root, { recursive: true, force: true }))
+  const stat = (pid, start = '1234') => `${pid} (wine process) S 1 ${Array(17).fill('0').join(' ')} ${start} 0 0\n`
+  const wine = join(root, 'Proton', 'files', 'bin', 'wine64-preloader')
+  const links = new Map()
+  const environment = {
+    201: 'SteamAppId=570\0SteamGameId=570\0IGNORED_SECRET=fixture\0',
+    202: 'SteamAppId=730\0SteamGameId=730\0',
+    203: undefined,
+    204: 'SteamAppId=570\0SteamGameId=730\0',
+    205: 'SteamGameId=570\0',
+    206: 'SteamAppId=570suffix\0',
+    207: 'SteamAppId=570\0' + 'x'.repeat(64 * 1024) + '\0',
+    208: 'SteamAppId=570\0',
+    209: 'SteamAppId=570\0',
+    210: 'SteamAppId=570\0SteamAppId=730\0'
+  }
+  for (const [pid, env] of Object.entries(environment)) {
+    await fsp.mkdir(join(root, pid))
+    await fsp.writeFile(join(root, pid, 'stat'), stat(pid))
+    if (env !== undefined) await fsp.writeFile(join(root, pid, 'environ'), env)
+    links.set(join(root, pid, 'exe'), pid === '208' ? join(root, 'unrelated-tool') : wine)
+  }
+  const envReads = []
+  const processes = load('processes', { 'node:fs/promises': { ...fsp,
+    readlink: async (path) => links.get(path),
+    open: async (path, flags) => {
+      envReads.push(path)
+      if (path === join(root, '209/environ')) await fsp.writeFile(join(root, '209/stat'), stat(209, '9999'))
+      return fsp.open(path, flags)
+    }
+  } })
+  const snapshot = await processes.scanLinuxProcesses(root)
+  assert.equal(envReads.includes(join(root, '208/environ')), false, 'native process environments must never be read')
+  assert.equal(snapshot.some((p) => p.pid === 209), false, 'PID reuse during attribution must discard the snapshot')
+  const own = processes.trackedProcesses(snapshot, [], join(root, 'Dota'), '', false, '570')
+  assert.deepEqual(own.map((p) => p.pid), [201, 205])
+  assert.deepEqual(processes.trackedProcesses(snapshot, [], join(root, 'CS'), '', false, '730').map((p) => p.pid), [202])
+  assert.deepEqual(processes.trackedProcesses(snapshot, [], join(root, 'Dota'), '', false), [])
+  assert.deepEqual(processes.trackedProcesses(snapshot, [], join(root, 'Dota'), '', false, '570suffix'), [])
+  assert.equal(own[0].path, wine, 'signals must verify the actual Wine executable, not the Windows payload')
+  assert.equal(own[0].created, '1234')
+  assert.equal(JSON.stringify(snapshot).includes('IGNORED_SECRET'), false)
+  assert.equal(processes.sameProcess(own[0], { ...own[0], created: '9999' }), false)
+  const reattributed = { ...own[0], steamAppId: '730' }
+  assert.equal(processes.sameProcess(own[0], reattributed), false)
+  assert.deepEqual(processes.trackedProcesses([reattributed], [own[0]], join(root, 'Dota'), '', false, '570'), [])
+  const missingAttribution = { ...own[0], steamAppId: undefined }
+  assert.equal(processes.sameProcess(own[0], missingAttribution), false)
+  assert.throws(() => processes.trackedProcesses([missingAttribution], [own[0]], join(root, 'Dota'), '', false, '570'), /Cannot verify Steam game identity/)
+  // An attributed parent must not absorb another game's Wine process through ancestry.
+  const wrongChild = { ...snapshot.find((p) => p.pid === 202), parentPid: 201 }
+  assert.deepEqual(processes.trackedProcesses([own[0], wrongChild], [], join(root, 'Dota'), '', false, '570').map((p) => p.pid), [201])
+})
+
 test('Linux desktop shortcuts use a desktop entry and preserve launch URL encoding', async (t) => {
   const root = await fsp.mkdtemp(join(tmpdir(), 'gamekins-shortcut-'))
   t.after(() => fsp.rm(root, { recursive: true, force: true }))

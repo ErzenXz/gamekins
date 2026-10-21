@@ -291,3 +291,25 @@ test('Storage ignores older responses and responses after unmount', async () => 
   await third
   assert.deepEqual(harness.state[0], [{ root: 'new' }])
 })
+
+test('Add a Game browse lets Linux users select extensionless native executables', async () => {
+  useStore.setState({ info: { platform: 'linux' }, addGameOpen: true, games: [] })
+  let requested
+  window.gamekins.app.pickFiles = async (options) => { requested = options; return [] }
+  const harness = hookHarness('/components/library/AddGameDialog.tsx')
+  const dialog = harness.render(harness.exports.AddGameDialog)
+  const body = harness.render(dialog.type, dialog.props)
+  function browseButton(node) {
+    if (!node || typeof node !== 'object') return undefined
+    if (Array.isArray(node)) return node.map(browseButton).find(Boolean)
+    const children = node.props?.children
+    if (node.type === 'button' && Array.isArray(children) && children.some(child => typeof child === 'string' && child.includes('Browse'))) return node
+    return browseButton(children)
+  }
+  const browse = browseButton(body.props.footer)
+  assert.ok(browse, 'Browse action must be reachable from the add-game dialog')
+  await browse.props.onClick()
+  assert.deepEqual(requested.filters, [{ name: 'Programs', extensions: ['*'] }])
+  assert.equal(requested.multi, true)
+  useStore.setState({ addGameOpen: false })
+})
