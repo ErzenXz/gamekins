@@ -1,7 +1,7 @@
 {
   "name": "gamekins",
   "productName": "Gamekins",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A fast, beautiful, Steam-style launcher for your Epic Games library.",
   "main": "./out/main/index.js",
   "author": "Gamekins contributors",

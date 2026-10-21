@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - package.json
+      - pnpm-lock.yaml
       - scripts/store-screenshots.cjs
       - .github/workflows/store-screenshots.yml
       - electron.vite.config.ts
