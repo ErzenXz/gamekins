@@ -71,13 +71,26 @@ function Wait-OwnedWindow([int]$Seconds = 60) {
 }
 function Run-KitTool([string]$Tool, [string[]]$Arguments, [string]$LogPrefix, [int]$TimeoutSeconds = 1200) {
   $quoted = @($Arguments | ForEach-Object { if ($_ -match '[\s"]') { '"' + $_.Replace('"', '\"') + '"' } else { $_ } })
-  $process = Start-Process -FilePath $Tool -ArgumentList $quoted -PassThru -RedirectStandardOutput ($LogPrefix + '.stdout.log') -RedirectStandardError ($LogPrefix + '.stderr.log')
-  if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-    throw 'Preinstalled SDK tool exceeded its time limit.'
-  }
-  $process.Refresh()
-  return $process.ExitCode
+  $start = New-Object Diagnostics.ProcessStartInfo
+  $start.FileName = $Tool
+  $start.Arguments = $quoted -join ' '
+  $start.UseShellExecute = $false
+  $start.RedirectStandardOutput = $true
+  $start.RedirectStandardError = $true
+  $start.CreateNoWindow = $true
+  $process = New-Object Diagnostics.Process
+  $process.StartInfo = $start
+  try {
+    if (-not $process.Start()) { throw 'Could not start the preinstalled SDK tool.' }
+    $stdout = $process.StandardOutput.ReadToEndAsync()
+    $stderr = $process.StandardError.ReadToEndAsync()
+    $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+    if (-not $completed) { $process.Kill(); $process.WaitForExit() }
+    [IO.File]::WriteAllText(($LogPrefix + '.stdout.log'), $stdout.GetAwaiter().GetResult())
+    [IO.File]::WriteAllText(($LogPrefix + '.stderr.log'), $stderr.GetAwaiter().GetResult())
+    if (-not $completed) { throw 'Preinstalled SDK tool exceeded its time limit.' }
+    return $process.ExitCode
+  } finally { $process.Dispose() }
 }
 
 try {
