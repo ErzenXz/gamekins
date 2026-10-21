@@ -1,0 +1,39 @@
+name: Windows Store screenshots
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/store-screenshots.cjs
+      - .github/workflows/store-screenshots.yml
+permissions:
+  contents: read
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - name: Package the real Windows application without a signing certificate
+        run: pnpm dist:win --unsigned --dir
+      - name: Capture real application views in a fresh isolated profile
+        shell: pwsh
+        run: pnpm exec electron scripts/store-screenshots.cjs dist/win-unpacked/resources/app.asar "$env:RUNNER_TEMP/gamekins-listing-screenshots"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: Gamekins-Windows-Store-screenshots-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: error
+          path: ${{ runner.temp }}/gamekins-listing-screenshots/
