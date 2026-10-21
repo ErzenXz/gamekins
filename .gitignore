@@ -13,3 +13,4 @@ dist
 *.p8
 *.cer
 coverage/
+.vercel/
