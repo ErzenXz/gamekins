@@ -96,3 +96,7 @@ GitHub environment secrets: `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, Apple accoun
 ## Built application smoke check
 
 After packaging, `pnpm exec electron scripts/smoke.cjs dist/mac-arm64/Gamekins.app/Contents/Resources/app.asar` loads the packaged source in the same Electron version with isolated temporary app data, checks preload/IPC and sandbox settings, and confirms the library shell renders. It prevents protocol/autostart registration. This harness does not replace launching the signed application binary or testing real accounts. It prints the temporary directory to remove after exit.
+
+## Reserved Windows product
+
+Gamekins is reserved as Store ID `9N212TVHJB08` under **Quad Labs Technologies LLC**. Partner Center verified the company account as Active/Authorized and EU DSA compliant on 2026-10-21. The product is **In draft**; it has not been submitted or certified. Exact non-secret identity is recorded in `docs/windows-store.json` and configured as repository variables for CI. The Store CI job creates an AppX after the native checks pass, with no upload or submission to Partner Center. The manual release workflow should use these same repository variables or matching environment variables.

@@ -53,6 +53,8 @@ app.on('browser-window-created', (_event, win) => {
       assert.deepEqual(failures, [])
       console.log('Built application smoke passed:', JSON.stringify({ platform: result.info.platform, version: result.info.version, games: result.games, sandbox: true, contextIsolation: true, rendererNode: false }))
       if (process.env.GAMEKINS_SMOKE_SCREENSHOT) {
+        // Let the view's entrance animation paint before taking review evidence.
+        await new Promise(resolve => setTimeout(resolve, 400))
         fs.writeFileSync(process.env.GAMEKINS_SMOKE_SCREENSHOT, (await win.webContents.capturePage()).toPNG())
       }
       finish()
