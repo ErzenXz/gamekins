@@ -29,6 +29,7 @@ function finish(error) {
 process.on('uncaughtException', finish)
 process.on('unhandledRejection', finish)
 app.on('browser-window-created', (_event, win) => {
+  win.webContents.setBackgroundThrottling(false)
   win.webContents.on('render-process-gone', (_event, detail) => failures.push(detail.reason))
   win.webContents.once('did-finish-load', async () => {
     try {
@@ -40,12 +41,12 @@ app.on('browser-window-created', (_event, win) => {
         result = await win.webContents.executeJavaScript(`(async () => {
           if (!window.gamekins) throw new Error('Missing preload API');
           const [info, settings, games] = await Promise.all([window.gamekins.app.info(), window.gamekins.settings.get(), window.gamekins.library.get()]);
-          return {info, settings, games: games.length, text: document.body.innerText, node: typeof window.require};
+          return {info, settings, games: games.length, text: document.body.innerText, ready: !document.querySelector('.boot') && !!document.querySelector('.content .view'), node: typeof window.require};
         })()`)
-        if (result.text.includes('LIBRARY') || result.text.includes('Library')) break
+        if (result.ready) break
         await new Promise(resolve => setTimeout(resolve, 100))
       } while (Date.now() < deadline)
-      assert.ok(result.text.includes('Library') || result.text.includes('LIBRARY'), 'App shell did not become ready')
+      assert.equal(result.ready, true, 'App content did not become ready')
       assert.equal(result.node, 'undefined', 'Node must not be exposed in the renderer')
       assert.equal(result.info.platform, process.platform)
       assert.ok(result.settings.installDir)
