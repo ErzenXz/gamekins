@@ -11,8 +11,8 @@ test('macOS cannot silently skip signing or notarization', () => {
   assert.throws(() => releaseConfig('mac', false, { ...apple, CSC_IDENTITY_AUTO_DISCOVERY: 'false' }), /disabled/)
   assert.deepEqual(releaseConfig('mac', false, apple), {})
   const { CSC_LINK, CSC_KEY_PASSWORD, ...notary } = apple
-  assert.deepEqual(releaseConfig('mac', false, { ...notary, CSC_NAME: 'Developer ID Application: Example (ABCDEFGHIJ)' }), {})
-  assert.deepEqual(releaseConfig('mac', false, { CSC_NAME: 'Developer ID Application: Example (ABCDEFGHIJ)', APPLE_KEYCHAIN_PROFILE: 'gamekins-notary' }), {})
+  assert.deepEqual(releaseConfig('mac', false, { ...notary, CSC_NAME: 'Developer ID Application: Example (ABCDEFGHIJ)' }), { mac: { identity: 'Example (ABCDEFGHIJ)' } })
+  assert.deepEqual(releaseConfig('mac', false, { CSC_NAME: 'Developer ID Application: Example (ABCDEFGHIJ)', APPLE_KEYCHAIN_PROFILE: 'gamekins-notary' }), { mac: { identity: 'Example (ABCDEFGHIJ)' } })
 })
 
 test('unsigned macOS disables hardened runtime and notarization', () => {

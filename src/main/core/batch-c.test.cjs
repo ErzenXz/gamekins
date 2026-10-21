@@ -16,8 +16,9 @@ const deferred = () => {
 }
 
 async function fixture(t, overrides = {}) {
-  const temporaryDirectory = fs.realpathSync(tmpdir())
-  const root = await fsp.mkdtemp(join(temporaryDirectory, 'gamekins-batch-c-'))
+  const temporaryDirectory = await fsp.realpath(tmpdir())
+  // Use the same native realpath API as moveInstall (Windows expands short temp paths).
+  const root = await fsp.realpath(await fsp.mkdtemp(join(temporaryDirectory, 'gamekins-batch-c-')))
   const cache = new Map()
   const storageClears = []
   const opened = []
@@ -391,6 +392,8 @@ async function moveFixture(t, failCopy = false) {
   const f = await fixture(t)
   const source = join(f.root, 'Game', 'Game'), baseDir = join(f.root, 'Destination'), target = join(baseDir, 'Game')
   fs.mkdirSync(source, { recursive: true }); fs.writeFileSync(join(source, 'game.exe'), 'complete')
+  const canonicalSource = await fsp.realpath(source)
+  const canonicalTarget = join(await fsp.realpath(f.root), 'Destination', 'Game')
   const info = { path: source, executable: 'game.exe' }, order = []
   let stage
   f.stubs.set(resolve(__dirname, 'library.ts'), { library: {
@@ -401,12 +404,12 @@ async function moveFixture(t, failCopy = false) {
   f.stubs.set(resolve(__dirname, '../providers/index.ts'), { provider: () => ({ relocateInstall: async () => order.push('provider') }) })
   f.stubs.set('node:fs/promises', { ...fsp,
     rename: async (from, to) => {
-      if (from === source && to === target) throw Object.assign(new Error('cross volume'), { code: 'EXDEV' })
+      if (from === canonicalSource && to === canonicalTarget) throw Object.assign(new Error('cross volume'), { code: 'EXDEV' })
       return fsp.rename(from, to)
     },
     cp: async (from, to, options) => { stage = to; if (failCopy) throw new Error('copy failed'); await fsp.cp(from, to, options) },
     rm: async (path, options) => {
-      if (path === source) { assert.deepEqual(order, ['records', 'provider']); order.push('delete source') }
+      if (path === canonicalSource) { assert.deepEqual(order, ['records', 'provider']); order.push('delete source') }
       await fsp.rm(path, options)
     }
   })
@@ -427,6 +430,7 @@ test('cross-volume copy failure removes only its unique staging folder', async (
   await assert.rejects(f.move('epic:game', f.baseDir), /copy failed/)
   assert.equal(fs.readFileSync(join(f.source, 'game.exe'), 'utf8'), 'complete')
   assert.equal(fs.existsSync(f.target), false)
+  assert.ok(f.stage(), 'the simulated cross-volume path must attempt a staging copy')
   assert.equal(fs.existsSync(f.stage()), false)
   assert.equal(f.info.path, f.source)
 })
@@ -434,6 +438,7 @@ test('cross-volume copy failure removes only its unique staging folder', async (
 test('cross-volume moves promote the complete copy and record its location before source deletion', async (t) => {
   const f = await moveFixture(t)
   await f.move('epic:game', f.baseDir)
+  assert.ok(f.stage(), 'the move must exercise cross-volume staging')
   assert.deepEqual(f.order, ['records', 'provider', 'delete source'])
   assert.equal(fs.readFileSync(join(f.target, 'game.exe'), 'utf8'), 'complete')
   assert.equal(fs.existsSync(f.source), false)

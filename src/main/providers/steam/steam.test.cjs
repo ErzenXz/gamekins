@@ -145,8 +145,16 @@ test('parses nested libraryfolders.vdf with escaped Windows paths', () => {
 
 test('library list starts with the Steam folder and dedupes it; the old flat format works too', () => {
   const libs = local.parseLibraryFolders(LIBRARY_FOLDERS, 'C:\\Program Files (x86)\\Steam')
-  assert.equal(libs.length, process.platform === 'linux' ? 3 : 2) // case-insensitive paths on Windows/macOS
+  assert.equal(libs.length, 2) // the identical Steam root is deduplicated on every OS
   assert.deepEqual(local.parseLibraryFolders(OLD_LIBRARY_FOLDERS), ['D:\\Games\\Steam', 'E:\\SteamLibrary'])
+})
+
+test('Steam library deduplication follows the host platform path case rules', () => {
+  const base = join(require('node:os').tmpdir(), 'GamekinsSteam')
+  const differentlyCased = join(require('node:os').tmpdir(), 'gamekinssteam')
+  const doc = `"libraryfolders" { "0" { "path" ${JSON.stringify(base)} } "1" { "path" ${JSON.stringify(differentlyCased)} } }`
+  const libs = local.parseLibraryFolders(doc)
+  assert.equal(libs.length, process.platform === 'linux' ? 2 : 1)
 })
 
 test('comments, bare tokens, conditionals, escapes and a BOM', () => {

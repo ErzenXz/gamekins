@@ -39,6 +39,9 @@ function releaseConfig(target, unsigned = false, env = process.env) {
       else {
         requireValues(env, ['CSC_NAME'])
         if (!env.CSC_NAME.startsWith('Developer ID Application:')) throw new Error('CSC_NAME must identify a Developer ID Application certificate.')
+        // Builder selects the Developer ID certificate type itself and rejects
+        // Apple's full display-name prefix as the certificate qualifier.
+        config.mac = { identity: env.CSC_NAME.replace(/^Developer ID Application:\s*/, '') }
       }
       const notarizationMethods = [
         ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'],
