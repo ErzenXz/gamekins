@@ -1,3 +1,5 @@
+import { safeImageSource } from '../../../shared/contentPolicy'
+
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB']
 
 export function bytes(n: number, digits = 1): string {
@@ -49,6 +51,7 @@ export function eta(remainingBytes: number, bps: number): string {
 
 /** Ask Epic's image CDN for a resized copy so the grid doesn't pull 4K box art. */
 export function img(url: string | undefined, w: number, h?: number): string | undefined {
+  url = safeImageSource(url)
   if (!url) return undefined
   try {
     const u = new URL(url)

@@ -262,6 +262,12 @@ class Library extends EventEmitter {
     this.changed()
   }
 
+  /** Installation commits must reach disk before their recovery marker is removed. */
+  commitInstalled(key: string, info: InstalledInfo): void {
+    this.setInstalled(key, info)
+    if (!this.installed.flush()) throw new Error('Could not save the installed game; resume the download to finish recovery')
+  }
+
   /** After a folder move: repoint every install (game + its DLC) that lived in `from`. */
   relocate(from: string, to: string): void {
     this.installed.update((d) => {
@@ -374,7 +380,7 @@ class Library extends EventEmitter {
       try {
         const procs = await listProcesses()
         if (child?.pid) entry.processes = procs.filter((p) => p.pid === child.pid)
-        entry.processes = trackedProcesses(procs, entry.processes, entry.dir, entry.executable, entry.local)
+        entry.processes = trackedProcesses(procs, entry.processes, entry.dir, entry.executable, entry.local, game.provider === 'steam' ? game.appName : undefined)
       } catch (err) { console.warn('[launch] identity scan failed', err) }
       this.persistSessions()
       this.changed()
@@ -404,7 +410,7 @@ class Library extends EventEmitter {
       const now = Date.now()
       for (const [key, r] of entries) {
         if (this.running.get(key) !== r) continue
-        r.processes = trackedProcesses(procs, r.processes, r.dir, r.executable, r.local)
+        r.processes = trackedProcesses(procs, r.processes, r.dir, r.executable, r.local, key.startsWith('steam:') ? key.slice(6) : undefined)
         if (r.processes.length) r.lastSeen = now
         else if (now - r.started >= r.grace && now - r.lastSeen >= WATCH_EVERY_MS * 2) this.finish(key)
         if (this.running.get(key) === r && now - r.checkpoint >= 60_000) this.checkpoint(key, now)
@@ -451,7 +457,7 @@ class Library extends EventEmitter {
       // Await a pending watcher before taking the stop snapshot.
       await this.scanPromise
       const procs = await listProcesses()
-      r.processes = trackedProcesses(procs, r.processes, r.dir, r.executable, r.local)
+      r.processes = trackedProcesses(procs, r.processes, r.dir, r.executable, r.local, key.startsWith('steam:') ? key.slice(6) : undefined)
       if (!r.processes.length && Date.now() - r.started < r.grace) throw new Error('Game launch is still handing off; try Stop again shortly')
       await terminateTracked(r.processes)
       r.lastSeen = Date.now()

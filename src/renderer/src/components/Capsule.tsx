@@ -38,9 +38,10 @@ export function tileKeys(e: React.KeyboardEvent, gameKey: string, open: () => vo
 
 /** The program icon / initial used for non-Epic games without cover art. */
 export function LocalTile({ game }: { game: Game }): React.JSX.Element {
+  const icon = img(game.images.thumb, 64)
   return (
     <div className="local-tile">
-      {game.images.thumb ? <img src={game.images.thumb} alt="" draggable={false} /> : <span className="local-tile-letter">{game.title.slice(0, 1)}</span>}
+      {icon ? <img src={icon} alt="" draggable={false} /> : <span className="local-tile-letter">{game.title.slice(0, 1)}</span>}
       <span className="local-tile-name">{game.title}</span>
     </div>
   )

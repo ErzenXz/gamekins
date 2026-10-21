@@ -35,6 +35,43 @@ import {
 const MAX_CHUNK_CACHE_BYTES = 128 * 1024 * 1024
 const STAGE_SUFFIX = '.gamekins-tmp'
 
+interface CommitJournal {
+  schema: 1
+  appName: string
+  jobId: string
+  manifest: string
+  manifestHash: string
+  files: string[]
+  staged: string[]
+  deletions: string[]
+}
+
+function commitPath(installPath: string, appName: string): string {
+  if (!/^[A-Za-z0-9_.-]+$/.test(appName) || ['.', '..'].includes(appName)) throw new Error('Unsafe Epic app identifier')
+  return join(installPath, '.gamekins', `commit-${appName}.json`)
+}
+
+/** A failed commit must be resumed before launching or modifying its installation. */
+export async function assertNoPendingInstallCommit(installPath: string, _appName?: string): Promise<void> {
+  let boundary: FsBoundary
+  try { boundary = await FsBoundary.create(installPath) }
+  catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw err
+  }
+  const directory = join(installPath, '.gamekins')
+  await boundary.check(directory)
+  let names: string[]
+  try { names = await readdir(directory) }
+  catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw err
+  }
+  if (names.some((name) => name.startsWith('commit-') && name.endsWith('.json'))) {
+    throw new Error('Installation recovery required. Resume the interrupted download before playing or modifying this game.')
+  }
+}
+
 /** Where an old build already has a piece of a chunk on disk. */
 interface ReuseSource {
   file: string
@@ -81,6 +118,7 @@ export class EpicInstallTask implements InstallTask {
   private manifest!: Manifest
   private manifestData!: Buffer
   private manifestHash = ''
+  private recoveringCommit: CommitJournal | null = null
   private boundary!: FsBoundary
   private baseUrls: string[] = []
   private toWrite: FileEntry[] = []
@@ -124,6 +162,17 @@ export class EpicInstallTask implements InstallTask {
     this.boundary = await FsBoundary.create(this.req.installPath)
     await this.boundary.check(this.resumeLog)
     await this.boundary.check(this.stagingInventory)
+    const journal = commitPath(this.req.installPath, this.game.appName)
+    await this.boundary.check(journal)
+    try {
+      const raw: unknown = JSON.parse(await readFile(journal, 'utf8'))
+      this.recoveringCommit = await this.validateJournal(raw)
+      this.computeTotals([])
+      return this.totals
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+    }
+    await assertNoPendingInstallCommit(this.req.installPath)
     const { api, platform } = this.deps
     const info = await api.manifestInfo(platform, this.game.namespace, this.game.catalogItemId, this.game.appName)
     if (signal.aborted) throw abortError()
@@ -147,7 +196,7 @@ export class EpicInstallTask implements InstallTask {
         if (digest !== this.manifestHash || jobId !== (this.req.jobId ?? '') || !file || !['staged', 'final'].includes(mode)) continue
         const path = this.target(name) + (mode === 'staged' ? STAGE_SUFFIX : '')
         await this.boundary.check(path, !!file.symlinkTarget)
-        if (await this.completeFileExists(file, path)) {
+        if (await this.completeFileExists(file, path, signal)) {
           this.completed.add(name)
           if (mode === 'staged') this.staged.add(name)
         }
@@ -252,6 +301,7 @@ export class EpicInstallTask implements InstallTask {
 
   private async execute(signal: AbortSignal, progress: (p: InstallProgress) => void): Promise<InstalledInfo> {
     signal.throwIfAborted()
+    if (this.recoveringCommit) return this.commit(this.recoveringCommit)
     const report = (phase?: InstallProgress['phase']): void =>
       progress({
         phase,
@@ -294,73 +344,38 @@ export class EpicInstallTask implements InstallTask {
     signal.throwIfAborted()
     report('finalizing')
     signal.throwIfAborted()
-    // A disappeared completed file must be rebuilt, including a missing staging file.
+    // Validate all selected payloads before committing, including unchanged update
+    // files and completed files modified after preparation.
     const missing: FileEntry[] = []
     for (const f of this.files) {
-      if (!this.completed.has(f.filename)) continue
-      const path = this.target(f.filename) + (this.staged.has(f.filename) ? STAGE_SUFFIX : '')
+      const path = this.target(f.filename) + (this.staged.has(f.filename) && this.completed.has(f.filename) ? STAGE_SUFFIX : '')
       await this.boundary.check(path, !!f.symlinkTarget)
-      if (!(await this.completeFileExists(f, path))) missing.push(f)
+      if (!(await this.completeFileExists(f, path, signal))) missing.push(f)
     }
     if (missing.length) {
       this.toWrite = missing
       await this.writeFiles(signal, () => report('downloading'))
       report('finalizing')
     }
-    for (const name of this.staged) {
-      if (!this.completed.has(name)) continue
-      signal.throwIfAborted()
-      const path = this.target(name)
-      await this.boundary.check(path, true)
-      await this.boundary.check(path + STAGE_SUFFIX, true)
-      const file = this.files.find((f) => f.filename === name)!
-      if (!(await this.completeFileExists(file, path + STAGE_SUFFIX))) throw new Error(`Missing completed staging file: ${name}`)
-      signal.throwIfAborted()
-      if (await lstat(path).then((st) => st.isFile(), (err: NodeJS.ErrnoException) => {
-        if (err.code !== 'ENOENT') throw err
-        return false
-      })) await chmod(path, 0o666)
-      signal.throwIfAborted()
-      await rename(path + STAGE_SUFFIX, path)
+    // The durable intent precedes the first destructive operation. Once published,
+    // cancellation waits for commit completion; failed commits retain their journal.
+    for (const directory of new Set(this.files.map((file) => dirname(this.target(file.filename))))) {
+      await this.boundary.check(directory)
+      await syncDirectory(directory)
     }
-    for (const name of this.toDelete) {
-      signal.throwIfAborted()
-      await this.boundary.check(this.target(name), true)
-      signal.throwIfAborted()
-      await rm(this.target(name), { force: true })
+    const journal: CommitJournal = {
+      schema: 1, appName: this.game.appName, jobId: this.req.jobId ?? '',
+      manifest: this.manifestData.toString('base64'), manifestHash: this.manifestHash,
+      files: this.files.map((file) => file.filename),
+      staged: this.files.filter((file) => this.staged.has(file.filename) && this.completed.has(file.filename)).map((file) => file.filename),
+      deletions: this.toDelete
     }
-    signal.throwIfAborted()
-    // Individual promotions are not crash-transactional; a commit journal is a separate change.
-    const manifestPath = this.deps.installedManifestPath?.(this.game.appName) ??
-      join(dataDir('manifests', 'epic'), `${createHash('sha256').update(this.game.appName).digest('hex')}.manifest`)
-    await (await FsBoundary.create(dirname(manifestPath))).check(manifestPath)
-    await writeAtomic(manifestPath, this.manifestData, signal)
-    signal.throwIfAborted()
-    await this.boundary.check(this.resumeLog)
-    await rm(this.resumeLog, { force: true })
-    await this.boundary.check(this.stagingInventory)
-    await rm(this.stagingInventory, { force: true })
-    await rmdir(join(this.req.installPath, '.gamekins')).catch(() => undefined) // only if now empty
-
+    const journalFile = commitPath(this.req.installPath, this.game.appName)
+    await this.boundary.check(journalFile)
+    await writeAtomic(journalFile, Buffer.from(JSON.stringify(journal)), signal, this.boundary)
+    const info = await this.commit(journal)
+    if (signal.aborted) return info
     const m = this.manifest
-    const info: InstalledInfo = {
-      path: this.req.installPath,
-      version: m.buildVersion,
-      executable: m.launchExe,
-      launchCommand: m.launchCommand,
-      platform: this.deps.platform,
-      sizeBytes: this.files.reduce((n, f) => n + f.size, 0),
-      // We now hold this build's manifest ourselves, so Gamekins owns the install from here on.
-      source: 'gamekins',
-      installedAt: this.req.existing?.installedAt ?? Date.now(),
-      ownsFolder: this.req.existing?.ownsFolder ?? (this.req.createdFolder === true && !this.game.dlcOf),
-      prereqsInstalled: this.req.existing?.prereqsInstalled
-    }
-
-    if (this.deps.platform === 'Windows' && m.prereqPath && info.prereqsInstalled !== true) {
-      info.prereqsInstalled = false
-    }
-    this.req.onCommitted?.({ ...info })
     if (
       info.prereqsInstalled !== true &&
       this.deps.platform === 'Windows' &&
@@ -372,6 +387,103 @@ export class EpicInstallTask implements InstallTask {
       info.prereqsInstalled = await runElevated(this.target(m.prereqPath), m.prereqArgs, signal).catch(() => false)
     }
     signal.throwIfAborted()
+    return info
+  }
+
+  private async validateJournal(raw: unknown): Promise<CommitJournal> {
+    if (!raw || typeof raw !== 'object') throw new Error('Invalid installation commit journal')
+    const journal = raw as CommitJournal
+    if (journal.schema !== 1 || journal.appName !== this.game.appName || journal.jobId !== (this.req.jobId ?? '') ||
+        typeof journal.manifest !== 'string' || typeof journal.manifestHash !== 'string' ||
+        ![journal.files, journal.staged, journal.deletions].every((names) => Array.isArray(names) && names.every((name) => typeof name === 'string'))) {
+      throw new Error('Invalid installation commit journal or download identity')
+    }
+    const data = Buffer.from(journal.manifest, 'base64')
+    if (createHash('sha1').update(data).digest('hex') !== journal.manifestHash) throw new Error('Commit manifest integrity failure')
+    const manifest = parseManifest(data)
+    if (manifest.appName !== this.game.appName) throw new Error('Commit manifest app mismatch')
+    await this.validatePaths(manifest)
+    const selected = new Set(journal.files)
+    const allNames = new Set(manifest.files.map((file) => file.filename))
+    if (selected.size !== journal.files.length || journal.files.some((name) => !allNames.has(name)) ||
+        new Set(journal.staged).size !== journal.staged.length || journal.staged.some((name) => !selected.has(name))) {
+      throw new Error('Invalid commit file selection')
+    }
+    for (const name of journal.deletions) {
+      manifestTarget(this.req.installPath, name)
+      if (allNames.has(name)) throw new Error('Commit cannot delete a target manifest file')
+    }
+    this.manifest = manifest
+    this.manifestData = data
+    this.manifestHash = journal.manifestHash
+    this.files = manifest.files.filter((file) => selected.has(file.filename))
+    return journal
+  }
+
+  private async commit(journal: CommitJournal): Promise<InstalledInfo> {
+    // A commit is non-cancellable after intent is durable. Recovery can repeat every
+    // operation, including a rename that succeeded immediately before a crash.
+    const signal = new AbortController().signal
+    for (const name of journal.staged) {
+      const file = this.files.find((entry) => entry.filename === name)!
+      const path = this.target(name), staged = path + STAGE_SUFFIX
+      await this.boundary.check(path, true)
+      await this.boundary.check(staged, true)
+      const stageExists = await lstat(staged).then(() => true, (err: NodeJS.ErrnoException) => {
+        if (err.code !== 'ENOENT') throw err
+        return false
+      })
+      if (stageExists) {
+        if (!(await this.completeFileExists(file, staged, signal))) throw new Error(`Invalid commit staging file: ${name}`)
+        if (process.platform === 'win32' && await lstat(path).then((st) => st.isFile(), (err: NodeJS.ErrnoException) => {
+          if (err.code !== 'ENOENT') throw err
+          return false
+        })) await chmod(path, 0o666)
+        await rename(staged, path)
+        await syncDirectory(dirname(path))
+      } else if (!(await this.completeFileExists(file, path, signal))) {
+        throw new Error(`Commit payload missing or corrupt: ${name}`)
+      }
+    }
+    // Validate every selected payload before deleting old files or publishing metadata.
+    for (const file of this.files) {
+      const path = this.target(file.filename)
+      await this.boundary.check(path, !!file.symlinkTarget)
+      if (!(await this.completeFileExists(file, path, signal))) throw new Error(`Commit payload missing or corrupt: ${file.filename}`)
+    }
+    for (const name of journal.deletions) {
+      const path = this.target(name)
+      await this.boundary.check(path, true)
+      await rm(path, { force: true })
+      await syncDirectory(dirname(path))
+    }
+    const manifestPath = this.deps.installedManifestPath?.(this.game.appName) ??
+      join(dataDir('manifests', 'epic'), `${createHash('sha256').update(this.game.appName).digest('hex')}.manifest`)
+    const manifestBoundary = await FsBoundary.create(dirname(manifestPath))
+    await manifestBoundary.check(manifestPath)
+    await writeAtomic(manifestPath, this.manifestData, signal, manifestBoundary)
+    const m = this.manifest
+    const info: InstalledInfo = {
+      path: this.req.installPath, version: m.buildVersion, executable: m.launchExe,
+      launchCommand: m.launchCommand, platform: this.deps.platform,
+      sizeBytes: this.files.reduce((total, file) => total + file.size, 0), source: 'gamekins',
+      installedAt: this.req.existing?.installedAt ?? Date.now(),
+      ownsFolder: this.req.existing?.ownsFolder ?? (this.req.createdFolder === true && !this.game.dlcOf),
+      prereqsInstalled: this.req.existing?.prereqsInstalled
+    }
+    if (this.deps.platform === 'Windows' && m.prereqPath && info.prereqsInstalled !== true) info.prereqsInstalled = false
+    this.req.onCommitted?.({ ...info })
+    for (const path of [this.resumeLog, this.stagingInventory]) {
+      await this.boundary.check(path)
+      await rm(path, { force: true })
+    }
+    // Remove intent last, after all payload, manifest and installed-state writes.
+    const journalFile = commitPath(this.req.installPath, this.game.appName)
+    await this.boundary.check(journalFile)
+    await rm(journalFile, { force: true })
+    await syncDirectory(dirname(journalFile))
+    await rmdir(join(this.req.installPath, '.gamekins')).catch(() => undefined)
+    this.recoveringCommit = null
     return info
   }
 
@@ -419,11 +531,12 @@ export class EpicInstallTask implements InstallTask {
     if (m.prereqPath) await this.boundary.check(this.target(m.prereqPath))
   }
 
-  private async completeFileExists(f: FileEntry, path: string): Promise<boolean> {
+  private async completeFileExists(f: FileEntry, path: string, signal: AbortSignal): Promise<boolean> {
+    signal.throwIfAborted()
     try {
       const st = await lstat(path)
       if (f.symlinkTarget) return st.isSymbolicLink() && (await readlink(path)) === f.symlinkTarget
-      return st.isFile() && st.size === f.size
+      return st.isFile() && st.size === f.size && (await sha1File(path, signal)).equals(f.sha1)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false
       throw err
@@ -440,7 +553,7 @@ export class EpicInstallTask implements InstallTask {
       this.currentFile = f.filename
       let ok = false
       try {
-        if (f.symlinkTarget) ok = await this.completeFileExists(f, path)
+        if (f.symlinkTarget) ok = await this.completeFileExists(f, path, signal)
         else {
           const st = await stat(path)
           if (st.size === f.size) ok = (await sha1File(path, signal)).equals(f.sha1)
@@ -767,6 +880,7 @@ export async function discardPartial(installPath: string, appName?: string, jobI
   // Legacy callers without an app identity cannot safely select a job's leftovers.
   if (!appName || !/^[A-Za-z0-9_.-]+$/.test(appName) || ['.', '..'].includes(appName)) return
   if (jobId && !/^[A-Za-z0-9_-]+$/.test(jobId)) throw new Error('Unsafe install job identifier')
+  await assertNoPendingInstallCommit(installPath, appName)
   const boundary = await FsBoundary.create(installPath)
   const inventoryFile = inventoryPath(installPath, appName, jobId)
   const inventory = await readInventory(inventoryFile, boundary)
@@ -890,10 +1004,18 @@ async function writeAtomic(path: string, data: Buffer, signal: AbortSignal, boun
     await boundary?.check(path)
     signal.throwIfAborted()
     await rename(temporary, path)
+    await syncDirectory(dirname(path))
   } finally {
     await boundary?.check(temporary)
     await rm(temporary, { force: true })
   }
+}
+
+async function syncDirectory(path: string): Promise<void> {
+  // Windows does not support opening directories for fsync through Node.
+  if (process.platform === 'win32') return
+  const handle = await open(path, 'r')
+  try { await handle.sync() } finally { await handle.close() }
 }
 
 function sha1File(path: string, signal: AbortSignal): Promise<Buffer> {

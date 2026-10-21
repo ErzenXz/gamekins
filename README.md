@@ -43,10 +43,10 @@ Your games are scattered across launchers, and some of them are slow and awkward
 ## Getting started
 
 ```bash
-npm install
-npm run dev          # the full app, with hot reload
-npm run dev:web      # UI only, in a browser at http://localhost:5174, with mock data
-npm run typecheck
+pnpm install --frozen-lockfile
+pnpm dev          # the full app, with hot reload
+pnpm dev:web      # UI only, in a browser at http://localhost:5174, with mock data
+pnpm typecheck
 ```
 
 `dev:web` runs against a built-in mock backend, so you can work on the UI without an Epic account. Append `?mock=signedout`, `?mock=loading`, `?mock=many` (600 games) or `?mock=empty` to the URL to see those states.
@@ -55,18 +55,18 @@ npm run typecheck
 
 | Command | Output |
 | --- | --- |
-| `npm run dist:win` | `dist/Gamekins-Setup-x.y.z.exe` (NSIS installer) |
-| `npm run dist:store` | `dist/Gamekins-x.y.z.appx` for the Microsoft Store |
-| `npm run dist:mac` | `dist/Gamekins-x.y.z-mac.dmg` (universal). You must build this on a Mac. |
+| `pnpm dist:win` | Signed x64 NSIS installer; build on Windows. |
+| `pnpm dist:store` | x64 AppX with Partner Center identity; build on Windows. |
+| `pnpm dist:mac` | Universal signed/notarized DMG; build on macOS. |
+| `pnpm dist:linux` | AppImage and deb; build on Linux. |
 
-To regenerate the icons from `branding/`, run `npx electron scripts/make-icons.cjs`.
+To regenerate the icons from `branding/`, run `pnpm exec electron scripts/make-icons.cjs`.
 
-**Microsoft Store:**
-1. Reserve the name in Partner Center.
-2. Copy **Product identity** into the `appx` section of `electron-builder.yml`.
-3. Run `npm run dist:store` and upload the package.
+See the [desktop release guide](docs/RELEASING.md) for signing, Partner Center identity, Linux support, CI and the native acceptance checklist. Packaging never publishes automatically.
 
-**macOS:** ship a signed and notarized DMG; set `CSC_LINK`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`. The Mac App Store's sandbox doesn't allow game launchers.
+The Microsoft Store edition preserves core game management while opening storefronts externally, withholding unclassified online media, and handling chat in provider clients. It includes local friend restrictions and reporting links. See the [community guidelines](docs/COMMUNITY.md).
+
+Linux supports Steam handoffs and local native executables. Epic installation and launch require a compatibility runner, which is not bundled; GOG offers browsing and manual downloads.
 
 ## Architecture
 

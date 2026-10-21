@@ -1,6 +1,6 @@
 // Renders branding/icon-1024.png (app tile), branding/mark-1024.png (the Gamekin on its own)
 // and the mascot poses to every PNG the Windows/Mac/Store packages and the UI need.
-// Run with: npx electron scripts/make-icons.cjs [outDir]
+// Run with: pnpm exec electron scripts/make-icons.cjs [outDir]
 // outDir (default: the repo) helps when antivirus folder protection stops electron.exe writing
 // into the project: render elsewhere, then copy the tree over.
 const { app, BrowserWindow } = require('electron')

@@ -1,8 +1,10 @@
+import { decryptSession, encryptSession, sessionEncryptionAvailable } from '../../core/credentials'
+import { authenticationNavigationError, isAllowedAuthenticationUrl, protectAuthenticationWindow } from '../../core/authWindowSafety'
 // GOG: sign in with GOG's own page (Galaxy's public OAuth client), owned games from the GOG
 // account, installs made by GOG Galaxy / offline installers, direct DRM-free launching.
 // Installing and updating stay with GOG Galaxy in v1.
 
-import { BrowserWindow, safeStorage, shell, session as electronSession } from 'electron'
+import { BrowserWindow, shell, session as electronSession } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, renameSync } from 'node:fs'
@@ -70,7 +72,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 export class GogProvider implements GameProvider {
   readonly id = 'gog' as const
   readonly name = 'GOG'
-  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : 'Windows'
+  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : process.platform === 'linux' ? 'Linux' : 'Windows'
 
   private generation = 0
   private session: GogSession | null = null
@@ -100,7 +102,7 @@ export class GogProvider implements GameProvider {
   async init(): Promise<void> {
     try {
       const raw = await readFile(join(this.dir, 'session.bin'))
-      const json = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString('utf8')
+      const json = decryptSession(raw)
       const s: unknown = JSON.parse(json)
       this.session = validSession(s) ? s : null
     } catch {
@@ -123,11 +125,11 @@ export class GogProvider implements GameProvider {
     const file = join(this.dir, 'session.bin')
     const work = this.sessionWrites.catch(() => undefined).then(async () => {
       this.assertGeneration(generation)
-      if (!s) { await rm(file, { force: true }); return }
+      if (!s || !sessionEncryptionAvailable()) { await rm(file, { force: true }); return }
       const json = JSON.stringify(s)
       const tmp = `${file}.${randomUUID()}.tmp`
       try {
-        await writeFile(tmp, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(json) : json, { flag: 'wx', mode: 0o600 })
+        await writeFile(tmp, encryptSession(json), { flag: 'wx', mode: 0o600 })
         this.assertGeneration(generation)
         renameSync(tmp, file)
       } finally { await rm(tmp, { force: true }).catch(() => undefined) }
@@ -225,10 +227,12 @@ export class GogProvider implements GameProvider {
       webPreferences
     })
     this.loginWindow = win
+    let blockedAuthentication = (): void => { if (!win.isDestroyed()) win.close() }
     win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Social sign-ins (Google, Facebook, Discord…) open popups that report back to GOG's page.
     win.webContents.setWindowOpenHandler(({ url }) => {
       if (!url.startsWith('https:')) return { action: 'deny' }
+      if (!isAllowedAuthenticationUrl('gog', url)) { blockedAuthentication(); return { action: 'deny' } }
       return {
         action: 'allow',
         overrideBrowserWindowOptions: { parent: win, width: 520, height: 700, autoHideMenuBar: true, backgroundColor: '#18181c', webPreferences }
@@ -247,6 +251,8 @@ export class GogProvider implements GameProvider {
         if (err) reject(err)
         else resolvePromise(account!)
       }
+      blockedAuthentication = () => finish(authenticationNavigationError())
+      protectAuthenticationWindow(win, 'gog', (error) => finish(error))
 
       // The user signs in on GOG's own page; we only watch for the redirect that carries the code.
       const onUrl = (event: { preventDefault(): void } | null, url: string): void => {
@@ -356,6 +362,7 @@ export class GogProvider implements GameProvider {
   }
 
   async scanExternalInstalls(): Promise<Map<string, InstalledInfo>> {
+    if (this.platform === 'Linux') return new Map()
     const roots = await defaultGogRoots()
     const installDir = settings().installDir
     if (installDir && !roots.includes(installDir)) roots.push(installDir)
@@ -396,6 +403,7 @@ export class GogProvider implements GameProvider {
   }
 
   async launch(game: ProviderGame, install: InstalledInfo, opts: LaunchOptions): Promise<ChildProcess | null> {
+    if (this.platform === 'Linux') throw new Error('GOG game launching is unavailable on Linux. Download games from GOG.com and add a native executable as a local game.')
     if (opts.viaOfficialLauncher && process.platform === 'win32' && /^\d{1,20}$/.test(game.appName)) {
       const galaxy = await findGalaxyClient()
       if (galaxy) {

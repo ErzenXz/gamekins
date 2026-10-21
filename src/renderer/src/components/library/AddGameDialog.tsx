@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, CircleAlert, FileSearch, LoaderCircle, RotateCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { LocalProgram } from '@shared/types'
-import { baseName } from '../../lib/format'
+import { baseName, img } from '../../lib/format'
 import { errorMessage, useStore } from '../../store'
 import { Modal } from '../Modal'
 
@@ -71,7 +71,7 @@ function AddGameBody(): React.JSX.Element {
   const browse = async (): Promise<void> => {
     setError(null)
     try {
-      const exts = platform === 'darwin' ? ['app'] : ['exe', 'lnk', 'bat', 'cmd', 'url']
+      const exts = platform === 'darwin' ? ['app'] : platform === 'linux' ? ['*'] : ['exe', 'lnk', 'bat', 'cmd', 'url']
       const files = await window.gamekins.app.pickFiles({
         title: 'Choose programs to add',
         filters: [{ name: platform === 'darwin' ? 'Applications' : 'Programs', extensions: exts }],
@@ -206,7 +206,7 @@ function AddGameBody(): React.JSX.Element {
                       </span>
                     </span>
                     <span className="agd-c-icon">
-                      {p.icon ? <img src={p.icon} alt="" draggable={false} /> : <span className="agd-noicon">{p.name.slice(0, 1)}</span>}
+                      {img(p.icon, 64) ? <img src={img(p.icon, 64)} alt="" draggable={false} /> : <span className="agd-noicon">{p.name.slice(0, 1)}</span>}
                     </span>
                     <span className="agd-name">
                       {p.name}

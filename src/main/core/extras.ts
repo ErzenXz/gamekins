@@ -43,6 +43,12 @@ export async function createDesktopShortcut(key: string): Promise<string> {
     )
     return file
   }
+  if (process.platform === 'linux') {
+    const file = join(desktop, `${safe}.desktop`)
+    const name = safe.replace(/[\r\n]/g, ' ').replace(/\\/g, '\\\\')
+    await writeFile(file, `[Desktop Entry]\nType=Link\nName=${name}\nURL=${launchUrl(key)}\nIcon=gamekins\n`, { mode: 0o755 })
+    return file
+  }
   const file = join(desktop, `${safe}.url`)
   const icon = game.install ? join(game.install.path, game.install.executable) : process.execPath
   await writeFile(file, `[InternetShortcut]\r\nURL=${launchUrl(key)}\r\nIconFile=${icon}\r\nIconIndex=0\r\n`)

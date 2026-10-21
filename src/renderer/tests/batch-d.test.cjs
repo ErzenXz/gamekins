@@ -7,10 +7,24 @@ const { libraryIndex, jobIndex, shareEntities } = require(root + '/lib/entityInd
 const { visibleRows, visibleItems } = require(root + '/components/library/virtualWindow.ts')
 const { applyLibrary, bootstrap, useStore } = require(root + '/store.ts')
 const { addToCollection, renameCollection, removeFromCollection, confirmDeleteCollection } = require(root + '/lib/gameActions.ts')
+const { availableHere, primaryAction, canInstall } = require(root + '/lib/gameActions.ts')
 
 const game = (key, overrides = {}) => ({ key, title: key, images: {}, prefs: {}, dlc: [], platforms: ['Windows'], playtimeSeconds: 0, ...overrides })
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 const tick = () => new Promise((resolve) => setImmediate(resolve))
+
+test('Linux actions do not advertise unsupported Epic/GOG installs or cached Windows launches', () => {
+  for (const provider of ['epic', 'gog']) {
+    const title = game(provider, { provider })
+    assert.equal(availableHere(title, 'linux'), false)
+    assert.equal(canInstall(title, undefined, 'linux'), false)
+    assert.equal(primaryAction({ ...title, install: { path: '/games/game.exe' } }, undefined, 'linux').kind, 'unavailable')
+  }
+  assert.equal(availableHere(game('steam', { provider: 'steam' }), 'linux'), true)
+  assert.equal(availableHere(game('local', { provider: 'local', platforms: ['Linux'] }), 'linux'), true)
+  assert.equal(availableHere(game('mac', { provider: 'epic', platforms: ['Mac'] }), 'darwin'), true)
+  assert.equal(availableHere(game('win', { provider: 'epic', platforms: ['Windows'] }), 'darwin'), false)
+})
 // Simulate the main-owned collection transaction rather than the old per-game patch API.
 function collectionApi(initial, before = async () => {}) {
   let games = structuredClone(initial)
@@ -276,4 +290,26 @@ test('Storage ignores older responses and responses after unmount', async () => 
   requests[2].resolve([{ root: 'after unmount' }])
   await third
   assert.deepEqual(harness.state[0], [{ root: 'new' }])
+})
+
+test('Add a Game browse lets Linux users select extensionless native executables', async () => {
+  useStore.setState({ info: { platform: 'linux' }, addGameOpen: true, games: [] })
+  let requested
+  window.gamekins.app.pickFiles = async (options) => { requested = options; return [] }
+  const harness = hookHarness('/components/library/AddGameDialog.tsx')
+  const dialog = harness.render(harness.exports.AddGameDialog)
+  const body = harness.render(dialog.type, dialog.props)
+  function browseButton(node) {
+    if (!node || typeof node !== 'object') return undefined
+    if (Array.isArray(node)) return node.map(browseButton).find(Boolean)
+    const children = node.props?.children
+    if (node.type === 'button' && Array.isArray(children) && children.some(child => typeof child === 'string' && child.includes('Browse'))) return node
+    return browseButton(children)
+  }
+  const browse = browseButton(body.props.footer)
+  assert.ok(browse, 'Browse action must be reachable from the add-game dialog')
+  await browse.props.onClick()
+  assert.deepEqual(requested.filters, [{ name: 'Programs', extensions: ['*'] }])
+  assert.equal(requested.multi, true)
+  useStore.setState({ addGameOpen: false })
 })

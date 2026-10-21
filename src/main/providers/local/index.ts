@@ -42,7 +42,7 @@ function prettyName(path: string): string {
 export class LocalProvider implements GameProvider {
   readonly id = 'local' as const
   readonly name = 'Other games'
-  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : 'Windows'
+  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : process.platform === 'linux' ? 'Linux' : 'Windows'
   readonly alwaysOn = true
 
   async init(): Promise<void> {}

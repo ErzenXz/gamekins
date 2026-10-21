@@ -26,7 +26,7 @@ export const settingsSchema = {
   friendsStatus: oneOf('online', 'away', 'offline')
 }
 export const installSchema = {
-  path, version: string, executable: string, launchCommand: string, platform: oneOf('Windows', 'Mac'),
+  path, version: string, executable: string, launchCommand: string, platform: oneOf('Windows', 'Mac', 'Linux'),
   sizeBytes: number, source: oneOf('gamekins', 'epic-launcher', 'steam', 'gog', 'local'), installedAt: number,
   prereqsInstalled: optional(boolean), manifestId: optional(text), ownsFolder: optional(boolean),
   unavailable: optional(boolean), workingDirectory: optional(path)
@@ -36,7 +36,7 @@ export const imagesSchema = { tall: optional(imageString), wide: optional(imageS
 export const gameSchema = {
   key: text, provider: oneOf('epic', 'steam', 'gog', 'local'), appName: text, title: text, namespace: string,
   catalogItemId: string, developer: optional(string), description: optional(string),
-  images: (v: unknown) => fields(v, imagesSchema), platforms: array(oneOf('Windows', 'Mac'), 2),
+  images: (v: unknown) => fields(v, imagesSchema), platforms: array(oneOf('Windows', 'Mac', 'Linux'), 3),
   latestVersion: optional(string), thirdPartyManagedApp: optional(string), canRunOffline: boolean,
   requiresOwnershipToken: boolean, storeUrl: optional(string), dlcOf: optional(text)
 }

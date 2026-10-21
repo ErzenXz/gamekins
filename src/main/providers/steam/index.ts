@@ -1,9 +1,11 @@
+import { decryptSession, encryptSession, sessionEncryptionAvailable } from '../../core/credentials'
+import { authenticationNavigationError, isAllowedAuthenticationUrl, protectAuthenticationWindow } from '../../core/authWindowSafety'
 // Steam: installed games straight from the Steam client's library folders (no sign-in needed),
 // owned games and play time from the Web API once signed in on Steam's own login page.
 // The Steam client installs, updates, uninstalls and starts its games; Gamekins hands those
 // actions over with steam:// links and tracks the game's processes while it runs.
 
-import { BrowserWindow, safeStorage, session as electronSession, shell } from 'electron'
+import { BrowserWindow, session as electronSession, shell } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { renameSync } from 'node:fs'
@@ -70,7 +72,7 @@ const plainChrome = (ua: string): string => ua.replace(/ (Electron|gamekins)\/\S
 export class SteamProvider implements GameProvider {
   readonly id = 'steam' as const
   readonly name = 'Steam'
-  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : 'Windows'
+  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : process.platform === 'linux' ? 'Linux' : 'Windows'
   /** Installed Steam games show up without signing in. */
   readonly alwaysOn = true
   partialRefreshError?: string
@@ -106,7 +108,7 @@ export class SteamProvider implements GameProvider {
   async init(): Promise<void> {
     try {
       const raw = await readFile(join(this.dir, 'session.bin'))
-      const json = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString('utf8')
+      const json = decryptSession(raw)
       const s: unknown = JSON.parse(json)
       this.session = validSession(s) ? s : null
     } catch {
@@ -126,11 +128,11 @@ export class SteamProvider implements GameProvider {
     const file = join(this.dir, 'session.bin')
     const work = this.sessionWrites.catch(() => undefined).then(async () => {
       this.assertGeneration(generation)
-      if (!s) { await rm(file, { force: true }); return }
+      if (!s || !sessionEncryptionAvailable()) { await rm(file, { force: true }); return }
       const json = JSON.stringify(s)
       const tmp = `${file}.${randomUUID()}.tmp`
       try {
-        await writeFile(tmp, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(json) : json, { flag: 'wx', mode: 0o600 })
+        await writeFile(tmp, encryptSession(json), { flag: 'wx', mode: 0o600 })
         this.assertGeneration(generation)
         renameSync(tmp, file)
       } finally { await rm(tmp, { force: true }).catch(() => undefined) }
@@ -250,11 +252,13 @@ export class SteamProvider implements GameProvider {
       webPreferences
     })
     this.loginWindow = win
+    let blockedAuthentication = (): void => { if (!win.isDestroyed()) win.close() }
     win.webContents.setUserAgent(plainChrome(win.webContents.getUserAgent()))
     // Only web pages in this window; steam:// and other app links are not followed.
     win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('https:')) e.preventDefault() })
     win.webContents.setWindowOpenHandler(({ url }) => {
       if (!url.startsWith('https:')) return { action: 'deny' }
+      if (!isAllowedAuthenticationUrl('steam', url)) { blockedAuthentication(); return { action: 'deny' } }
       return { action: 'allow', overrideBrowserWindowOptions: { parent: win, width: 540, height: 700, autoHideMenuBar: true, backgroundColor: '#171a21', webPreferences } }
     })
     win.webContents.on('did-create-window', (child) => child.webContents.setUserAgent(win.webContents.getUserAgent()))
@@ -292,6 +296,13 @@ export class SteamProvider implements GameProvider {
           finish(err as Error)
         }
       }
+      const rejectNavigation = (error: Error): void => {
+        // Steam normally returns to a store/community root after setting its
+        // cookie. Capture the session without allowing that catalog page to load.
+        void check().then(() => { if (!settled && !finishing) finish(error) }).catch((reason: unknown) => finish(reason instanceof Error ? reason : error))
+      }
+      blockedAuthentication = () => rejectNavigation(authenticationNavigationError())
+      protectAuthenticationWindow(win, 'steam', rejectNavigation)
       partition.cookies.on('changed', onCookie)
       win.webContents.on('did-navigate', () => void check())
       win.webContents.on('did-finish-load', () => void check())
@@ -535,6 +546,7 @@ export class SteamProvider implements GameProvider {
         child.unref()
         return null
       }
+      throw new Error('Steam could not be found to pass launch arguments. Start Steam or remove the custom launch arguments and try again.')
     }
     await shell.openExternal(`steam://rungameid/${appid}`)
     return null

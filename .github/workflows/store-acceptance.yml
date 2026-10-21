@@ -1,0 +1,48 @@
+name: Pinned Windows Store candidate acceptance
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/store-acceptance.yml
+      - scripts/store-acceptance.ps1
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: store-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  accept-pinned-candidate:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Download the immutable previously built Store candidate
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $metadata = gh api repos/ErzenXz/gamekins/actions/artifacts/12368051698 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read pinned artifact metadata.' }
+          if ($metadata.id -ne 12368051698 -or $metadata.name -ne 'Gamekins-store-screenshot-build-4' -or $metadata.workflow_run.id -ne 39646982777 -or $metadata.expired) { throw 'Pinned artifact metadata does not match.' }
+          gh run download 39646982777 --repo ErzenXz/gamekins --name Gamekins-store-screenshot-build-4 --dir "$env:RUNNER_TEMP/gamekins-store-candidate"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download pinned candidate.' }
+      - name: Verify, test-sign a disposable copy, deploy and inspect native Windows launch
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packages = @(Get-ChildItem "$env:RUNNER_TEMP/gamekins-store-candidate" -Recurse -Filter *.appx)
+          if ($packages.Count -ne 1) { throw 'Expected exactly one pinned AppX.' }
+          & ./scripts/store-acceptance.ps1 -CandidatePath $packages[0].FullName -EvidenceDirectory "$env:RUNNER_TEMP/gamekins-store-acceptance"
+          exit $LASTEXITCODE
+      - name: Upload acceptance evidence, never the test certificate or modified package
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Gamekins-pinned-store-acceptance-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/gamekins-store-acceptance/

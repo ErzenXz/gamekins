@@ -21,7 +21,9 @@ import { openExternalSafe, openPathChecked } from './core/external'
 import { validateSender, validateArguments } from './core/ipcValidation'
 import { pathKey } from './providers/epic/fsBoundary'
 import { EVENTS } from '@shared/api'
-import type { Account, ArtworkKind, CollectionEdit, Game, GamePrefs, ProviderId, Settings, StoreId, Toast } from '@shared/types'
+import { STORE_DISTRIBUTION } from '@shared/distribution'
+import { sanitizeGameForDistribution, sanitizeDownloadForDistribution } from '@shared/contentPolicy'
+import type { Account, ArtworkKind, CollectionEdit, DownloadJob, Game, GamePrefs, ProviderId, Settings, SocialState, StoreId, Toast } from '@shared/types'
 import { downloads, freeBytes } from './core/downloads'
 import { library } from './core/library'
 import { settings, settingsStore } from './core/settings'
@@ -108,6 +110,11 @@ function send(channel: string, payload: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
+function socialStateForDistribution(state: SocialState): SocialState {
+  if (!STORE_DISTRIBUTION) return state
+  return { ...state, unread: {}, networks: state.networks?.map((network) => ({ ...network, canChat: false })) }
+}
+
 const toast = (t: Toast): void => send(EVENTS.toast, t)
 
 function accounts(): Account[] {
@@ -153,7 +160,7 @@ function createWindow(show = !startHidden): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
-      webviewTag: true,
+      webviewTag: !STORE_DISTRIBUTION,
       // No spellchecker: it loads dictionaries and runs on every input for no benefit here.
       spellcheck: false
     }
@@ -180,6 +187,17 @@ function createWindow(show = !startHidden): void {
     return { action: 'deny' }
   })
 
+  if (STORE_DISTRIBUTION) {
+    // Defense in depth: catalog media is never loaded in the Store renderer, even if a
+    // stale cache or future UI path accidentally supplies a remote URL. Provider API
+    // requests and separate provider sign-in partitions remain functional.
+    win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+      const rendererMedia = details.webContentsId === win?.webContents.id &&
+        ['image', 'media', 'object', 'subFrame'].includes(details.resourceType)
+      callback({ cancel: rendererMedia && /^https?:/i.test(details.url) })
+    })
+  }
+
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void win.loadFile(join(__dirname, '../renderer/index.html'))
 }
@@ -188,6 +206,7 @@ function createWindow(show = !startHidden): void {
 function guardWebviews(): void {
   app.on('web-contents-created', (_e, contents) => {
     contents.on('will-attach-webview', (event, prefs, params) => {
+      if (STORE_DISTRIBUTION) { event.preventDefault(); return }
       delete prefs.preload
       prefs.nodeIntegration = false
       prefs.contextIsolation = true
@@ -374,7 +393,7 @@ function handle<A extends unknown[], R>(channel: string, fn: (...args: A) => R |
 }
 
 function registerIpc(): void {
-  handle('app:info', () => ({ version: app.getVersion(), platform: process.platform, providers: providerInfo }))
+  handle('app:info', () => ({ version: app.getVersion(), platform: process.platform, providers: providerInfo, distribution: STORE_DISTRIBUTION ? 'ms-store' : 'direct' }))
   handle('app:openExternal', openExternalSafe)
   handle('app:pickDirectory', async (defaultPath?: string) => {
     const res = await dialog.showOpenDialog(win!, {
@@ -416,13 +435,14 @@ function registerIpc(): void {
     }
   })
 
-  handle('library:get', () => library.list())
+  handle('library:get', () => library.list().map((game) => sanitizeGameForDistribution(game)))
   handle('library:refresh', async () => {
     await library.refresh()
     downloads.queueUpdates()
-    return library.list()
+    return library.list().map((game) => sanitizeGameForDistribution(game))
   })
   handle('library:freeGames', async () => {
+    if (STORE_DISTRIBUTION) return []
     const out = []
     for (const p of providers) if (p.freeGames) out.push(...(await p.freeGames().catch(() => [])))
     return out
@@ -524,11 +544,11 @@ function registerIpc(): void {
     const info = library.installInfo(key)
     if (info) return openPathChecked(info.path)
   })
-  handle('games:editCollections', (edit: CollectionEdit) => library.editCollections(edit))
+  handle('games:editCollections', (edit: CollectionEdit) => library.editCollections(edit).map((game) => sanitizeGameForDistribution(game)))
   handle('games:setPrefs', (key: string, patch: Partial<GamePrefs>) => library.setPrefs(key, patch))
   handle('games:moveInstall', moveInstall)
 
-  handle('downloads:list', () => downloads.jobs)
+  handle('downloads:list', () => downloads.jobs.map((job) => sanitizeDownloadForDistribution(job)))
   handle('downloads:pause', (id: string) => downloads.pause(id))
   handle('downloads:resume', (id: string) => downloads.resume(id))
   handle('downloads:cancel', (id: string) => downloads.cancel(id))
@@ -546,10 +566,13 @@ function registerIpc(): void {
     return settings()
   })
 
-  handle('social:state', () => social.state())
+  handle('social:state', () => socialStateForDistribution(social.state()))
   handle('social:refresh', () => social.refresh())
-  handle('social:chat', (friendId: string) => social.chat(friendId))
-  handle('social:send', (friendId: string, text: string) => social.sendMessage(friendId, text))
+  handle('social:chat', (friendId: string) => STORE_DISTRIBUTION ? [] : social.chat(friendId))
+  handle('social:send', (friendId: string, text: string) => {
+    if (STORE_DISTRIBUTION) throw new Error('Chat is available in the provider client. Native chat is disabled in the Microsoft Store edition.')
+    return social.sendMessage(friendId, text)
+  })
   handle('social:add', (store: StoreId, displayName: string) => social.addFriend(store, displayName))
   handle('social:accept', (friendId: string) => social.accept(friendId))
   handle('social:remove', (friendId: string) => social.remove(friendId))
@@ -599,12 +622,13 @@ function registerIpc(): void {
     }
 
     library.on('changed', (games: Game[]) => {
-      send(EVENTS.library, games)
+      send(EVENTS.library, games.map((game) => sanitizeGameForDistribution(game)))
       // Friends see what you're playing through Gamekins.
       social.setActivity(games.find((g) => g.running)?.title ?? null)
     })
-    social.on('changed', (state) => send(EVENTS.social, state))
+    social.on('changed', (state) => send(EVENTS.social, socialStateForDistribution(state)))
     social.on('message', (m) => {
+      if (STORE_DISTRIBUTION) return
       send(EVENTS.socialMessage, m)
       if (win && !win.isDestroyed() && win.isFocused()) return
       if (!Notification.isSupported()) return
@@ -616,7 +640,7 @@ function registerIpc(): void {
     social.setStatus(settings().friendsStatus)
     for (const p of providers) if (p.id !== 'local' && p.account()) void social.start(p.id)
     library.on('progress', (p) => send(EVENTS.libraryProgress, p))
-    downloads.on('changed', (jobs) => send(EVENTS.downloads, jobs))
+    downloads.on('changed', (jobs: DownloadJob[]) => send(EVENTS.downloads, jobs.map((job) => sanitizeDownloadForDistribution(job))))
 
     Menu.setApplicationMenu(
       isMac

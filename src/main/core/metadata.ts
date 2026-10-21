@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import type { GameDetails, HltbInfo, SteamInfo } from '@shared/types'
 import { fetchRetry } from '../providers/epic/api'
 import { dataDir } from './store'
+import { STORE_DISTRIBUTION } from '../../shared/distribution'
 
 const FRESH_MS = 14 * 24 * 60 * 60_000
 const MISS_MS = 3 * 24 * 60 * 60_000
@@ -276,6 +277,9 @@ async function readCache(key: string): Promise<GameDetails | null> {
 
 /** Details for a game, from cache when fresh. `force` refetches. Never throws. */
 export async function gameDetails(key: string, title: string, force = false): Promise<GameDetails> {
+  // This precedes cache reads and all network activity: old direct-build caches
+  // must not reintroduce unclassified content into the Store distribution.
+  if (STORE_DISTRIBUTION) return { title, fetchedAt: Date.now() }
   const cached = await readCache(key)
   if (cached && !force) {
     const age = Date.now() - cached.fetchedAt

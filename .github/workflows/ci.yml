@@ -1,0 +1,88 @@
+name: Desktop checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    name: Check and package ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: mac
+            args: --unsigned --arch=arm64 --dir
+          - os: windows-latest
+            target: win
+            args: --unsigned
+          - os: ubuntu-24.04
+            target: linux
+            args: ''
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Package on native runner without signing credentials
+        shell: bash
+        run: node scripts/release.cjs ${{ matrix.target }} ${{ matrix.args }}
+      - name: Archive macOS validation app preserving executable permissions
+        if: matrix.target == 'mac'
+        run: tar -czf dist/Gamekins-mac-arm64-UNSIGNED.tar.gz -C dist/mac-arm64 Gamekins.app
+      - run: node scripts/release-checksums.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Gamekins-${{ matrix.target }}-validation-${{ github.run_number }}
+          retention-days: 3
+          if-no-files-found: error
+          path: |
+            dist/*.tar.gz
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+            dist/SHA256SUMS
+  store:
+    name: Build Microsoft Store submission package
+    if: vars.WINDOWS_STORE_IDENTITY_NAME != ''
+    needs: check
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      WINDOWS_STORE_IDENTITY_NAME: ${{ vars.WINDOWS_STORE_IDENTITY_NAME }}
+      WINDOWS_STORE_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER }}
+      WINDOWS_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: node scripts/release.cjs store --check
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm dist:store
+      - run: node scripts/release-checksums.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Gamekins-store-submission-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            dist/*.appx
+            dist/SHA256SUMS

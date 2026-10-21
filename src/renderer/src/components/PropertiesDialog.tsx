@@ -499,7 +499,7 @@ function Customization({ game }: { game: Game }): React.JSX.Element {
 
 function ArtTile({ game, kind }: { game: Game; kind: ArtworkKind }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
-  const src = game.images[kind]
+  const src = img(game.images[kind], 600)
   const run = async (fn: () => Promise<void>): Promise<void> => {
     setBusy(true)
     try {
@@ -515,7 +515,7 @@ function ArtTile({ game, kind }: { game: Game; kind: ArtworkKind }): React.JSX.E
         <b>{ARTWORK_LABELS[kind]}</b>
         <span>{hint}</span>
       </div>
-      <div className="art-preview" style={kind === 'logo' && game.images.wide ? { backgroundImage: `url("${img(game.images.wide, 640)}")` } : undefined}>
+      <div className="art-preview" style={kind === 'logo' && img(game.images.wide, 640) ? { backgroundImage: `url("${img(game.images.wide, 640)}")` } : undefined}>
         {src ? (
           kind === 'logo' ? (
             <img key={src} src={img(src, 600)} alt="" draggable={false} />

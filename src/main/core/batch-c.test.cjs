@@ -4,6 +4,7 @@ const { test } = require('node:test')
 const fs = require('node:fs')
 const fsp = require('node:fs/promises')
 const { resolve, join, dirname } = require('node:path')
+const { tmpdir } = require('node:os')
 const Module = require('node:module')
 const ts = require('typescript')
 const { EventEmitter } = require('node:events')
@@ -15,7 +16,9 @@ const deferred = () => {
 }
 
 async function fixture(t, overrides = {}) {
-  const root = await fsp.mkdtemp(join(__dirname, '.batch-c-'))
+  const temporaryDirectory = await fsp.realpath(tmpdir())
+  // Use the same native realpath API as moveInstall (Windows expands short temp paths).
+  const root = await fsp.realpath(await fsp.mkdtemp(join(temporaryDirectory, 'gamekins-batch-c-')))
   const cache = new Map()
   const storageClears = []
   const opened = []
@@ -61,7 +64,7 @@ async function fixture(t, overrides = {}) {
         for (const field of ['cache', 'installed', 'playtime', 'prefs', 'artwork', 'sessions']) clearTimeout(library[field]?.timer)
       }
     }
-    assert.equal(dirname(root), __dirname)
+    assert.equal(dirname(root), temporaryDirectory)
     await fsp.rm(root, { recursive: true, force: true })
   })
   return { root, load, stubs, storageClears, opened }
@@ -145,14 +148,19 @@ test('local tracking excludes neighboring executables and rejects unverifiable r
 test('process scans share one promise and distinguish scan errors from empty lists', async (t) => {
   const callback = deferred()
   let calls = 0, done
-  const f = await fixture(t, { stubs: { 'node:child_process': { execFile: (_cmd, _args, _opts, cb) => { calls++; done = cb; callback.yes() } } } })
+  const stubs = process.platform === 'linux'
+    ? { 'node:fs/promises': { ...fsp, readdir: () => new Promise((resolve, reject) => {
+        calls++; done = (err, value) => err ? reject(err) : resolve(value); callback.yes()
+      }) } }
+    : { 'node:child_process': { execFile: (_cmd, _args, _opts, cb) => { calls++; done = cb; callback.yes() } } }
+  const f = await fixture(t, { stubs })
   const { listProcesses } = f.load('processes')
   const one = listProcesses(), two = listProcesses()
   assert.equal(one, two); assert.equal(calls, 1)
   await callback.promise
   done(new Error('access denied'), '')
-  await assert.rejects(one, /scan failed/)
-  const empty = listProcesses(); done(null, '')
+  await assert.rejects(one, /access denied/)
+  const empty = listProcesses(); done(null, process.platform === 'linux' ? [] : '')
   assert.deepEqual(await empty, [])
 })
 
@@ -347,6 +355,7 @@ test('relocation recovery repairs metadata after promotion and preserves survivi
 })
 
 test('shortcut additions deduplicate resolved targets plus arguments and retain working directories', async (t) => {
+  if (process.platform !== 'win32') return t.skip('Windows shortcut resolution')
   const f = await fixture(t)
   const exe = join(f.root, 'game.exe')
   fs.writeFileSync(exe, 'offline')
@@ -383,6 +392,8 @@ async function moveFixture(t, failCopy = false) {
   const f = await fixture(t)
   const source = join(f.root, 'Game', 'Game'), baseDir = join(f.root, 'Destination'), target = join(baseDir, 'Game')
   fs.mkdirSync(source, { recursive: true }); fs.writeFileSync(join(source, 'game.exe'), 'complete')
+  const canonicalSource = await fsp.realpath(source)
+  const canonicalTarget = join(await fsp.realpath(f.root), 'Destination', 'Game')
   const info = { path: source, executable: 'game.exe' }, order = []
   let stage
   f.stubs.set(resolve(__dirname, 'library.ts'), { library: {
@@ -393,12 +404,12 @@ async function moveFixture(t, failCopy = false) {
   f.stubs.set(resolve(__dirname, '../providers/index.ts'), { provider: () => ({ relocateInstall: async () => order.push('provider') }) })
   f.stubs.set('node:fs/promises', { ...fsp,
     rename: async (from, to) => {
-      if (from === source && to === target) throw Object.assign(new Error('cross volume'), { code: 'EXDEV' })
+      if (from === canonicalSource && to === canonicalTarget) throw Object.assign(new Error('cross volume'), { code: 'EXDEV' })
       return fsp.rename(from, to)
     },
     cp: async (from, to, options) => { stage = to; if (failCopy) throw new Error('copy failed'); await fsp.cp(from, to, options) },
     rm: async (path, options) => {
-      if (path === source) { assert.deepEqual(order, ['records', 'provider']); order.push('delete source') }
+      if (path === canonicalSource) { assert.deepEqual(order, ['records', 'provider']); order.push('delete source') }
       await fsp.rm(path, options)
     }
   })
@@ -419,6 +430,7 @@ test('cross-volume copy failure removes only its unique staging folder', async (
   await assert.rejects(f.move('epic:game', f.baseDir), /copy failed/)
   assert.equal(fs.readFileSync(join(f.source, 'game.exe'), 'utf8'), 'complete')
   assert.equal(fs.existsSync(f.target), false)
+  assert.ok(f.stage(), 'the simulated cross-volume path must attempt a staging copy')
   assert.equal(fs.existsSync(f.stage()), false)
   assert.equal(f.info.path, f.source)
 })
@@ -426,6 +438,7 @@ test('cross-volume copy failure removes only its unique staging folder', async (
 test('cross-volume moves promote the complete copy and record its location before source deletion', async (t) => {
   const f = await moveFixture(t)
   await f.move('epic:game', f.baseDir)
+  assert.ok(f.stage(), 'the move must exercise cross-volume staging')
   assert.deepEqual(f.order, ['records', 'provider', 'delete source'])
   assert.equal(fs.readFileSync(join(f.target, 'game.exe'), 'utf8'), 'complete')
   assert.equal(fs.existsSync(f.source), false)

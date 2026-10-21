@@ -1,4 +1,6 @@
-import { app, BrowserWindow, safeStorage, shell, session as electronSession } from 'electron'
+import { decryptSession, encryptSession, sessionEncryptionAvailable } from '../../core/credentials'
+import { authenticationNavigationError, isAllowedAuthenticationUrl, protectAuthenticationWindow } from '../../core/authWindowSafety'
+import { app, BrowserWindow, shell, session as electronSession } from 'electron'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, renameSync, realpathSync } from 'node:fs'
 import { randomUUID, createHash } from 'node:crypto'
@@ -24,7 +26,7 @@ import {
   LOGIN_URL,
   refreshSession
 } from './api'
-import { discardPartial, EpicInstallTask } from './installer'
+import { assertNoPendingInstallCommit, discardPartial, EpicInstallTask } from './installer'
 import {
   defaultEpicRoots,
   readEgstoreManifest,
@@ -69,7 +71,7 @@ function pickImage(item: CatalogItem, ...types: string[]): string | undefined {
 export class EpicProvider implements GameProvider {
   readonly id = 'epic' as const
   readonly name = 'Epic Games'
-  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : 'Windows'
+  readonly platform: Platform = process.platform === 'darwin' ? 'Mac' : process.platform === 'linux' ? 'Linux' : 'Windows'
 
   private generation = 0
   private sessionWrites: Promise<void> = Promise.resolve()
@@ -96,7 +98,7 @@ export class EpicProvider implements GameProvider {
   async init(): Promise<void> {
     try {
       const raw = await readFile(join(this.dir, 'session.bin'))
-      const json = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString('utf8')
+      const json = decryptSession(raw)
       this.session = JSON.parse(json)
       if (!validSession(this.session)) throw new Error('Invalid saved Epic session')
     } catch {
@@ -116,11 +118,11 @@ export class EpicProvider implements GameProvider {
     const file = join(this.dir, 'session.bin')
     const work = this.sessionWrites.catch(() => undefined).then(async () => {
       this.assertGeneration(generation)
-      if (!s) { await rm(file, { force: true }); return }
+      if (!s || !sessionEncryptionAvailable()) { await rm(file, { force: true }); return }
       const json = JSON.stringify(s)
       const tmp = file + '.' + randomUUID() + '.tmp'
       try {
-        await writeFile(tmp, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(json) : json, { flag: 'wx', mode: 0o600 })
+        await writeFile(tmp, encryptSession(json), { flag: 'wx', mode: 0o600 })
         this.assertGeneration(generation)
         // The generation check and promotion are synchronous: logout cannot interleave.
         renameSync(tmp, file)
@@ -202,12 +204,14 @@ export class EpicProvider implements GameProvider {
       webPreferences: { partition: EPIC_PARTITION, sandbox: true, contextIsolation: true, spellcheck: false }
     })
     this.loginWindow = win
+    let blockedAuthentication = (): void => { if (!win.isDestroyed()) win.close() }
     // Epic's login rejects obviously-embedded browsers; look like plain Chrome.
     win.webContents.setUserAgent(win.webContents.getUserAgent().replace(/ (Electron|gamekins)\/\S+/gi, ''))
     // Social sign-ins (Google, Apple, Facebook, consoles…) may use popups that report back
     // to the login page, so they must stay in-app and share the session.
     win.webContents.setWindowOpenHandler(({ url }) => {
       if (!url.startsWith('https:')) return { action: 'deny' }
+      if (!isAllowedAuthenticationUrl('epic', url)) { blockedAuthentication(); return { action: 'deny' } }
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -235,6 +239,8 @@ export class EpicProvider implements GameProvider {
         if (err) reject(err)
         else resolvePromise(account!)
       }
+      blockedAuthentication = () => finish(authenticationNavigationError())
+      protectAuthenticationWindow(win, 'epic', (error) => finish(error))
 
       win.webContents.on('did-finish-load', async () => {
         if (settled || exchanging || !win.webContents.getURL().startsWith(LOGIN_REDIRECT_URL.split('?')[0])) return
@@ -288,7 +294,7 @@ export class EpicProvider implements GameProvider {
     this.partialRefreshError = undefined
     const [records, assets] = await Promise.all([
       this.api.libraryItems(),
-      this.api.assets(this.platform).catch(() => [])
+      this.platform === 'Linux' ? Promise.resolve([]) : this.api.assets(this.platform).catch(() => [])
     ])
     this.assertGeneration(generation)
     const latest = new Map(assets.map((a) => [a.appName, a.buildVersion]))
@@ -410,7 +416,7 @@ export class EpicProvider implements GameProvider {
   }
 
   async scanExternalInstalls(): Promise<Map<string, InstalledInfo>> {
-    if (!settings().importEpicLauncherInstalls) return new Map()
+    if (this.platform === 'Linux' || !settings().importEpicLauncherInstalls) return new Map()
     const found = await scanEglInstalls(this.platform)
     const claimed = new Set(
       [...found.entries()].filter(([app]) => !this.isDlc(app)).map(([, i]) => resolve(i.path).toLowerCase())
@@ -535,6 +541,7 @@ export class EpicProvider implements GameProvider {
   }
 
   createInstallTask(game: ProviderGame, req: InstallRequest): InstallTask {
+    if (this.platform === 'Linux') throw new Error('Epic Games installation and launching are unavailable on Linux. A Windows compatibility runner is required and is not bundled with Gamekins.')
     return new EpicInstallTask(
       {
         api: this.api,
@@ -556,6 +563,7 @@ export class EpicProvider implements GameProvider {
   }
 
   async estimate(game: ProviderGame): Promise<{ downloadBytes: number; installBytes: number; version: string }> {
+    if (this.platform === 'Linux') throw new Error('Epic Games installation and launching are unavailable on Linux. A Windows compatibility runner is required and is not bundled with Gamekins.')
     const info = await this.api.manifestInfo(this.platform, game.namespace, game.catalogItemId, game.appName)
     const manifest = parseManifest((await downloadManifest(info)).data)
     let downloadBytes = 0
@@ -570,10 +578,13 @@ export class EpicProvider implements GameProvider {
   }
 
   async installViaOfficial(game: ProviderGame): Promise<void> {
+    if (this.platform === 'Linux') throw new Error('Epic Games installation and launching are unavailable on Linux. A Windows compatibility runner is required and is not bundled with Gamekins.')
     await shell.openExternal(this.officialUri(game, 'install'))
   }
 
   async launch(game: ProviderGame, install: InstalledInfo, opts: LaunchOptions): Promise<ChildProcess | null> {
+    await assertNoPendingInstallCommit(install.path)
+    if (this.platform === 'Linux') throw new Error('Epic Games installation and launching are unavailable on Linux. A Windows compatibility runner is required and is not bundled with Gamekins.')
     if (opts.viaOfficialLauncher || settings().launchViaEpicLauncher || game.thirdPartyManagedApp) {
       await shell.openExternal(this.officialUri(game, 'launch'))
       return null
@@ -671,6 +682,7 @@ export class EpicProvider implements GameProvider {
   }
 
   async uninstall(game: ProviderGame, install: InstalledInfo, shared: { appName: string; install: InstalledInfo }[] = []): Promise<void> {
+    await assertNoPendingInstallCommit(install.path)
     if (game.dlcOf || install.ownsFolder === false) {
       // DLC shares its game's folder, and "located" installs live in a folder the user chose:
       // remove only the files the game's manifest put there.
